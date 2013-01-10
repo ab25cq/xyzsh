@@ -1,0 +1,1908 @@
+class Help (
+    def set_helps_ja (
+        | chomp | split -multi-line -La \n-\n | each -La -number 2 ( 
+            | lines -La 0 (
+                | chomp | split | lines 0 | var -local CMD_NAME
+                | chomp | var -local CMDLINE
+            ) 1 (
+                | chomp | ary -local EXPLAIN
+            )
+
+            var CMD_NAME | chomp
+            print \a
+            var CMDLINE | add \n
+            ary EXPLAIN | chomp
+            print \a
+        ) | hash -La HELPS.ja
+    )
+
+    def set_helps (
+        | chomp | split -multi-line -La \n-\n | each -La -number 2 ( 
+            | lines -La 0 (
+                | chomp | split | lines 0 | var -local CMD_NAME
+                | chomp | var -local CMDLINE
+            ) 1 (
+                | chomp | ary -local EXPLAIN
+            )
+
+            var CMD_NAME | chomp
+            print \a
+            var CMDLINE | add \n
+            ary EXPLAIN | chomp
+            print \a
+        ) | hash -La HELPS
+    )
+
+    def main (
+        ### Japanese Manual ####
+        (export LC_ALL LANG) | if(|index -quiet ja || | index -quiet JP) (
+            if(ary -size ARGV |= 0\n) (
+                if(funinfo | egrep -q '^current object: help<-root$') (
+                    print "-+- マニュアル -+-" \n \n
+                    cat $XYZSH_DATAROOTDIR/USAGE.ja
+                    print "-+- コマンド -+-" \n \n
+                    hash -La HELPS.ja| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
+                ) else (
+                    hash -La HELPS.ja| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
+                )
+            ) elif(hash HELPS.ja -key $ARGV[0] | -z) (
+                print "$ARGV[0] command doesn't exist"\n
+            ) else (
+                hash HELPS.ja -key $ARGV[0]
+            )
+        ### English Manual ###
+        ) else (
+            ary -size ARGV | if(| = 0\n ) (
+                if(funinfo | egrep -q '^current object: help<-root$') (
+                    cat $XYZSH_DATAROOTDIR/USAGE
+                    hash -La HELPS| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
+                ) else (
+                    hash -La HELPS| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
+                )
+            ) elif(hash HELPS -key $ARGV[0] | -z) (
+                print "$ARGV[0] command doesn't exist"\n
+            ) else (
+                hash HELPS -key $ARGV[0]
+            )
+        )
+    )
+)
+
+object help ( Help )
+
+print <<<'EOS'
+defined オブジェクト
+-
+オブジェクトが定義されていたら真を返す
+-
+kanjicode
+-
+現在の漢字コードを表示する。
+
+-byte バイトに設定する
+-sjis sjisに設定する
+-eucjp eucjpに設定する
+-utf8 utf8に設定する
+-
+funinfo
+-
+実行中の関数もしくはクラスの情報を得る
+-
+jobs
+-
+サスペンドしたジョブの一覧を出力する
+
+戻り値: ジョブが無ければ1
+-
+fg ジョブ番号
+-
+サスペンドしたジョブをフォアグランドにもってくる
+-
+exit
+-
+xyzshを終了する
+
+-force サスペンドされているジョブが残っていても強制的に終了する
+-
+while (ブロック1) (ブロック2)
+-
+ブロック1が真(戻り値が0)の間ブロック2を実行し続ける
+-
+for (変数名) in 引数の値1 引数の値2 ... (ブロック1)
+-
+ブロック1を毎回、引数の値がある限り、値を引数に代入して実行する。
+ex)
+> for i in a b c ( print $i \n )
+a
+b
+c
+> for i in $$(seq 1 3) ( print $i \n )
+1
+2
+3
+-
+break
+-
+while, eachループを終了する
+-
+true
+-
+戻り値、真を返す
+-
+false
+-
+戻り値、偽を返す
+-
+if (条件式1) (ブロック1) (条件式2) (ブロック2) ... (条件式x) (ブロックx) (ブロック)
+-
+条件式が真ならば対応するブロックを実行する。もし全部の条件式が偽なら最後のブロックを実行する
+-
+return 
+-
+関数かクラスを実行中なら、途中で抜ける
+-
+stackinfo
+-
+xyzshでメモリ管理に使われているスタックの使用状況を出力する
+-
+stackframe
+-
+ローカル変数の定義状況を出力する
+-
+gcinfo
+-
+xyzshでメモリ管理に使われているガベージコレクションの使用状況を出力する
+-
+subshell (ブロック)
+-
+ブロックを実行する。コンテキストパイプにはその前のコマンドの出力結果か標準入力が入っている。
+subshellというコマンド名は無くても同じ。
+-
+sweep オブジェクト名1 オブジェクト名2 ... オブジェクト名x
+-
+カレントオブジェクトの属性のオブジェクトを削除する。引数が無ければ、ガベージコレクションを実行する
+-
+print 文字列1 文字列2, ..., 文字列x
+-
+文字列を出力する
+フィルターとして使われた場合は入力をそのまま出力する
+
+戻り値: フィルターとして使われて入力文字列が無ければ262
+
+-error エラー出力に出力する
+-read-from-error フィルターとして使われた場合のみ有効。エラー出力から入力を得る
+-
+load ファイル名 引数1 引数2 ... 引数X
+-
+スクリプトファイルを実行する。ローカル変数は初期化される。ARGVに引数が入っている。
+-
+eval (ブロック|文字列)
+-
+ブロックか文字列を実行する。文字列の場合はコンパイルされ実行される。
+フィルターとして使われた場合は入力された文字列を実行する。
+
+戻り値: フィルターとして使われた場合入力文字列が無ければ262
+-
+msleep 数値
+-
+数値の時間だけ実行を止める。アニメーションが表示される。
+-
+raise 文字列
+-
+エラーを起こす。文字列がエラーメッセージとなる。
+-
+block 数値
+-
+実行中の関数に渡されたブロックのソースを出力する。
+数値が無ければ0が渡されたものとして処理される。
+
+-run 渡されたブロックを実行する
+-number 渡されたブロックの数を返す
+-
+time ブロック
+-
+ブロックを実行して実行時間を出力する。
+-
+umask 数値(8進数)
+-
+umaskを実行する。
+-
+rehash
+-
+環境変数PATHに登録されているディレクトリをサーチして実行可能なプログラムをroot::sysオブジェクトの中に外部プログラムオブジェクトとして格納する
+-
+try (ブロック1) (ブロック2)
+-
+ブロック1を実行してエラーが起こると直ちにブロック2を実行する。エラーメッセージはerrmsgコマンドで得ることができる。エラーを起こすにはraiseコマンドを使う。
+-
+errmsg
+-
+エラーメッセージを出力する。
+-
+prompt (ブロック)
+-
+インタラクティブシェルのプロンプトを設定する。ブロックの出力がプロンプトとして扱われる。
+-
+each (ブロック)
+-
+パイプで受け取った各行をコンテキストパイプとして受け取りブロックを実行する
+
+戻り値: 入力文字列が無ければ262
+
+-number 数値 数値行ずつ実行する
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+join (区切り文字。省略時はスペースとなる)
+-
+配列(複数行)をつなげて一つの行とする
+
+戻り値: 入力文字列が無ければ262
+
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+lines 行 (ブロック) 行 (ブロック), ..., 行 (ブロック)
+-
+パイプから行を取り出しそれをコンテキストパイプとしてブロックを実行する。
+ブロック数が行の数よりも少ないと、(|print)があるとみなされる。（そのまま出力する)
+行には行番号と 
+行1..行2 
+の範囲指定が使える。行は0から始まり、-1以下は末尾から数えるものとする。
+行1 > 行2の場合は逆順となる。
+
+戻り値: 入力文字列が無ければ262
+
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+sort (ブロック)
+-
+ソートを行う。ブロックのコンテキストパイプには２行テキストが入っており、最初の行は左の値を次の行は右の値が入っている。
+ブロックでは、左と右を比べて、その真偽値によってソートを行う。
+
+戻り値: 入力文字列が無ければ262
+
+例) > ls | sort ( | var a b; a | -slt $b )   # 辞書並び
+
+-shuffle ソートの並びをランダムに行う。引数にブロックは取らない。
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+-n 
+-
+入力があるなら真
+-
+-z 
+-
+入力がないなら真
+-
+-b 
+-
+ファイルが存在し、ブロックスペシャルファイルなら真
+-
+-c 
+-
+ファイルが存在し、キャラクタスペシャルファイルなら真
+-
+-d 
+-
+ファイルが存在し、ディレクトリなら真
+-
+-f
+-
+ファイルが存在し、通常ファイルなら真
+-
+-h 
+-
+-
+-L 
+-
+ファイルが存在し、シンボリックファイルなら真
+-
+-p 
+-
+ファイルが存在し、名前付きパイプであれば真
+-
+-t
+-
+-S
+-
+ファイルが存在し、ソケットであれば真
+-
+-g
+-
+ファイルが存在し、set GIDされていれば真
+-
+-k
+-
+ファイルが存在し、stickyビットが立っていれば真
+-
+-u
+-
+ファイルが存在し、set SUIDされていれば真
+-
+-r
+-
+ファイルが存在し、読み取り可能であれば真
+-
+-w
+-
+ファイルが存在し、書き込み可能であれば真
+-
+-x
+-
+ファイルが存在し、実行可能であれば真
+-
+-O
+-
+ファイルが存在し、実効ユーザーIDによる所有であれば真
+-
+-G
+-
+ファイルが存在し、実効グループIDによる所有であれば真
+-
+-e
+-
+ファイルが存在すれば真
+-
+-s
+-
+ファイルが存在し、サイズが0より大きければ真
+-
+= 引数
+-
+入力が引数と等しければ真
+
+-ignore-case 大文字と小文字を区別しない
+-
+!= 引数
+-
+入力が引数と等しくなければ真
+
+-ignore-case 大文字と小文字を区別しない
+-
+-slt 引数
+-
+入力が引数より文字列として小さければ真
+
+-ignore-case 大文字と小文字を区別しない
+-
+-sgt 引数
+-
+入力が引数より文字列として大きければ真
+
+-ignore-case 大文字と小文字を区別しない
+-
+-sle 引数
+-
+入力が引数より文字列として小さいか同じであれば真
+
+-ignore-case 大文字と小文字を区別しない
+-
+-sge 引数
+-
+入力が引数より文字列として大きいか同じであれば真
+
+-ignore-case 大文字と小文字を区別しない
+-
+-eq 引数
+-
+入力が引数より数値として同じであれば真
+-
+-ne 引数
+-
+入力が引数より数値として同じでなければ真
+-
+-lt 引数
+-
+入力が引数より数値として小さければ真
+-
+-le 引数
+-
+入力が引数より数値として小さいか同じであれば真
+-
+-gt 引数
+-
+入力が引数より数値として大きければ真
+-
+-ge 引数
+-
+入力が引数より数値として大きいか同じであれば真
+-
+-nt 引数
+-
+ファイルが引数のファイルより新しければ真
+-
+-ot 引数
+-
+ファイルが引数のファイルより古ければ真
+-
+-ef 引数
+-
+ファイルが引数のファイルと同じi-nodeであれば真
+-
+=~ 正規表現
+-
+入力が引数の正規表現とマッチすれば真(グローバル変数のPREMATCHにマッチの前の部分、 MATCH, 0にマッチした部分、POSTMATCHにマッチした後の部分, LAST_MATCHに最後にマッチした部分, 1..9の数値の番号にグループ化にマッチした文字列, MATCH_NUMBERにマッチした文字列の数が入ります)
+
+-offsets マッチした位置（インデックス）の始点と終点を出力する(グループ化された文字列も含む)
+-verbose マッチした位置（インデックス）を出力する
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+selector
+-
+パイプから入力を受け取り選択した行を出力する。
+
+戻り値: 入力文字列が無ければ262
+
+-multiple スペースによる複数行選択を許す
+-preserve-position カーソル位置とスクロールトップ位置を初期化しない
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+p
+-
+パイプの中身を覗く。ENTER KEYでパイプのデータの通過を許可する。ESC, qでエラーを起こし停止する。
+デバッグ用のコマンドです。
+
+戻り値: 入力文字列が無ければ262
+
+-preserve-position カーソル位置とスクロールトップ位置を初期化しない
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+write ファイル名
+-
+パイプのデータをファイルに書き込む。
+
+戻り値: 入力文字列が無ければ262
+
+-append パイプのデータをファイルに追記する。
+-force 強制的に上書きする
+-error エラー出力をファイルに書き込む。入力をそのまま出力する。
+-
+cd ディレクトリ
+-
+カレントディレクトリを引数のディレクトリに変更する。
+引数のディレクトリが省略された場合はホームディレクトリに移動する。
+-
+pushd ディレクトリ
+-
+引数のディレクトリをディレクトリスタックに保存する。
+-
+popd 
+-
+保存されたディレクトリスタックから一番最新のものをカレントディレクトリとして復帰する。
+-
+++ 変数名
+-
+引数の変数名をもつ変数がvarなら、数値としてみて＋１する。
+-
+-- 変数名
+-
+引数の変数名をもつ変数がvarなら、数値としてみてー１する。
+-
++ 数値
+-
+パイプのデータを数値としてみて引数の数値を加算する。
+-
+- 数値
+-
+パイプのデータを数値としてみて引数の数値を減算する。
+-
+* 数値
+-
+パイプのデータを数値としてみて引数の数値を乗算する。
+-
+/ 数値
+-
+パイプのデータを数値としてみて引数の数値を除算する。
+-
+mod 数値
+-
+パイプのデータを数値としてみて引数の数値で除算して余りを出力する。
+-
+pow 数値
+-
+パイプのデータを数値としてみて引数の数値でべき乗する。
+-
+abs
+-
+パイプのデータを数値としてみて絶対値を出力する。
+-
+def 関数名（ブロック）
+-
+ブロックを関数として登録する。ブロックが無くフィルタとして使われた場合はパイプから得たデータを関数として登録する。
+フィルタとして使われずに関数名だけある場合は関数のソースを出力する。
+
+-inherit 同名の関数を上書きする場合、前の関数を親関数として扱う。新しい関数の定義内ではinherit内部コマンドで親関数を呼び出すことができる。親関数には内部コマンドもなることができる。
+-option-with-argument 複数の引数(カンマ区切り) ある引数を文字列をともに取る引数として設定する。
+(例) > def fun -option-with-argument abc,def ( hash OPTIOINS ); fun -abc aaa -def bbb
+-abc
+aaa
+-def
+bbb
+-copy-stackframe スタックフレーム（ローカル変数の入れ物)を新しく作る際に現在のスタックフレームの内容をコピーします。
+(例)
+> vim a.xyzsh
+def times -copy-stackframe ( 
+    print 0 | var -local _i
+    while(_i | -lt $ARGV[0]) (
+       | eval $(block)
+       ++ _i
+    )
+)
+> load a.xyzsh; print Hello | var -local a; times 3 ( a )
+Hello
+Hello
+Hello
+
+このオプションがないとtimes 3 ( a ) でaが見つからないエラーが出る。
+-
+class クラス名（ブロック）
+-
+ブロックをクラスとして登録する。ブロックが無くフィルタとして使われた場合はパイプから得たデータをクラスとして登録する。
+フィルタとして使われずにクラス名だけがある場合はクラスのソースを出力する。
+
+-inherit 同名のクラスを上書きする場合、前のクラスを親クラスとして扱う。新しいクラスの定義内ではinherit内部コマンドで親クラスを呼び出すことができる。
+-option-with-argument 複数の引数(カンマ区切り) ある引数を文字列をともに取る引数として設定する。
+(例) > class klass -option-with-argument abc,def ( hash OPTIOINS ); klass -abc aaa -def bbb
+-abc
+aaa
+-def
+bbb
+-copy-stackframe スタックフレーム（ローカル変数の入れ物)を新しく作る際に現在のスタックフレームの内容をコピーします。
+(例)
+> vim a.xyzsh
+class times -copy-stackframe ( 
+    print 0 | var -local _i
+    while(_i | -lt $ARGV[0]) (
+       | eval $(block)
+       ++ _i
+    )
+)
+> load a.xyzsh; print Hello | var -local a; times 3 ( a )
+Hello
+Hello
+Hello
+
+このオプションがないとtimes 3 ( a ) でaが見つからないエラーが出る。
+-
+inherit 引数|オプション|ブロック
+-
+親クラス、親関数、親内部関数を呼び出す。
+-
+var 変数名1 変数名2, ... , 変数名X
+-
+フィルタとして使われない場合は変数の内容を出力する。
+フィルタとして使われた場合は改行コードごとにテキストを切り分け、先頭行から順に変数に代入する。
+
+-new オブジェクトを生成してアドレスを出力する
+-index 文字を1文字取り出して出力する
+-local 変数をローカル変数として扱う
+-shift フィルタとして使われた場合、変数への代入に使ったパイプのデータの残りを出力する
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+object オブジェクト名1 オブジェクト名2, ..., オブジェクト名X (ブロック)
+-
+オブジェクトを作成する。ブロックがある場合はブロックで初期化される。
+
+-new オブジェクトを生成して、アドレスを出力する。
+-
+run (クラス名|ブロック)
+-
+ブロックがある場合はメッセージが送られたオブジェクトをカレントオブジェクトとしてブロックを実行する。
+クラス名がある場合は、メッセージが送られたオブエジェクトをカレントオブジェクトとしてクラスを実行する。
+カレントオブジェクトとはクラス内で変数が作成される場合、その変数を属性として登録する登録先のオブジェクトのことである。
+-
+times 数値 (ブロック)
+-
+ブロックを数値回実行する。
+-
+pwo
+-
+カレントオブジェクトを表示する。
+カレントオブジェクトとはクラス内で変数が作成される場合、その変数を属性として登録する登録先のオブジェクトのことである。
+-
+co
+-
+カレントオブジェクトを変更する。
+-
+ref 変数名 変数名, ..., 変数名
+-
+フィルタとして使われた場合はパイプの中に入った各行のアドレスを引数の変数名にバインド(代入)する。
+フィルタとして使われなかった場合は、引数の変数名のアドレスを出力する。
+
+-local ローカル変数として登録する
+-shift フィルタとして使われた場合、パイプのデータから変数にバインドしたアドレスの残りを出力する。
+-type フィルタとして使われた場合パイプから受け取ったアドレスの型を出力する。
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+ary 変数名 変数名, ... , 変数名
+-
+フィルタとして使われた場合は変数にパイプのデータの内容を入力する。
+フィルタとして使われなかった場合は配列の内容を出力する。
+
+-new オブジェクトを生成してアドレスを出力する
+-local ローカル変数として扱う
+-index 数値 配列の内容を出力する場合、数値のインデックスのみ内容を出力する。
+-append 数値 数値の位置に配列の内容を追記する。配列が無い場合新規に配列を作成する。
+-size 配列の大きさを出力する
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+hash 変数名 変数名, ... , 変数名
+-
+フィルタとして使われた場合は変数にパイプのデータの内容を入力する。
+データは
+１行目 ハッシュのキー
+２行目 ハッシュのアイテム
+３行目 ハッシュのキー
+.
+.
+.
+奇数行 ハッシュのキー
+偶数行 ハッシュのアイテム
+として格納される。
+フィルタとして使われなかった場合はハッシュの内容を上の様に出力する。
+
+-new オブジェクトを生成してアドレスを出力する
+-local ローカル変数として扱う
+-append フィルタとして使われた場合ハッシュを追記する。ハッシュが無い場合新規に作成する。
+-size ハッシュのサイズを出力する
+-key キー フィルタとして使われなかった場合ハッシュの内容をキーで渡されたキーのアイテムのみ出力する。
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+export 環境変数名 環境変数名2, ...., 環境変数名X
+-
+フィルタとして使われた場合パイプから各行を一つずつ受け取り、環境変数に代入していく。
+フィルタとして使われなかった場合、環境変数の内容を出力する。
+
+-shift フィルタとして使われた場合、パイプのデータから変数にバインドしたアドレスの残りを出力する。
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+unset 環境変数名 環境変数名2, ...., 環境変数名X
+-
+引数の環境変数を削除する。
+-
+quote
+-
+記号をクォートするフィルター。
+
+戻り値: 入力文字列が無ければ262
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+length
+-
+文字列の文字数を返すフィルター。
+
+戻り値: 入力文字列が無ければ262
+
+-byte バイトコードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-utf8 UTF8コードとして処理する
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-line-num 改行数を出力する
+-
+x 数値
+-
+文字列を数値倍大きくするフィルター。
+
+戻り値: 入力文字列が無ければ262
+-
+index 文字列
+-
+パイプから文字列を検索して見つかったインデックスを返すフィルター。
+
+-quiet 見つかった位置を出力しない。戻り値のみ設定する
+-ignore-case 大文字と小文字を無視する
+-number 数値 文字列の検索を開始する位置を設定する
+-count 数値 検索する回数を設定する
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+rindex 文字列
+-
+パイプから文字列を検索して見つかったインデックスを返すフィルター。
+末尾から検索する。
+
+-quiet 見つかった位置を出力しない。戻り値のみ設定する
+-ignore-case 大文字と小文字を無視する
+-number 数値 文字列の検索を開始する位置を設定する
+-count 数値 検索する回数を設定する
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+lc 
+-
+大文字を小文字に変換するフィルター。
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+uc 
+-
+小文字を大文字に変換するフィルター。
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+chomp
+-
+パイプのデータの末尾が改行コードなら取り除く。もし、取り除く改行が無ければリターンコードは1を返す
+-
+chop
+-
+パイプのデータの末尾の一文字を取り除く。末尾の文字が\r\nなら２つの文字列を取り除く。もし、取り除く文字列が無ければリターンコードは1を返す
+
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+pomch
+-
+パイプの末尾に改行コードを追加する。
+
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+printf
+-
+C言語のprinfのようにフォーマット文字を出力する。
+ただしデータはパイプから各行を一つの文字列として受け取とる。
+
+> ls | head -n 3
+main.c
+sub1.c
+sub2.c
+
+> ls | printf "%s,%s,%s" \n
+main.c,sub1.c,sub2.c
+
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+sub 正規表現 (変換文字列|ブロック)
+-
+文字列を変換する。正規表現にマッチする所に変換文字列かブロックの出力が置き換えられる。
+ブロックのコンテキストパイプはマッチした文字列が入っている。
+
+変換文字列では\+英数字は特別な意味を持ち以下の文字列に置き換えられる。
+ブロックでは以下のグローバル変数に特定の文字列が代入されている。
+
+グループ化された文字列 \1..\9
+(ブロック時 1,2,..,9)
+マッチした文字列 \&,\0
+(ブロック時 MATCH, 0)
+マッチ以前の文字列 \`
+(ブロック時 PREMATCH)
+マッチ以後の文字列 \'
+(ブロック時 POSTMATCH)
+最後にマッチした文字列 \+
+(ブロック時 LAST_MATCH)
+マッチした文字列の数
+(ブロック時 MATCH_NUMBER)
+
+> print abc | sub "a(.)c" "\1\1" | pomch
+bb
+
+> print abc | sub "a(.)c" ( var 1 1 )
+b
+b
+
+変換回数はグローバル変数SUB_COUNTに代入される。
+
+-multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
+-global 普通なら各行に一回のみ変換を行うが、これを付けると各行何回も変換を行う
+-quiet 変換結果を出力しない。戻り値と変換結果を格納した変数のみ設定する。
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+scan 正規表現 (変換文字列|ブロック)
+-
+パイプから正規表現にマッチする文字列を何度も繰り返し探し、出力する。
+ブロックのコンテキストパイプにはマッチした文字列が入っている。
+
+変換回数はグローバル変数変数MATCH_COUNTに代入される。
+
+ブロックでは以下のグローバル変数に特定の文字列が代入されている。
+
+グループ化された文字列 1,2,..,9
+マッチした文字列 MATCH, 0
+マッチ以前の文字列 PREMATCH
+マッチ以後の文字列 POSTMATCH
+最後にマッチした文字列 LAST_MATCH
+マッチした文字列の数 MATCH_NUMBER
+
+-multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+split 正規表現
+-
+パイプから得たテキストを正規表現にマッチする部分を区切りとして分解する。分解結果は複数行の文字列として出力される。
+正規表現が省略されたら、"\s+"が設定される。
+
+-multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+add 文字列
+-
+文字列をパイプに追加するフィルター。
+
+-index 数値 数値の位置に文字列を追加する
+-number 数値 数値の位置に文字列を追加する
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+del インデックス
+-
+パイプの中のインデックスの位置の文字を一文字削除して残りを出力するフィルター。
+
+-index 文字数 文字数分削除する
+-number 文字数 文字数分削除する
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+rows インデックス (ブロック) インデックス (ブロック), ... , インデックス (ブロック)
+-
+パイプからインデックスの文字を取り出しそれをコンテキストパイプとしてブロックを実行する。
+ブロック数が行の数よりも少ないと、(|print)があるとみなされる。（そのまま出力する)
+インデックスには文字のインデックスと
+インデックス1..インデックス2 
+の範囲指定が使える。インデックスは0から始まり、-1以下は末尾から数えるものとする。
+インデックス1 > インデックス2の場合は逆順となる。
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+readline プロンプト
+-
+readlineを使って1文をユーザーの入力から読み込み、読み込んだ文字列を出力する。
+-
+completion (オブジェクト::)コマンド名 (ブロック)
+-
+ブロックがあった場合はユーザー定義の補完を定義する。ブロックの出力結果が補完の候補となる（LF区切り)
+root::complにオブジェクトとして登録される
+ARGVにはコマンド名と入力中の文字列が入っている
+コンテキストパイプには入力中の行が入っている
+コマンド名に*を使うとコマンド名が見つからなかった時は*が使われる
+ブロックが無かった場合は定義された補完を実行して結果を返す。
+-
+help コマンド名
+-
+ヘルプを表示する。コマンド名が無ければマニュアルと全てのコマンドのヘルプを表示する。
+-
+jump
+-
+ジャンプメニューを表示する。xyzsh.xyzshで定義されたユーザー関数。~/.xyzsh/jumpにジャンプ先のディレクトリは書かれている。
+-
+menu
+-
+メニュー形式でコマンドを選択してコマンドを実行する。xyzsh.xyzshで定義されたユーザー関数。~/.xyzsh/menuに選択されるコマンドが書かれている。
+-
+migemo_match (パターン)
+-
+パイプの入力の文字列とパターンをmigemoで比較してマッチしたら、マッチ開始バイトとマッチ終端バイト数を返す。マッチしなかったら-1\n-1\nを出力する
+使用するにはconfigure で --with-migemoをしてコンパイルする必要がある
+
+-quiet バイト数は出力せず、マッチするかしないかをリターンコードにのみ返す
+-
+fselector
+-
+ファイルを選択して出力させる
+
+up key or C-p --> カーソルを上げる
+down key or C-n --> カーソルを下げる
+left key or C-b --> カーソルを左にする
+right key or C-f --> カーソルを右にする
+C-l --> スクリーンをリフレッシュする
+\ --> ルートディレクトリに移動する
+C-h or Backcpace --> 親ディレクトリに移動する
+
+TAB key or 'w' --> 決定
+q or C-c or Escape C-g --> キャンセル
+
+-multiple 複数のファイルの選択を許す。スペースで選択する
+EOS | help::set_helps_ja
+
+### English Help ##################################################
+
+print <<<'EOS'
+defined (object name)
+-
+if object is defined, return true
+-
+kanjicode
+-
+show language setting
+
+-byte change language setting to byte
+-sjis change language setting to SJIS(for Japanese)
+-eucjp change language setting to EUCJP(for Japanese)
+-utf8 change language setting to UTF8
+-
+funinfo
+-
+output running function or class information.
+-
+jobs
+-
+lists suspended jobs.
+-
+fg (job number)
+-
+forground a suspended job.
+-
+exit
+-
+exited from xyzsh.
+
+-force If there are some suspended jobs, exited from xyzsh.
+-
+while (block1) (block2)
+-
+while the return code of block1 is true, continue to run block2.
+-
+for (variable name) in (argument1) (argument2)... (block1)
+-
+Block performs, as long as there is an argument each time.
+ex)
+> for i in a b c ( print $i \n )
+a
+b
+c
+> for i in $$(seq 1 3) ( print $i \n )
+1
+2
+3
+-
+break
+-
+exited from while or each loop.
+-
+true
+-
+return the rusult of true.
+-
+false
+-
+return the result of false.
+-
+if (condition1) (block1) (condition2) (block2)...(conditioni X) (block X) (the last of blocks)
+-
+If the result of condition is true, run conresponding block. If the all result of conditions, runthe last of blocks.
+-
+return 
+-
+If running function or class, exited from it.
+-
+stackinfo
+-
+show the information of xyzsh stack which is used for memory management.
+-
+stackframe
+-
+lists local variable difinitions.
+-
+gcinfo
+-
+show the information of xyzsh gabage colector which is used for memory management.
+-
+subshell (block)
+-
+run the block. The context pipe in the block has previous command result or standard input.
+You can omit the command name.
+-
+sweep (object name1) (object name2) ... (object name X)
+-
+Remove the objects in current object. If you omit the arguments, run the gabage collection.
+-
+print (string1) (string2) ... (string X)
+-
+Outputs the strings
+If you use this for filter, outputs the inout then.
+
+-error Outputs to error output.
+-read-from-error This option is enable in filter. Get from error output and output to standard output.
+-
+load (script file name) (argument1) (argument2) ... (argument X)
+-
+Run the script file. Local variable stackframe is initialized, and local variable array "ARGV" has the arguments.
+-
+eval (block|string)
+-
+Run the block or the string.
+If you use this for filter, run the getting input.
+-
+msleep (number)
+-
+Stop to run while the number minits.
+-
+raise (error message)
+-
+occur a error.
+-
+block (number)
+-
+On running function, output the argument block source.
+If you omit the number, assume that the number is 0.
+
+-run Run the argument block.
+-number Output the number of argument blocks.
+-
+time (block)
+-
+Run the block and mesure the time of running.
+-
+umask (number)
+-
+umask.
+-
+rehash
+-
+Searching the directory in PATH environment variable, store the external objects to root::sys object.
+-
+try (block1) (block2)
+-
+When occured a error running block1, imediately run block2. To get error message use "errmsg" inner command, and to occure error in block1 use "raise" inner command.
+-
+errmsg
+-
+Output error message.
+-
+prompt (block)
+-
+Set interactive shell prompt with block output.
+-
+each (block)
+-
+Run the block with each line. To get a line, use context pipe.
+
+-number (number) It performe (number) lines at a time
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+join (filed string)
+-
+Make one line string from multi line string. If you omit field string, xyzsh set space on it.
+
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+lines (line number) (block) (line number) (block), ..., (line number) (block)
+-
+Run block with each indicated line number. Context pipe in block has the line string.
+You can use range for line number
+(line number1)..(line number2)
+Line number begins from 0. <0 is counted from tail.
+A case of (line number1) > (line number2), reverse the order.
+
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+sort (blovk)
+-
+sort filter. Context pipe in block has two lines which is left data and right data.
+In the block, compare left data with right data, and the return code is used by sort.
+
+ex) > ls | sort ( | var a b; a | -slt $b )
+
+-shuffle randomize sort. Omit the block.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+-n 
+-
+if input exists, return code is 0 (which represents true)
+-
+-z 
+-
+if input doesn't exist, return code is 0
+-
+-b 
+-
+if the file exists and it's a block special file, return code is 0
+-
+-c 
+-
+if the file exists and it's a chalacter special file, return code is 0
+-
+-d 
+-
+if the file exists and it's a directory, return code is 0
+-
+-f
+-
+if the file exists and it's a regular file, return code is 0
+-
+-h 
+-
+-
+-L 
+-
+if the file exists and it's a sibolic link, return code is 0
+-
+-p 
+-
+if the file exists and it's a named pipe, return code is 0
+-
+-t
+-
+-S
+-
+if the file exists and it's a socket, return code is 0
+-
+-g
+-
+if the file exists and it's setted GID, return code is 0
+-
+-k
+-
+if the file exists and it's setted sticky bit, return code is 0
+-
+-u
+-
+if the file exists and it's setted SUID, return code is 0
+-
+-r
+-
+if the file exists and it's readable, return code is 0
+-
+-w
+-
+if the file exists and it's writable, return code is 0
+-
+-x
+-
+if the file exists and it's excutable, return code is 0
+-
+-O
+-
+if the file exists and it's owned by the user, return code is 0
+-
+-G
+-
+if the file exists and it's owned by the group, return code is 0
+-
+-e
+-
+if the file exists , return code is 0
+-
+-s
+-
+if the file exists and the size is begger, return code is 0
+-
+= 引数
+-
+the input equals to the argument, return code is 0
+
+-ignore-case ignore case
+-
+!= (argument)
+-
+the input doesn't equals to the argument, return code is 0
+
+-ignore-case ignore case
+-
+-slt (argument)
+-
+the input is smaller than argument as string, return code is 0
+
+-ignore-case ignore case
+-
+-sgt (argument)
+-
+the input is bigger than argument as string, return code is 0
+
+-ignore-case case
+-
+-sle (argument)
+-
+the input is smaller than argument or equals to the argument as string, return code is 0
+
+-ignore-case ignore case
+-
+-sge (argument)
+-
+the input is bigger than argument or equals to the argument as string, return code is 0
+
+-ignore-case ignore case
+-
+-eq (argument)
+-
+If the input equals to the argument as numeric
+-
+-ne (argument)
+-
+If the input doesn't equal to the argument as numeric
+-
+-lt (argument)
+-
+If the input is smaller than the argument as numeric
+-
+-le (argumrnt)
+-
+If the input is smaller than the argumrnt or equals to the argument as numeric
+-
+-gt (argument)
+-
+If the input is bigger than the argument as numeric
+-
+-ge (argumrnt)
+-
+If the input is bigger than the argumrnt or equals to the argument as numeric
+-
+-nt (argumrnt)
+-
+If the input is newer than the argumrnt
+-
+-ot (argumrnt)
+-
+If the input is older than the argumrnt
+-
+-ef (argument)
+-
+If inode of the input file equals to inode of the argument file
+-
+=~ (argument regex)
+-
+Filter for regex. If the regex maching, return code is 0(true).
+Setted global variable blows.
+
+Group matching string --> 1,2,..,9
+Matched string --> 0, MATCH
+Premached string --> PREMATCH
+Postmatched string --> POSTMATCH
+Lastmatched string --> LAST_MATCH
+Matched number --> MATCH_NUMBER
+
+-offsets Output all maching points.
+-verbose Output maching point(index).
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+selector
+-
+select line by user and output it.
+
+-multiple Allow to select multi line with space-key
+-preserve-position no initialize cursor position and scroll top position
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+p
+-
+View pipe contents. Allow to pass with pressing ENTER KEY, and occure error with pressing ESC, q KEY.
+This is for debuging.
+
+-preserve-position No initialize cursor position and scroll top position
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+write (file name)
+-
+Write data in pipe to file.
+
+-append append to the file.
+-force allow to override
+-error write error output. keep and continue outputing from input
+-
+cd (directory name)
+-
+Change current directory.
+If you omit the directory name, change current directory to home directory.
+-
+pushd (directory name)
+-
+Save argument directory to directory stack.
+-
+popd 
+-
+Restore directory from directory stack.
+-
+++ (variable name)
+-
+Assume variable as numeric, and plus 1.
+-
+-- (variable name)
+-
+Assume variable as numeric, and minus 1.
+-
++ (number)
+-
+Assume pipe data as numeric, and plus the argument.
+-
+- (number)
+-
+Assume pipe data as numeric, and minus the argument.
+-
+* (number)
+-
+Assume pipe data as numric, and multiple the argument.
+-
+/ (number)
+-
+Assume pipe data as numric, and divide the argument.
+-
+mod (number)
+-
+Assume pipe data as numric, and mod the argument.
+-
+pow (number)
+-
+Assume pipe data as numric, and pow the argument.
+-
+abs
+-
+Assume pipe data as numric, and output absolute number.
+-
+def (function name) (block)
+-
+Entry function with block. If you use this for filter, entry function with pipe data.
+If you omit the block, output the function source.
+
+-inherit If same name function exists, get the older function as parent. You can call the parent function with "inherit" inner command.
+-option-with-argument (argument name,argument name, ..., argument name) Set the argument as getting string argument.
+(ex) > def fun -option-with-argument abc,def ( hash OPTIOINS ); fun -abc aaa -def bbb
+-abc
+aaa
+-def
+bbb
+-copy-stackframe When making new stackframe, xyzsh copys variables in old stackframe to new one.
+(ex)
+> vim a.xyzsh
+class times -copy-stackframe ( 
+    print 0 | var -local _i
+    while(_i | -lt $ARGV[0]) (
+       | eval $(block)
+       ++ _i
+    )
+)
+> load a.xyzsh; print Hello | var -local a; times 3 ( a )
+Hello
+Hello
+Hello
+
+If there is not -copy-stackframe option, xyzsh raises an error which is "not found a variable" on "times 3 ( a )" code.
+-
+class (class name) (block)
+-
+Entry class with block. If you use this for filter, etnry class with pipe data.
+If you omit the block, output the class source.
+
+-inherit If same name class exists, get the older class as parent. You can call the parent class with "inherit" inner command.
+-option-with-argument (argument name,argument name, ..., argument name) Set the argument as getting string argument.
+(ex) > class klass -option-with-argument abc,def ( hash OPTIOINS ); klass -abc aaa -def bbb
+-abc
+aaa
+-def
+bbb
+-
+inherit (argument|option|block)
+-
+Call parent class or function or inner command.
+-
+var (variable name1) (variable name2),..., (variable name X)
+-
+If you don't use this for filter, output the variable contents.
+If you use this for filter, split with line fields, and get from first line by turns to each variables.
+
+-new create a new object and output the address
+-local Treat as local variable.
+-shift If you use this for filter, outputs and substitutes the pipe data at same time.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+object (object name1) (object name2), ..., (object name X) (block)
+-
+Create objects. If a block exists, initialize the objects with block.
+
+-new create a new object and output the address
+-
+run (class name|block)
+-
+If a block exists, run the block with message passed object as current object.
+If class names exist, run the class with message passed object as current object.
+-
+times number (block)
+-
+run a block number times
+-
+pwo
+-
+Show current object.
+-
+co (object name)
+-
+Change current object.
+-
+ref (variable name1) (variable name2), ..., (variable name X)
+-
+If you use for filter, bind address which is each lines in pipe data to the variable.
+If you don't use for filter, output the address in variable.
+
+-local Treat as local variable.
+-shift Bind and output the address in the same time.
+-type If you use for fitler, Output a type of the address.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+ary (variable name1) (variable name2), ... , (variable name X)
+-
+If you use this for filter, get from all pipe data to the variable.
+If you don't use this for filter, output the variables.
+
+-new create a new object and output the address
+-local Treat as local variable.
+-index (number) When outputing variables, output only the index item of array.
+-append (number) Append to the array at the index point. If arrat doesn't exist, create new array.
+-size Output the size of array.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+hash (variable name1) (variable name2), ... , (variable name X)
+-
+If you use this for filter, get the all pipe data to a variable.
+How to get the pipe data are
+1st line --> key
+2nd line --> item
+3rd line --> key
+.
+.
+.
+an odd number line --> key
+an even number line --> item
+If you don't use for filter, output the hash.
+
+-new create a new object and output the address
+-local Treat as local variables.
+-append Append to the hash. If hash doesn't exist, create ia new hash.
+-size Output the size of hash.
+-key (key name) If you don't use for filter, output the hash item of key nly.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+export (environment varialbe name1) (environment variable name2), ... , (environment variable name X)
+-
+If you use this for filter, get lines from pipe data to each environment variables.
+If you don't use this for filter, output the environment varible value.
+
+-shift If you use this for filter, output and get lines from pipe data to each environment variables.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+unset (environment varialbe name1) (environment variable name2), ... , (environment variable name X)
+-
+Remove environment variables.
+-
+quote
+-
+It is filter for quoting all non alphabet character except utf8-character.
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+length
+-
+It is a filter for outputing the pipe data size.
+
+-line-num output linefield number
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+x (number)
+-
+It is a filter for increasing several times the pipe data.
+-
+index (string)
+-
+It is a filter for outputing the index with searching the string position.
+
+-quiet No output, but set return code.
+-ignore-case Ignore case.
+-number (number) Set the first position on searching string.
+-count 数値 Set the searching count.
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+rindex (string)
+-
+It is a filter for outputing the index with searching the string position.
+Searching from the tail.
+
+-quiet No output, but set return code.
+-ignore-case Ignore case.
+-number (number) Set the first position on searching string.
+-count 数値 Set the searching count.
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+lc 
+-
+It is a filter for outputing lower cased string in pipe data.
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+uc 
+-
+It is a filter for outputing upper cased string in pipe data.
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+chomp
+-
+It is a filter for removing last one line field. If no removing character, the return code is 1.
+-
+chop
+-
+It is a filter for removing last one character expcept that last one character is \r\n. If last one character is one character, it will remove two character. If no removing character, the return code is 1.
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+pomch
+-
+It is a filter for outputing string which is added line field to last.
+
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+printf
+-
+Like C language, output format string.
+However, getting arguments from pipe data.
+
+> ls | head -n 3
+main.c
+sub1.c
+sub2.c
+
+> ls | printf "%s,%s,%s" \n
+main.c,sub1.c,sub2.c
+
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+sub (regex) (string|block)
+-
+Substitute strings at matching point to argument string or output of block.
+In the block, context pipe has matching string.
+
+If you use \ and digit or alphabet in the substitute string, it have the special meanings.
+The global variables in the block have special string.
+
+group strings \1..\9
+(In the block 1,2,..,9)
+maching string \&,\0
+(In the block MATCH, 0)
+Prematch string \`
+(In the block PREMATCH)
+Postmatch string \'
+(In the block POSTMATCH)
+Last matching string \+
+(In the block LAST_MATCH)
+Maching number
+(In the block MATCH_NUMBER)
+
+> print abc | sub "a(.)c" "\1\1" | pomch
+bb
+
+The case of block, $1 - $9 local variable have the matching group string.
+
+> print abc | sub "a(.)c" ( var 1 1 )
+b
+b
+
+You can get the count of searching to use the local variable "SUB_COUNT"
+
+-multi-line Allow to write multiline matching regex, but the performance is less than normal.
+-global Allow to match at several times in a line.
+-quiet No output, but set return code and the local variables.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+scan (regex|block)
+-
+It is a filter for scaning pipe data with regex.
+With block, context pipe has a maching string.
+
+You can get the count of matching to use the local variable "MATCH_COUNT".
+
+Blow global variables have special strings.
+
+Group matching string --> 1,2,..,9
+Matched string --> MATCH, 0
+Premached string --> PREMATCH
+Postmatched string --> POSTMATCH
+Lastmatched string --> LAST_MATCH
+Matched number --> MATCH_NUMBER
+
+-multi-line Allow to write multiline matching regex, but the performance is less than normal.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+split (regex)
+-
+It is a filter for spliting pipe data with regex.
+If you omit the argument, xyzsh set "\s+" for it.
+
+-multi-line Allow to write multiline matching regex, but the performance is less than normal.
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+add (string)
+-
+It is a filter for adding string to pipe data.
+
+-index (number) add the string at the number position.
+-number (number) add the string at the number position.
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+del (index)
+-
+It is a filter for removing a character on pipe data.
+
+-index (number) Number characters are removed.
+-number (number) Number characters are removed.
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+rows (number1) (block) (number2) (block), ... , (number X) (block X)
+-
+Run block with each indicated character number. Context pipe in block has the characters.
+You can use range for character number
+(character number1)..(character number2)
+Character number begins from 0. <0 is counted from tail.
+A case of (character number1) > (character number2), reverse the order.
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+readline (prompt string)
+-
+Using readline, get a line input by the user, and output it.
+-
+completion (object name::)(command name) (block)
+-
+If there is a block, define the user completion in root::compl. Output of block is candidates for completion.
+ARGV has a command name and an inputing string.
+Context pipe has all inputing line.
+If you use * for command name, it is wild card.
+If there is not a block, run the completion and return output.
+-
+help (command name)
+-
+View help. If command name is null, output manual and all command help.
+-
+jump
+-
+Select menu for changing directory. A user function defined in xyzsh.xyzsh。The jump menu definition is written in ~/.xyzsh/jump.
+-
+menu
+-
+Select menu for running a one line command. A user function defined in xyzsh.xyzsh. The menu definition is written in ~/.xyzsh/menu.
+-
+migemo_match (pattern)
+-
+For Japanese command. To use this, you must complile with --with-migemo configure option.
+-
+fselector
+-
+selecting file and output it.
+
+up key or C-p --> up cursor
+down key or C-n --> down cursor
+left key or C-b --> cursor left
+right key or C-f --> cursor right
+C-l --> refresh screen
+\ --> move to root directory
+C-h or Backcpace --> move to parent directory
+
+TAB key or 'w' --> determined the selected file
+q or C-c or Escape C-g --> cancel
+
+-multiple allow to select multiple files with typing SPACE key
+EOS | help::set_helps
+
+#### readline command help ###
+rl::run(
+    object help ( Help )
+
+    print <<<'EOS'
+point_move (number)
+-
+コンプレッション時のカーソル移動
+-
+clear_screen
+-
+コンプレッション時のスクリーンクリア
+-
+delete_text (start index) (end index)
+-
+コンプレッション時のテキスト削除
+-
+insert_text
+-
+コンプレッション時のテキスト挿入。テキストはパイプから得られる
+-
+write_history (file name)
+-
+ヒストリをファイルに書き込む
+-
+read_history (file name)
+-
+ヒストリをファイルから読み出す
+EOS | help::set_helps_ja
+
+    print <<<'EOS'
+point_move (number)
+-
+cursor move on completion.
+-
+clear_screen
+-
+clear screen on completion.
+-
+delete_text (start index) (end index)
+-
+delete editing line on completion.
+-
+insert_text
+-
+add string which is getting pipe data to editing line on completion.
+-
+write_history (file name)
+-
+write readline cmdline history to a file
+-
+read_history (file name)
+-
+read readline cmdline history to the memory
+EOS | help::set_helps
+)
+

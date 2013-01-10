@@ -1,0 +1,136 @@
+
+def xyzsh_quote (
+    | sub -global ' |\\|"|\$|\*|\?|\[|\]|\{|\}|\&|\;|\(|\)|-' ( | add -number 0 \\ )
+)
+
+def xyzsh_dequote (
+    | sub -global '(?<!\\)\\' ''
+)
+
+def program_completion (
+    export PATH | split : | ary -local dirs
+
+    dirs | each (
+        | if(| rows -2 | = /) ( |print) else ( | add -number -2 / ) | var -local path
+
+        ls $path | each (
+            | var -local program
+
+            print "$path$program" | if(| -x) (
+                program
+            )
+        )
+    )
+)
+
+completion rl::help (
+    rl::self | egrep native\ function\$ | root::scan '(^.+?):' | each ( | chomp | quote | pomch )
+)
+
+root | egrep ': native function$' | egrep -v '^run: native function$' | scan '(^.+):' | add sub\nsplit\nscan\n | each (
+        | var -local command
+
+        help $command | lines 1..-1 | scan '^-[a-zA-Z0-9-]+' |chomp| add -number 0 $command\a | hash -append -La COMPLETION_OPTIONS
+
+        print <<<EOS
+    completion "$command" (
+        hash COMPLETION_OPTIONS -key "$command"
+    )
+EOS | eval
+)
+
+completion ref (
+    self | egrep -v external\ program\$ | egrep -v native\ function\$ | egrep -v '^root:|^self:|^parent:|^run:'| root::scan '(^.+?):' 
+    hash COMPLETION_OPTIONS -key ref
+)
+
+completion sweep (
+    self | egrep -v external\ program\$ | egrep -v native\ function\$ | egrep -v '^root:|^self:|^parent:|^run:'| root::scan '(^.+?):' 
+    hash COMPLETION_OPTIONS -key sweep
+)
+
+completion defined (
+    self | egrep -v external\ program\$ | egrep -v native\ function\$ | egrep -v '^root:|^self:|^parent:|^run:'| root::scan '(^.+?):' 
+)
+
+completion var (
+    self | egrep ': var$' | root::scan '(^.+?):' 
+    hash COMPLETION_OPTIONS -key var
+)
+
+completion ary (
+    self | egrep ': array$' | root::scan '(^.+?):' 
+    hash COMPLETION_OPTIONS -key ary
+)
+
+completion hash (
+    self | egrep ': hash$' | root::scan '(^.+?):' 
+    hash COMPLETION_OPTIONS -key hash
+)
+
+completion export (
+    sys::env | scan '(.+?)='
+)
+
+completion class (
+    self | egrep ': class$' | root::scan '(^.+?):' 
+    hash COMPLETION_OPTIONS -key class
+)
+
+completion def (
+    self | egrep ': function$' | root::scan '(^.+?):' 
+    hash COMPLETION_OPTIONS -key def
+)
+
+completion help (
+    root::self | egrep native\ function\$ | root::scan '(^.+?):' | add sub\nsplit\nscan\n | each ( | chomp | quote | pomch )
+    hash COMPLETION_OPTIONS -key help
+)
+
+completion co (
+    self | egrep -v '^root: object$|^self: object$'| scan '(^.+?): object$'
+)
+
+
+completion write (
+    hash COMPLETION_OPTIONS -key write
+)
+
+completion ./configure (
+    ./configure --help | scan '(--[a-zA-Z0-9-]+)'
+)
+
+completion man (
+    program_completion
+)
+
+completion sudo (
+    | scan 'sudo .*' | chomp | split '(?<!\\) +' | wc -l | var -local input_num
+    | scan 'sudo .*' | chomp | split '(?<!\\) +' | lines 1 | var -local program_name
+
+    if(input_num | -eq 2) (
+        program_completion
+    ) elif(input_num | -ge 3) (
+        try(
+            completion $program_name
+        ) catch ()
+    )
+)
+
+completion make (
+    print Makefile | -e && cat Makefile | scan '(.+?):'
+)
+
+completion unset (
+    sys::env | scan '(.+?)='
+)
+
+completion git (
+    git | awk '/The most commonly used git commands are:/,p' | lines 1..-2 | scan '^\s+(.+?)\s+' 
+)
+
+completion kill (
+    ps | each ( | sub '^\s+' '' ) | selector | split | lines 0
+    rl::clear_screen
+)
+

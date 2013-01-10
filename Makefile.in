@@ -1,0 +1,162 @@
+#######################################################
+# installed directories
+#######################################################
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+datadir=@datadir@
+mandir=@mandir@
+libdir=@libdir@
+sharedstatedir=@sharedstatedir@
+sysconfdir=@sysconfdir@/xyzsh
+includedir=@includedir@/xyzsh
+datarootdir=@datarootdir@
+docdir=@datadir@/doc/xyzsh
+
+##########################################################
+# environmnet variables
+##########################################################
+CC=@CC@
+INSTALL=@INSTALL@
+CFLAGS=@CFLAGS@
+LIBS=@LIBS@
+OBJ=@OBJ@
+LIBXYZSHSO=@LIBXYZSHSO@
+LIBXYZSHSO1=@LIBXYZSHSO1@
+LIBXYZSHA=@LIBXYZSHA@
+LIBXYZSHASTRIP=@LIBXYZSHASTRIP@
+DESTDIR=
+SYSTEM_MIGEMODIR=@SYSTEM_MIGEMODIR@
+SO_VERSION=@SO_VERSION@
+
+##########################################################
+all: lib xyzsh
+	rm -f install
+
+lib: $(LIBXYZSHSO1) $(LIBXYZSHA)
+	rm -f install
+
+lib-install:
+	if [ -z "$(DESTDIR)" ]; then make lib-normal-install; else make lib-dest-install; fi
+
+lib-normal-install:
+	mkdir -p "$(libdir)"
+	if [ $(LIBXYZSHA) = libxyzsh.a ]; then $(INSTALL) -m 644 $(LIBXYZSHASTRIP) libxyzsh.a "$(libdir)"; fi
+	if [ $(LIBXYZSHSO) = libxyzsh.so ]; then if echo $(CFLAGS) | grep -q MDEBUG; then $(INSTALL) -m 755 libxyzsh.so.$(SO_VERSION) "$(libdir)"; else $(INSTALL) -s -m 755 libxyzsh.so.$(SO_VERSION) "$(libdir)"; fi; elif [ $(LIBXYZSHSO) = libxyzsh.dylib ]; then $(INSTALL) -m 755 libxyzsh.$(SO_VERSION).dylib "$(libdir)"; fi
+	if [ $(LIBXYZSHSO) = libxyzsh.so ]; then ln -s -f libxyzsh.so.$(SO_VERSION) "$(libdir)"/libxyzsh.so.1; elif [ $(LIBXYZSHSO) = libxyzsh.dylib ]; then ln -s -f libxyzsh.$(SO_VERSION).dylib "$(libdir)"/libxyzsh.1.dylib; fi
+	if [ $(LIBXYZSHSO) = libxyzsh.so ]; then ln -s -f libxyzsh.so.$(SO_VERSION) "$(libdir)"/libxyzsh.so; elif [ $(LIBXYZSHSO) = libxyzsh.dylib ]; then ln -s -f libxyzsh.$(SO_VERSION).dylib "$(libdir)"/libxyzsh.dylib; fi
+
+lib-dest-install:
+	mkdir -p "$(DESTDIR)/$(libdir)"
+	if [ "$(LIBXYZSHA)" = libxyzsh.a ]; then $(INSTALL) -m 644 $(LIBXYZSHASTRIP) libxyzsh.a "$(DESTDIR)/$(libdir)"; fi
+	if [ "$(LIBXYZSHSO)" = libxyzsh.so ]; then if echo $(CFLAGS) | grep -q MDEBUG; then $(INSTALL) -m 755 libxyzsh.so.$(SO_VERSION) "$(DESTDIR)/$(libdir)"; else $(INSTALL) -s -m 755 libxyzsh.so.$(SO_VERSION) "$(DESTDIR)/$(libdir)"; fi; elif [ "$(LIBXYZSHSO)" = libxyzsh.dylib ]; then $(INSTALL) -m 755 libxyzsh.$(SO_VERSION).dylib "$(DESTDIR)/$(libdir)"; fi
+	if [ "$(LIBXYZSHSO)" = libxyzsh.so ]; then ln -s -f libxyzsh.so.$(SO_VERSION) "$(DESTDIR)/$(libdir)"/libxyzsh.so.1; elif [ "$(LIBXYZSHSO)" = libxyzsh.dylib ]; then ln -s -f libxyzsh.$(SO_VERSION).dylib "$(DESTDIR)/$(libdir)"/libxyzsh.1.dylib; fi
+	if [ "$(LIBXYZSHSO)" = libxyzsh.so ]; then ln -s -f libxyzsh.so.$(SO_VERSION) "$(DESTDIR)/$(libdir)"/libxyzsh.so; elif [ "$(LIBXYZSHSO)" = libxyzsh.dylib ]; then ln -s -f libxyzsh.$(SO_VERSION).dylib "$(DESTDIR)/$(libdir)"/libxyzsh.dylib; fi
+
+clean:
+	rm -fR xyzsh xyzsh.dSYM src/*.o libxyzsh* xyzsh.exe* config.log config.status *.stackdump autom4te.cache
+
+distclean:
+	rm -fR xyzsh xyzsh.dSYM src/*.o libxyzsh* config.h Makefile xyzsh.exe* config.log config.status *.stackdump autom4te.cache
+
+xyzsh: config.h src/main.c $(LIBXYZSHSO) $(LIBXYZSHA)
+	$(CC) -o xyzsh src/main.c $(CFLAGS:-static=) -lxyzsh $(LIBS)
+
+########################################################
+# xyzsh libraries
+########################################################
+libxyzsh.so.$(SO_VERSION): $(OBJ)
+	gcc -shared -o libxyzsh.so.$(SO_VERSION) $(OBJ) -lc $(LIBS) $(CFLAGS)
+
+libxyzsh.so: libxyzsh.so.$(SO_VERSION)
+	ln -s libxyzsh.so.$(SO_VERSION) libxyzsh.so.1
+	ln -s libxyzsh.so.$(SO_VERSION) libxyzsh.so
+
+libxyzsh.a: $(OBJ)
+	ar rc libxyzsh.a $(OBJ)
+	ranlib libxyzsh.a
+#	strip libxyzsh.a
+
+########################################################
+# xyzsh libraries on Darwin
+########################################################
+libxyzsh.$(SO_VERSION).dylib: $(OBJ)
+	gcc -dynamiclib -o libxyzsh.$(SO_VERSION).dylib $(OBJ) -lc $(LIBS) $(CFLAGS)
+
+libxyzsh.dylib: libxyzsh.$(SO_VERSION).dylib
+	cp libxyzsh.$(SO_VERSION).dylib libxyzsh.1.dylib
+	cp libxyzsh.$(SO_VERSION).dylib libxyzsh.dylib
+
+permission:
+	chmod 644 *
+	chmod 755 .git man src configure
+	chmod 644 src/*.c
+	chmod 644 src/xyzsh/*.h
+
+#########################################################
+# install
+#########################################################
+$(OBJ): src/xyzsh/xyzsh.h src/xyzsh/block.h src/xyzsh/curses.h src/xyzsh/debug.h src/xyzsh/hash.h src/xyzsh/kanji.h src/xyzsh/list.h src/xyzsh/string.h src/xyzsh/vector.h Makefile configure
+
+#########################################################
+# install
+#########################################################
+install: lib-install
+	if [ -z "$(DESTDIR)" ]; then make normal-install; else make dest-install; fi
+
+normal-install:
+	mkdir -p "$(bindir)"
+	mkdir -p "$(sysconfdir)"
+	mkdir -p "$(libdir)"
+	mkdir -p "$(includedir)"
+	mkdir -p "$(docdir)"
+	mkdir -p "$(mandir)/man1"
+	$(INSTALL) -m 644 src/xyzsh/block.h "$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/curses.h "$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/debug.h "$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/hash.h "$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/kanji.h "$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/list.h "$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/string.h "$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/vector.h "$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/xyzsh.h "$(includedir)"
+	$(INSTALL) -m 644 USAGE "$(docdir)"
+	$(INSTALL) -m 644 USAGE.ja "$(docdir)"
+	$(INSTALL) -m 644 README "$(docdir)"
+	$(INSTALL) -m 644 CHANGELOG "$(docdir)"
+	rm -f $(bindir)/xyzsh
+	if echo $(CFLAGS) | grep -q MDEBUG; then $(INSTALL) -m 755 xyzsh "$(bindir)"; else $(INSTALL) -s -m 755 xyzsh "$(bindir)"; fi;
+	$(INSTALL) -m 644 man/man1/xyzsh.1 "$(mandir)/man1"
+	$(INSTALL) -m 644 xyzsh.xyzsh "$(sysconfdir)"
+	$(INSTALL) -m 644 completion.xyzsh "$(sysconfdir)"
+	$(INSTALL) -m 644 help.xyzsh "$(sysconfdir)"
+	$(INSTALL) -m 644 read_history.xyzsh "$(sysconfdir)"
+
+dest-install:
+	mkdir -p "$(DESTDIR)/$(bindir)";
+	mkdir -p "$(DESTDIR)/$(sysconfdir)";
+	mkdir -p "$(DESTDIR)/$(libdir)"
+	mkdir -p "$(DESTDIR)/$(includedir)"
+	mkdir -p "$(DESTDIR)/$(docdir)"
+	mkdir -p "$(DESTDIR)/$(mandir)/man1"
+	$(INSTALL) -m 644 src/xyzsh/block.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/curses.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/debug.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/hash.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/kanji.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/list.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/string.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/vector.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 src/xyzsh/xyzsh.h "$(DESTDIR)/$(includedir)"
+	$(INSTALL) -m 644 USAGE "$(DESTDIR)/$(docdir)"
+	$(INSTALL) -m 644 USAGE.ja "$(DESTDIR)/$(docdir)"
+	$(INSTALL) -m 644 README "$(DESTDIR)/$(docdir)"
+	$(INSTALL) -m 644 CHANGELOG "$(DESTDIR)/$(docdir)"
+	rm -f "$(DESTDIR)/$(bindir)/xyzsh"
+	if echo $(CFLAGS) | grep -q MDEBUG; then $(INSTALL) -m 755 xyzsh "$(DESTDIR)/$(bindir)"; else $(INSTALL) -s -m 755 xyzsh "$(DESTDIR)/$(bindir)"; fi;
+	$(INSTALL) -m 644 man/man1/xyzsh.1 "$(DESTDIR)/$(mandir)/man1"
+	$(INSTALL) -m 644 xyzsh.xyzsh "$(DESTDIR)/$(sysconfdir)"
+	$(INSTALL) -m 644 completion.xyzsh "$(DESTDIR)/$(sysconfdir)"
+	$(INSTALL) -m 644 help.xyzsh "$(DESTDIR)/$(sysconfdir)"
+	$(INSTALL) -m 644 read_history.xyzsh "$(DESTDIR)/$(sysconfdir)"
+

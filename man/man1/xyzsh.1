@@ -1,0 +1,54 @@
+.TH XYZSH 1
+.SH NAME
+xyzsh shell script language
+
+xyzsh
+[-c command] [script file] -rn --version
+.PP
+
+.SH DESCRIPTION
+xyzsh is a shell script language. You can run "xyzsh" without any arguments to use it as an interactive shell.
+
+The following options are available
+.PP
+-rn
+.br
+no load runtime script
+.PP
+--version
+.br
+output version
+.PP
+\-c " string"
+.br
+Commands described by string are executed and exit immediately.
+.PP
+
+.SH USAGE
+run help inner command.
+
+.SH EXAMPLES
+$ cat > hello.xyzsh
+.br
+print "Hello World" | pomch
+.br
+$ xyzsh hello.xyzsh
+.br
+Hello World
+.PP
+$ ls | xyzsh -c '|each (|if(|chomp|-d) (|print ))'
+.br
+list of directories
+.PP
+
+$ xyzsh
+.br
+-+- Welcome to xyzsh x.x.x -+-
+.br
+run 'help' command for xyzsh help
+.br
+ > 
+.br
+.SH COPYRIGHT
+Copyright 2012 by yamanaka gorou
+

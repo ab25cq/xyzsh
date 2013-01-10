@@ -1,0 +1,699 @@
+0.0 Introduction
+
+    Welcome to xyzsh world!
+
+    xyzsh is an interactive shell and a text processing tool.
+
+    It contains a text processing inner commands like Perl or Ruby, and can be used as a simple objective oriented script language.
+
+    Ofcourse, on interactive shell, it helps you to type with completion.
+
+    Taget users are who has mastered bash, sed/awk, perl, python, ruby and want to seek somemore. If you don't master these tools, you should learn these tools before using xyzsh.
+
+    I can't take resposbility on your works with xyzsh. I recommend that you use this on your personal systems.
+
+    This program linces is MIT Linsence.
+
+    You can get this on the internet belows
+
+    Develop version http://code.google.com/p/xyzsh/
+
+    Stable version http://sourceforge.jp/projects/xyzsh
+    Develop version http://sourceforge.jp/projects/xyzsh/scm/git/xyzsh/
+
+    You can be a xyzsh developer using git. I will welcome to your pull requests or your forked new xyzsh projects.
+
+1.0 statment
+
+    (object::)*command (argument|-option|block)*
+
+    You can use non alphabet characters for command name or argument.
+
+    ex)
+
+    > print 1 | * 2
+    2
+
+1.1 quote
+
+    If you want to use xyzsh special characters for command name or arguments, you should quote before the special characters.
+
+    How to quote special characters is
+
+    1. use single quotes  (ex.) ';*?[]()'
+    2. use double quotes (ex.) ";*?[]()"
+    3. use a quote before a special character (ex.) \;
+
+    An quote is no effect in another quote.
+    
+    > print "'string'"  # --> 'string' outputs
+
+    You can use a control character putting a special alphabet after quote
+
+    \n --> line field
+    \r --> carrige return
+    \a --> bel
+
+    > print "Hello World"\n   # --> outputss "Hello World" and a linefield
+
+    Pay attension to be unable to use control characters in single quotes or double quoutes
+
+    > print "Hello World\n"    # --> output "Hello World" and not linefield but "\" and "n" 
+
+1.2 pipe and context pipe
+    
+    Commands can be connected using a pipe. Using xyzsh, a command input is previous command output and a command output is next command input.
+
+    > ls | sub -global . X
+
+    Example for context pipe
+
+    > ls | ( | less; | sub -global . X )
+
+    () is subshell which can treat a block as one command. | less is that less gets ls output using context pipe.
+    Context pipe is a pipe which is changed its content reponding to a command.
+    In this case, a context pipe gets output of ls.
+
+1.3 statment sparator and return code
+
+    ;, \n normal separator
+    || If previous statment return code is false, run the next command
+    && If previous statment return code is true, run the next command
+    & If last command is external command, run the external command as background
+
+    Putting ! on head of statment, reverse the return code
+
+    > ! true
+    return code is 1
+
+    > ! false
+
+1.4 Options
+
+    An argument which begin from - is a option. For external programs, it is treated a normal argument like another shell.
+
+    If you don't want to treat the string as option, you can quote head of the string.
+
+    > sub -global . X
+
+    -global is given as option to sub internal command
+
+    > print "-aaa" | less
+
+    -aaa is not option
+
+    But
+
+    >  echo -aaaa | less
+
+    The case of an external command like echo, -aaaa string is given as no option to echo.
+
+1.5 Basic commands
+
+    "if" inner command acts as conditional jump.
+
+    if (one condition) (if one condition is true, run this block) (second conditon) (if second condition is true, run this block),..., (if all block is not runned, run this block)
+
+    You can add "else" or "elif" words to command line freely.
+
+    > var a | if(|= main\n) (print true\n) else (print false\n)
+
+    If output of a is main\n, print true. If output of a is not main\n, print false.
+
+    There are below conditional inner commands
+
+    -n if input exists, return code is 0 (which represents true)
+    -z if input doesn't exist, return code is 0
+    -b if the file exists and it's a block special file, return code is 0
+    -c if the file exists and it's a chalacter special file, return code is 0
+    -d if the file exists and it's a directory, return code is 0
+    -f if the file exists and it's a regular file, return code is 0
+    -h 
+    -L if the file exists and it's a sibolic link, return code is 0
+    -p if the file exists and it's a named pipe, return code is 0
+    -t
+    -S if the file exists and it's a socket, return code is 0
+    -g if the file exists and it's setted GID, return code is 0
+    -k if the file exists and it's setted sticky bit, return code is 0
+    -u if the file exists and it's setted SUID, return code is 0
+    -r if the file exists and it's readable, return code is 0
+    -w if the file exists and it's writable, return code is 0
+    -x if the file exists and it's excutable, return code is 0
+    -O if the file exists and it's owned by the user, return code is 0
+    -G if the file exists and it's owned by the group, return code is 0
+    -e if the file exists , return code is 0
+    -s if the file exists and the size is begger, return code is 0
+    =  the input equals to the argument, return code is 0
+    !=  the input doesn't equals to the argument, return code is 0
+    -slt the input is smaller than argument as string, return code is 0
+    -sgt the input is bigger than argument as string, return code is 0
+    -sle the input is smaller than argument or equals to the argument as string, return code is 0
+    -sge the input is bigger than argument or equals to the argument as string, return code is 0
+    -eq If the input equals to the argument as numeric
+    -nq If the input doesn't equal to the argument as numeric
+    -lt If the input is smaller than the argument as numeric
+    -le If the input is smaller than the argumrnt or equals to the argument as numeric
+    -gt If the input is bigger than the argument as numeric
+    -ge If the input is bigger than the argumrnt or equals to the argument as numeric
+    -nt If the input is newer than the argumrnt
+    -ot If the input is older than the argumrnt
+    -ef If inode of the input file equals to inode of the argument file
+    =~ If the input matches the argument regex(setted local variable PREMATCH, MATCH, POSTMATCH, 1,2,3,4,5,6,7,8,9,0)
+
+    You can connect to another command with xyzsh
+
+    > var a | if(|= main\n) (print true\n) else (print false\n) | scan . | less
+
+    "while" inner command is loop
+
+    > print 0 | var a; while(var a | -le 5) ( print $a; ++ a)
+    012345
+    
+    You can connect to another command with xyzsh
+
+    > print 0 | var a; while(var a | -le 5) (print $a; ++ a ) | pomch
+
+    If the user type C-c, xyzsh will occur signal interuput error
+
+1.6 Variant
+
+    There are three variants on xyzsh.
+
+    1. string or integer
+
+        Var contains one line string. You can use it for integer./
+
+        > ls | var a b c   
+
+        Three lines of ls output is contained in a,b,c variant.
+
+        If you want to output the variant
+
+        > var a b c
+        1st line of ls output
+        2nd line of ls output
+        3rd line of ls output
+
+        The output contains linefields
+
+        If you want to reffer the variant
+
+        > print "$a $b $c" \n
+        (1st line of ls output) (2nd line of ls output) (3rd line of ls output)
+
+    2. dynamic array
+
+        If you want to contain all output
+
+        > ls | ary a
+
+        ary a will contain all output of ls. One element contains one line.
+
+        If you want to output the all of elements
+
+        > ary a
+
+        If you want to output the one element
+
+        > ary -index 1 a
+
+        If you want to reffer thr all elements
+
+        > print $a
+
+        The above will give all elements for "print" inner command.
+
+         > print $a[0]
+
+        The above will give the head of elements for "print" inner command.
+
+    3. hash table
+
+        Hash table contains all lines, and xyzsh assumes that the line of odd numver is the key and the line of even number is the item.
+
+        > print "key1 item1 key2 item2" | split | hash a
+
+        The above is evaled as that the keys of hash a is "key1", "key2" and the items of hash a is "item1", "item2".
+
+        If you want to output all elements
+
+        > hash a
+        key2
+        item2
+        key1
+        item1
+
+        The order of output is not the same for the order of inout.
+
+        If you want to output one element
+
+        > hash -key key1 a
+        item1
+
+        If you want to reffer the hash item
+
+        > print $a[key1]
+
+        The above will give the item of key1 for "print" inner command.
+
+    Also there is the variant kind.  Local variants or attributs.
+
+    The order of xyzsh reffering variant is local variants -> the attributs of current object -> the attributs of the parent -> ,,,
+
+    Next paragraph stated about current object.
+
+    If you want to make a local variable
+
+    > ls | var -local a b c
+
+    Use -local option
+
+    xyzsh initialize the local variants on the next three times
+
+    1. loading script 2. calling method 3. calling class
+
+    Also every time on running cmdline.
+
+    > ls | var -local a b c
+    > var a b c
+    not found variable
+
+    > ls | var -local a b c ; var a b c
+
+    is outputted
+
+1.7 Object Oriented Programing
+
+    Object Oriented Programing of xyzsh likes a file system.
+    A object like a directory and is added to other objects(var, hash, ary, and object) 
+
+    > object a       # add object a to current object
+    > a::run ( ls | ary A )      # add ary A to object a
+    > a::A
+    output of ls
+
+    a::run is runned on "a" object as current object.
+    ary A is added to "a" object.
+    object "a" is added to root object because initial current object is root object.
+
+    > pwo
+
+    shows a current object
+
+    > co (object name)
+
+    makes current object changed.
+
+    In above example
+
+    > co a
+
+    make current object changed as a.
+
+    and
+
+    > A
+    output of ls
+    
+    root::a is current object, so you don't need to write a::A
+
+    > self
+
+    lists all objects at current object
+
+    If you runned "self" at root obhect, you can look at defined inner command objects at root object.
+    The order of xyzsh object reffering, is local objects -> current objects -> parent objects,...
+
+    Therefore you can access inner commands in child object.
+
+    Also all objects have
+
+    "run" method
+    "show" method
+    "self" object (refference of its self)
+    "root" (refference of root object)
+    parent (refference of parent object)
+
+    so
+
+    > co parent
+
+    makes current object changed as parent object
+
+    If you want to remove a object
+
+    > sweep (object name)
+
+    run above.
+
+1.8 Function (method)
+
+    Function is added with "def" inner command to current object.
+
+    > def fun ( print fun \n)
+    > fun
+    fun
+    > self | egrep ^fun:
+    fun: function
+
+    There are function argumrnts in ARGV array.
+
+    > def fun ( print $ARGV )
+    > fun aaa bbb ccc
+    aaa bbb ccc
+
+    There are function options in OPTIONS hash table.
+
+    > def fun ( hash OPTIONS )
+    > fun -abc -def
+    -abc
+    -abc
+    -def
+    -def
+
+    You can use -option-with-argument for "def" inner command.
+
+    > def fun -option-with-argument abc,def ( hash OPTIONS )
+
+    Then indicated argument gets the next argument.
+
+    > fun -abc aaa -def bbb -ghi
+    -abc
+    aaa
+    -def
+    bbb
+    -ghi
+    -ghi
+
+1.9 clas
+
+    A class is almost same as a function.
+    
+    A class is added with "class" inner command to current object.
+
+    > class klass ( print aaa\n )
+    > klass
+    aaa
+
+    > class klass ( ls | ary AAA )
+    > object a
+    > a::run klass
+
+    "AAA" array is added to "a" object.
+
+    But there is a different with a function to object contained place.
+
+    > class klass ( ls | ary AAA )
+    > def fun ( ls | ary BBB)
+    > object a
+    > co a
+    > fun     # BBB is added to parent object
+    > klass   # AAA is added to "a" object
+
+    If "main" object is defined in the class, xyzsh called the item when command name is the object.
+
+    > class A ( def main ( print called\n ) )
+    > object a ( A )
+    > a
+    called
+
+2.0 Command replacement
+
+    Command replacement pastes output of block to command line
+
+    > print $(ls)
+    main.c
+    sub.c
+
+    You can use $$() for expanding each line as one argument.
+
+    > def fun ( ary -size ARGV )
+
+    > fun $$(print aaa\nbbb\nccc\n )
+    3
+
+    You can use $a(), $$m() and $$w() for changing the termination of line.
+
+    > def fun ( ary -size ARGV )
+
+    > fun $$a(print aaa bbb ccc | split -La)
+    3
+
+    > fun $$m(print aaa bbb ccc | split -Lm)
+    3
+
+    > fun $$w(print aaa bbb ccc | split -Lw)
+    3
+
+2.1 Exception
+
+    "try" inner command treats exeception.If error ocurrs on the first block of try, immediately runned the second block.
+    You can see the error message with "errmsg" inner command.
+
+    > try ( print ) catch ( errmsg  | if (|=~ "invalid command using") ( print get invalid command using \n ) else (print another error \n))
+
+    "raise" inner command makes an error.
+
+    > try ( make || raise "failed on make"; sudo make install) ( print make failed\n )
+
+2.2 Refference
+
+    "ref" inner command treats refference.
+    You can output the address of the objects using below.
+    
+    ref (object name)
+
+    > ls | var a b c; ref a b c
+    0x12345678
+    0x23456789
+    0x34567890
+
+    On the opposite
+
+    > print 0x12345678 | ref x
+
+    You can bind the address to the object.
+
+    So
+
+    > ls | var a b c; ref a b c | ref x y z
+
+    This makes that a is same to x, b is same to y, c is same to z.
+
+    xyzsh difend the addresses and denys the invalid adresses.
+
+2.3 external commands
+
+    External command objects is rehashed to sys object on xyzsh initialization.
+    When running rehash, xyzsh initials external command objects on sys objects.
+
+    If you want to call "dmesg" external commands, run
+
+    > sys::dmesg
+
+    However, fulequently used commands are entried on root object with refference.
+
+    So you can use ls without sys::
+
+    > ls
+
+    If you want to entry new external program for root object, you may add new program name to ~/.xyzsh/program like below and run rehash inner command.
+
+    > print dmesg\n >> ~/.xyzsh/program
+    > rehash
+    > dmesg
+   
+
+2.4 subshell
+
+    You can use some statments as one statment using subshell.
+
+    (pwd; echo aaa ; print bbb\n) | less
+
+    Subshell of (pwd, echo aaa, print bbb\n) outputs next command(less)
+
+    Context pipe in subshell has front command output
+
+    pwd | ( | less; | less; | sub -global . (|uc))
+
+    "less" is runned twice getting output of pwd, and output of pwd is upper cased.
+
+2.5 Comment
+
+    From # to end of line is comment.
+
+    > ls -al     # --> Output of file list
+
+2.6 Tilda expression
+
+    Almost same as bash
+
+2.7 Glob expression
+    
+    Almost same as bash. Using glob(3).
+
+2.8 here document
+
+    Here document is useful for string which has line fields.
+
+    > print <<<EOS
+    aaaa
+    bbbb
+    cccc
+    EOS | less
+
+    From the next line after <<<EOS to the line which head of line is EOS is treated as one string.
+    less gets
+    "aaaa
+    bbbb
+    cccc"
+
+    However
+
+    print <<<EOS | less
+    aaaa
+    bbbb
+    cccc
+    EOS
+
+    can not be runned like bash.
+
+    You can expand variables
+
+    > ls | var a b c; 
+    print <<<EOS
+    $a
+    $b
+    $c
+    EOS | less
+    
+    less gets
+    $a contents
+    $b contents
+    $c contents
+
+    If you do not want to expand variables, you use below
+
+    > print <<<'EOS'
+    $a
+    $b
+    $c
+    EOS | less
+
+2.9 global pipe
+    
+    You can use global pipe writing |> at tail of statment.
+
+    > ls |>
+
+    You can read global pipe writing |> at head of statment.
+
+    > |> print
+    main.c
+    sub.c
+    sub2.c
+    > |> print
+    main.c
+    sub.c
+    sub2.c
+
+    If you want to append data to global pipe, you can use |>>
+
+    > print aaa\n |>
+    > print bbb\n |>>
+    > |> print
+    aaa
+    bbb
+
+3.0 line context pipe
+
+    Indicate line number after context pipe for reading line number from context pipe.
+
+    > print aaa bbb ccc | split | (|1 print)
+    aaa
+
+    > print aaa bbb ccc | split | (|2 print)
+    aaa
+    bbb
+
+    > print aaa bbb ccc | split | (|1 print; |1print; |1print; |1print)
+    aaa
+    bbb
+    ccc
+    return code is 262
+
+    > print aaa bbb ccc | split | (|-1 print )
+    aaa
+    bbb
+    ccc
+
+    > print aaa bbb ccc | split | (|-2 print )
+    aaa
+    bbb
+
+    > print aaa bbb ccc | split | (|-2 print; |-1 print )
+    aaa
+    bbb
+    ccc
+
+3.1 redirect
+
+    You can use redirect with <
+    
+    > ls | write AAA
+    > cat <AAA
+    main.c sub.c fix.c
+
+3.2 error output
+
+    To write error output to file, use "write" inner command and "-error" option.
+
+    > ./output-error-program 
+    data
+    error-data
+
+    > ./output-error-program | write -error data-from-error
+    data
+
+    > ./output-error-program | write data
+    error-data
+
+    > ./output-error-program | write -error data-from-error > /dev/null
+
+    To read error output, use "print" inner command and "-read-from-error" option.
+
+    > ./output-error-program | print -read-from-error
+    error-data
+
+    > ./output-error-program | (|print -read-from-error; | print ) | less
+    error-data
+    data
+
+    > ./output-error-program | (|print -read-from-error | less; | print | less)
+    error-data
+    data
+
+3.3 treatment multi line text
+
+    If you want to treat multi line with xyzsh, use -La option.
+    With -La option, text processing inner commands treat \a as a line field, then you can treat \n,\r\n,\r as normal text to pocess multi line.
+   It makes code complicated, but you may be able to write code debugging with p inner command.
+
+3.4 Command line completion
+
+    xyzsh uses readline for command line completion, and you can almost use it like bash.
+
+    You can make your original completion, see completion.xyzsh. User completion definitions are defined in root::compl as objects.
+
+    You can use macro with typing C-x. It can paste the result of xyzsh one line script to command line. Edit ~/.xyzsh/macro for your original macro.
+
+    To check maching paren on commandline, add "set blink-maching-paren on" to ~/.inputrc.
+
+    You can manipulate readline with rl object on completion program. See rl::help.
+
+3.5 help
+
+    You can see command help typing below
+
+    help (command name)
+

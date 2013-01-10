@@ -1,0 +1,175 @@
+
+"xyzsh" shell script language
+
+What is this software?
+
+    a shell script language under linux, OSX, cygwin, and FreeBSD.
+
+Compiled and tested xyzsh below Operating systems
+    OSX 10.8.0
+    FreeBSD 7.1-RELEASE-p16
+    CentOS 5.8
+    Oracle Solaris 11 Express
+
+AUTHORS
+    I am a Japanese and an English learner. I'm so sorry for my strange English and please allow me to write such a English. I'll correct this step by step with my understanding English.
+
+ATTENSION
+    Use this software on your own risk. Don't use this under importnat systems. I recommend that you use this on your personal systems. I can't take a responsibility on your works with xyzsh. And use this with understanding that this language is not high performance.
+
+How to compile
+    Before compiling xyzsh, you need to resolve dependencies below. You need development packages.(ex. ncurses-devel or libncurse-dev)
+
+    gcc 
+    GNU make
+    libc
+    libm 
+    ncurses(w)
+    readline
+    oniguruma (which is a regex library)
+    iconv
+
+    Have you installed above libraries? You can type below commands to compile xyzsh.
+
+    ./configure --with-optimize
+    make
+    sudo make install
+
+    or
+
+    ./configure --with-optimize
+    make
+    su
+    make install
+    exit
+
+    Default prefix is /use/local/bin, so you need a root comission for make install.
+
+    If you want to change an installed directory, type below
+
+    ./configure --prefix=??? --with-optimize
+    make
+    sudo make install
+
+    or
+
+    ./configure --with-optimize
+    make
+    sudo make DESTDIR=??? install
+
+    When you choise normal install, installed xyzsh to /usr/local/bin and setting files to /usr/local/etc/xyzsh.
+
+    configure options are below.
+
+    --prefix --> indicate installed directory. If you use --prefix=$HOME, xyzsh will be installed $HOME/bin, $HOME/etc. As default, prefix is /usr/local.
+    --with-optimize --> compiled with optimize. Fast binary will be made.
+    --with-onig-dir --> indicate oniguruma installed directory.
+    --with-readline-dir --> indicate readline installed directory.
+    --with-debug --> give -g option to CFLAGS and add a checking memory leak system to xyzsh.
+    --with-gprof-debug --> give -pg option to CFLAGS
+    --with-static --> make saphrie without dynamic linked libraries.
+
+    For Japanese options
+
+    --with-migemo --> enable migemo_match inner command for Japanse
+    --with-migemo-dir --> indicate migemo installed directory.
+    --with-system-migemodir --> specify the directory of system migemo dictionary.
+
+    xyzsh makes library, so add /usr/local/lib(or your installed directory)  to /etc/ld.so.conf and type below to refresh dynamic loarding searched path cache.
+    
+    sudo ldconfig
+    
+    or
+
+    su
+    ldconfig
+    exit
+    
+
+    If you don't have root comission, add the path to LD_LIBRARY_PATH environment variable. (With OSX, you should use DYLD_LIBRARY_PATH_FALLBACK environment variable.)
+
+with OS X
+    Before you installed xyzsh, you should compile the readline library because OSX's readline is libedit, xyzsh needs GNU readline.
+    Also you can use Macports or other compling system instead of manually compiling to install GNU readline.
+
+Used files
+    /usr/local/bin/xyzsh --> a program
+    /usr/local/etc/xyzsh/xyzsh.xyzsh --> a source setting file
+    /usr/local/etc/xyzsh/completion.xyzsh --> a source completion setting file
+    /usr/local/etc/xyzsh/help.xyzsh --> a source help setting file
+    ~/.xyzsh/xyzsh.xyzsh --> a source user setting file. xyzsh read this after /usr/local/etc/xyzsh.xyzsh
+    ~/.xyzsh/history --> a command line history file
+    ~/.xyzsh/macro --> macro which is runned by typing C-x on command line uses this file
+    ~/.xyzsh/jump --> jump inner command uses this file
+    ~/.xyzsh/menu --> menu inner command uses this file
+    ~/.xyzsh/program --> program list which is entried to root object
+
+Encoding and Line field
+    xyzsh script source file must be written with UTF-8 encode and LF Linefield. But, xyzsh can treat UTF8, EUCJP, and SJIS encodings and can treat LF, CR, LFCR line fields. (EUCJP and SJIS are for Japanese)
+    You should run xyzsh as interactive shell on UTF-8 terminal.
+
+Usage
+    Type
+
+    > ./xyzsh
+
+    to use as interactive shell
+
+    or
+
+    > ./xyzsh -c "command"
+
+    to run the command
+
+    or
+
+    > ./xyzsh (script file name)
+
+    to run the script file
+
+Files
+    AUTHORS
+    CHANGELOG --> a changing log 
+    LINCENSE --> MIT License described file
+    Makefile.in --> Source of Makefile
+    README --> This file
+    USAGE --> Usage
+    config.h.in --> source of config.h
+    configure --> configure program
+    configure.in --> source of configure
+    install.sh --> used by configure
+    src/xyzsh/xyzsh.h --> xyzsh header file
+    xyzsh.xyzsh --> xyzsh run time script
+    completion.xyzsh --> xyzsh completion run time script
+    src/xyzsh --> headers
+    src/block.c --> code structure 
+    src/cmd_ary.c --> inner commands which is related to array 
+    src/cmd_base.c --> base inner commands 
+    src/cmd_condition.c --> condition expression inner commands
+    src/cmd_curses.c --> inner commands which manipulate text consoles.
+    src/cmd_file.c --> inner commands which is related to file system.
+    src/cmd_num.c --> math inner commands.
+    src/cmd_obj.c --> object oriented system inner commands
+    src/cmd_str.c --> inner commands which manipulate strings.
+    src/curses.c --> manipulating text console.
+    src/debug.c --> my debug system. for expample, detecting memory leak
+    src/gc.c --> xyzsh object gabage collector
+    src/hash.c --> hash container library
+    src/interface.c --> related to interface code
+    src/kanji.c --> treated utf-8 (or Japanese SJIS, EUCJP) code
+    src/list.c --> list container library 
+    src/main.c --> main code
+    src/object.c --> etc objects
+    src/parser.c --> parser
+    src/xyzsh.c --> xyzsh
+    src/readline.c --> readline code for interactive shell
+    src/run.c --> main engine for xyzsh
+    src/stack.c --> xyzsh stack object manager
+    src/string.c --> string library
+    src/vector.c --> dynamic array library
+    src/nfun.c --> native function object
+    src/fd.c --> file discriptor object
+    src/extprog.c --> external program object
+
+LINCENSE
+    MIT Lincense.

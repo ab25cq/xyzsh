@@ -1,0 +1,270 @@
+AC_INIT(src/main.c)
+
+AC_CONFIG_HEADER(config.h)
+
+AC_PROG_CC
+AC_PROG_INSTALL
+
+if test $prefix = NONE
+then
+    myprefix=/usr/local
+else
+    myprefix=$prefix
+fi
+
+######################################################################
+# configure arguments
+######################################################################
+DEBUGGING=0
+
+AC_ARG_WITH(debug,              [  --with-debug              include debug info ], [ DEBUGGING=1; ], [])
+AC_ARG_WITH(gprof-debug,        [  --with-gprof-debug        include debug info and gprof debug info ], [ DEBUGGING=2; ], [])
+AC_ARG_WITH(optimize,          [  --with-optimize           with optimize(-O in CFLAGS) ], [ ENABLE_OPTIMIZE=1 ], [ ENABLE_OPTIMIZE=0 ])
+AC_ARG_WITH(onig-dir,           [  --with-onig-dir=DIR       set install prefix of oniguruma which located at non standerd directory and installed by user ], [ ONIG_DIR="$withval" ], [ ONIG_DIR= ])
+AC_ARG_WITH(readline-dir,         [  --with-readline-dir=DIR     set readline install prefix ], [ READLINE_DIR="$withval"  ], [ READLINE_DIR= ])
+AC_ARG_WITH(static,[ --with-static       link xyzsh used libraries with static to make xyzsh doesn't require any libraries.], [ STATIC_LINK=1 ], [STATIC_LINK= ] )
+AC_ARG_WITH(migemo,             [  --with-migemo             enable migemo for japanese romaji completion ], [ ENABLE_MIGEMO=1 ], [ ENABLE_MIGEMO=0 ])
+AC_ARG_WITH(migemo-dir,         [  --with-migemo-dir=DIR     set migemo install prefix ], [ MIGEMO_DIR="$withval"  ], [ MIGEMO_DIR= ])
+AC_ARG_WITH(system-migemodir,[ --with-system-migemodir       specify the directory of system migemo dictionary. /usr/share/migemo, for example], [ if test -n "$withval"; then echo "system-migemodir = $withval" ; SYSTEM_MIGEMODIR="$withval"; fi ], [ if test -e /usr/local/share/migemo/utf-8/migemo-dict; then SYSTEM_MIGEMODIR=/usr/local/share/migemo; else SYSTEM_MIGEMODIR=/usr/share/cmigemo; fi ] )
+
+AC_SUBST(SYSTEM_MIGEMODIR)
+
+#####################################################################
+# check operating systems
+#####################################################################
+SO_VERSION=1.6.1
+AC_SUBST(SO_VERSION)
+AC_MSG_CHECKING(Operating System)
+
+OBJ="src/gc.o src/stack.o src/string.o src/list.o src/kanji.o src/debug.o src/hash.o src/vector.o src/block.o src/fun.o src/class.o src/completion.o src/xyzsh.o src/parser.o src/run.o src/readline.o src/curses.o src/cmd_base.o src/cmd_obj.o src/cmd_file.o src/cmd_str.o src/cmd_ary.o src/cmd_condition.o src/interface.o src/object.o src/uobject.o src/cmd_num.o src/cmd_curses.o src/fd.o src/nfun.o src/extprog.o"
+AC_SUBST(OBJ)
+
+if test `uname -s` = "Darwin"; then
+    echo "Darwin"
+
+    OS=DARWIN
+
+    AC_DEFINE(__DARWIN__, 1)
+
+    LIBXYZSHSO=libxyzsh.dylib
+    LIBXYZSHSO1=libxyzsh.$SO_VERSION.dylib
+
+    LIBXYZSHASTRIP=-s
+    AC_SUBST(LIBXYZSHASTRIP)
+
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+elif test `uname -s` = "SunOS"; then
+    echo "SunOS"
+
+    OS=SUNOS
+
+    AC_DEFINE(__SUNOS__, 1)
+
+    LIBXYZSHSO=libxyzsh.so
+    LIBXYZSHSO1=libxyzsh.so.$SO_VERSION
+
+    LIBXYZSHASTRIP=-s
+    AC_SUBST(LIBXYZSHASTRIP)
+
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+elif test `uname -s` = "FreeBSD"; then
+    echo "FreeBSD"
+
+    OS=FREEBSD
+
+    AC_DEFINE(__FREEBSD__, 1)
+
+    LIBXYZSHSO=libxyzsh.so
+    LIBXYZSHSO1=libxyzsh.so.$SO_VERSION
+
+    LIBXYZSHASTRIP=-s
+    AC_SUBST(LIBXYZSHASTRIP)
+
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+elif uname -s | grep -q CYGWIN_NT; then
+    echo CYGWIN
+
+    OS=CYGWIN
+
+    AC_DEFINE(__CYGWIN__, 1)
+
+    LIBXYZSHSO=libxyzsh.so
+    LIBXYZSHSO1=libxyzsh.so.$SO_VERSION
+
+    LIBXYZSHASTRIP=
+    AC_SUBST(LIBXYZSHASTRIP)
+
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib"
+    STATIC_LINK=1
+else
+    echo "Linux"
+
+    OS=LINUX
+
+    AC_DEFINE(__LINUX__, 1)
+
+    LIBXYZSHSO=libxyzsh.so
+    LIBXYZSHSO1=libxyzsh.so.$SO_VERSION
+
+    LIBXYZSHASTRIP=-s
+    AC_SUBST(LIBXYZSHASTRIP)
+
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+fi
+
+
+##########################################################################
+# CFLAGS settings
+##########################################################################
+if test -d /usr/local/include
+then
+    CFLAGS="$CFLAGS -I/usr/local/include"
+fi
+
+if test -d /usr/local/lib
+then
+    CFLAGS="$CFLAGS -L/usr/local/lib"
+fi
+
+if test -d /opt/local/include
+then
+    CFLAGS="$CFLAGS -I/opt/local/include"
+fi
+
+if test -d /opt/local/lib
+then
+    CFLAGS="$CFLAGS -L/opt/local/lib"
+fi
+
+if test -n "$ONIG_DIR"
+then
+    if test -e "$ONIG_DIR/include/oniguruma.h" && test -e "$ONIG_DIR/lib/libonig.a"
+    then
+         CFLAGS="$CFLAGS -I$ONIG_DIR/include -L$ONIG_DIR/lib"
+    else
+        echo "can't found oniguruma.h in $ONIG_DIR/include or libonig.a in $ONIG_DIR/lib"
+    fi
+fi
+
+if test -n "$MIGEMO_DIR"
+then
+    if test -e "$MIGEMO_DIR/include/migemo.h" && test -e "$MIGEMO_DIR/lib/libmigemo.so"
+    then
+        CFLAGS="$CFLAGS -I$MIGEMO_DIR/include -L$MIGEMO_DIR/lib"
+    else
+        echo "can't found migemo.h in $MIGEMO_DIR/include or libmigemo.so in $MIGEMO_DIR/lib"
+    fi
+fi
+
+if test -n "$READLINE_DIR"
+then
+    if test -e "$READLINE_DIR/include/readline/readline.h" && test -e "$READLINE_DIR/lib/libreadline.a"
+    then
+         CFLAGS="$CFLAGS -I$READLINE_DIR/include -L$READLINE_DIR/lib"
+    else
+        echo "can't found readline/readline.h in $READLINE_DIR/include or libreadline.a in $READLINE_DIR/lib"
+    fi
+fi
+
+if test $ENABLE_OPTIMIZE = 1
+then
+    CFLAGS="$CFLAGS -O3"
+fi
+
+if test $DEBUGGING = 1
+then
+    CFLAGS="$CFLAGS -g -Werror -DMDEBUG"
+elif test $DEBUGGING = 2
+then
+    CFLAGS="$CFLAGS -pg -Werror"
+else
+    CFLAGS="$CFLAGS"
+fi
+
+if test "$STATIC_LINK" = 1
+then
+    CFLAGS="$CFLAGS -static"
+
+    LIBXYZSHA=libxyzsh.a
+    LIBXYZSHSO1=
+    LIBXYZSHSO=
+fi
+
+AC_SUBST(LIBXYZSHA)
+AC_SUBST(LIBXYZSHSO1)
+AC_SUBST(LIBXYZSHSO)
+
+CFLAGS="-I./src $CFLAGS"
+CFLAGS="-DSYSCONFDIR=\"\\\"$sysconfdir/xyzsh/\\\"\" -DDATAROOTDIR=\"\\\"$datarootdir/doc/xyzsh/\\\"\" -DSYSTEM_MIGEMODIR=\"\\\"$SYSTEM_MIGEMODIR\\\"\" $CFLAGS"
+
+AC_SUBST(CFLAGS)
+
+######################################################################
+# readline settings (When with static link, must be ordered before ncurses)
+######################################################################
+AC_CHECK_HEADER(readline/readline.h, [AC_DEFINE(HAVE_READLINE_H, 1)], [ exit ])
+AC_CHECK_HEADER(readline/history.h, [AC_DEFINE(HAVE_READLINE_HISTORY_H, 1)], [ exit ])
+AC_HAVE_LIBRARY(readline, [ LIBS="$LIBS -lreadline" ], [ exit ])
+
+#####################################################################
+# ncurses settings
+#####################################################################
+AC_CHECK_HEADER(ncurses.h, [NCURSES_OK=1; AC_DEFINE(HAVE_NCURSES_H, 1)])
+AC_CHECK_HEADER(ncurses/ncurses.h, [NCURSES_OK=1; AC_DEFINE(HAVE_NCURSES_NCURSES_H, 1)])
+AC_HAVE_LIBRARY(cursesw, [ LIBS="$LIBS -lcursesw"; NCURSES_OK2=1 ])
+AC_HAVE_LIBRARY(ncursesw, [ LIBS="$LIBS -lncursesw"; NCURSES_OK2=1 ])
+
+if test -z "$NCURSES_OK2"
+then
+    AC_HAVE_LIBRARY(curses, [ LIBS="$LIBS -lcurses"; NCURSES_OK2=1 ])
+    AC_HAVE_LIBRARY(ncurses, [ LIBS="$LIBS -lncurses"; NCURSES_OK2=1 ])
+fi
+
+if test -z "$NCURSES_OK"
+then
+    exit
+fi
+
+if test -z "$NCURSES_OK2"
+then
+    exit
+fi
+
+#####################################################################
+# math settings
+#####################################################################
+AC_CHECK_HEADER(math.h, [AC_DEFINE(HAVE_MATH_H,1)], [ exit ])
+AC_HAVE_LIBRARY(m, [ LIBS="$LIBS -lm"; ], [ exit ])
+
+####################################################################
+# iconv settings
+####################################################################
+AC_CHECK_HEADER(iconv.h, [AC_DEFINE(HAVE_ICONV_H, 1)], [ exit ])
+
+if test "$OS" = CYGWIN|| test "$OS" = DARWIN || test "$OS" = FREEBSD
+then
+    LIBS="$LIBS -liconv"
+fi
+
+#####################################################################
+# oniguruma settings
+#####################################################################
+AC_CHECK_HEADER(oniguruma.h, [AC_DEFINE(HAVE_ONIGURUMA_H, 1)], [ exit ])
+AC_HAVE_LIBRARY(onig, [ LIBS="$LIBS -lonig"; ], [ exit ])
+
+##########################################################################
+# migemo
+###########################################################################
+if test $ENABLE_MIGEMO = 1
+then
+    AC_CHECK_HEADER(migemo.h, [LIBS="$LIBS -lmigemo"; AC_DEFINE(HAVE_MIGEMO_H, 1)], [ exit ])
+fi
+
+AC_SUBST(LIBS)
+
+##########################################################################
+# type checking
+###########################################################################
+AC_EGREP_HEADER(OnigUChar, oniguruma.h, AC_DEFINE(HAVE_ONIGUCHAR))
+
+AC_OUTPUT(Makefile)

@@ -1,0 +1,13 @@
+#undef HAVE_NCURSES_H
+#undef HAVE_NCURSES_NCURSES_H
+#undef HAVE_MIGEMO_H
+#undef HAVE_ICONV_H
+#undef HAVE_READLINE_H
+#undef HAVE_ONIGURUMA_H
+#undef HAVE_PCRE_H
+#undef HAVE_ONIGUCHAR
+#undef __CYGWIN__
+#undef __SUNOS__
+#undef __DARWIN__
+#undef __LINUX__
+#undef __FREEBSD__

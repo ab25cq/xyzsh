@@ -1,0 +1,104 @@
+kanjicode -byte
+
+### make xyzsh setting directory ###
+print ~/.xyzsh | if(| -e) (
+    | if(! | -d) (
+        print "~/.xyzsh is not directory\n"
+        exit
+    )
+) else (
+    sys::mkdir -p ~/.xyzsh
+    sys::chmod 700 ~/.xyzsh
+)
+
+### readline settings ###
+print 1000 | export XYZSH_HISTSIZE
+print ~/.xyzsh/history | export XYZSH_HISTFILE
+
+print ~/.xyzsh/program | if(! | -e) (
+    print "mail date crontab hostname tee find unzip diff seq env sleep ps kill killall pkill autoconf automake od nm gcc uname chgrp chmod chown sed awk make git ssh scp tar sudo gzip bash cat ls pwd cp mv rm rmdir ln vi vim grep egrep find less wc echo which whoami head tail uniq mkdir touch man" | split > ~/.xyzsh/program
+)
+
+sys::cat ~/.xyzsh/program | each (
+    | chomp | var -local prog
+
+    try ( sys::run ( root::ref $prog )  | ref $prog) catch ()
+)
+
+def rehash -inherit (
+    inherit
+
+    sys::cat ~/.xyzsh/program | each (
+        | chomp | var -local prog
+
+        try ( sys::run ( root::ref $prog )  | ref $prog) catch ()
+    )
+)
+
+prompt ( pwd | chomp | add " > " )
+
+def jump (
+    if(! print ~/.xyzsh/jump | -e) (
+        print <<<EOS
+/etc/
+/var/log/
+EOS > ~/.xyzsh/jump
+    )
+
+    cd $(cat ~/.xyzsh/jump | selector | chomp)
+)
+
+def menu (
+    if(! print ~/.xyzsh/menu | -e) (
+        print <<<EOS
+vim ~/.xyzsh/menu
+vim ~/.xyzsh/macro
+vim ~/.xyzsh/jump
+vim ~/.xyzsh/program
+ls -al | uc| less
+pwd | scan . | less
+ls | each ( if(|chomp | -d) ( | print ) )
+EOS > ~/.xyzsh/menu
+    )
+
+    eval $(cat ~/.xyzsh/menu | selector | chomp)
+)
+
+def macro (
+    if(! print ~/.xyzsh/macro | -e) (
+        print <<<EOS
+whoami | chomp
+pwd | chomp
+EOS > ~/.xyzsh/macro
+    )
+
+    | eval $(try ( 
+            cat ~/.xyzsh/macro | selector
+        ) catch (
+            rl::clear_screen
+        )
+    )
+)
+
+def times -copy-stackframe ( 
+    print 0 | var -local _i
+    while(_i | -lt $ARGV[0]) (
+       | eval $(block)
+       ++ _i
+    )
+)
+
+# for calling function with the caller-function arguments, options and blocks
+print <<<'EOS'
+| eval "| $FUNCTION $(ARGV|each(|chomp|quote|pomch)|join|chomp) $(OPTIONS | each -number 2 (|lines 0 ) | join|chomp) $(block -number | -gt 0 && seq $(block -number|chomp) | each (| - 1 |  var num; | block $num | add \a) |chomp | each -La ( | chomp | add -number 0 \( | add -number -1 \)) | join -La)"
+EOS | var CALL_WITH_CALLER_ARGUMENTS
+
+# USAGE
+# print inherit | var -local FUNCTION; $CALL_WITH_CALLER_ARGUMENTS
+
+#$CALL_WITH_CALLER_ARGUMENTS{inherit}
+
+if(export XYZSH_RUNNING_AS_INTRACTIVE_MODE | -n) (
+    print "-+- Welcome to xyzsh $XYZSH_VERSION -+-\n"
+    print "run \"help\" command to see usage\n"
+)

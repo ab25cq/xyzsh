@@ -1,0 +1,219 @@
+
+xyzsh シェルスクリプト言語
+
+このソフトウェアはなんですか？
+
+    Linux, OSX, cygwin, FreeBSDで動くインタラクティブシェルです。
+    Perl/Rubyライクなテキスト処理コマンドを含み、オブジェクト指向も行えます。
+    ガベージコレクションも装備しています。
+    
+コンパイルとテストを行ったOS
+
+    OSX 10.8.0
+    FreeBSD 7.1-RELEASE-p16
+    CentOS 5.8
+    Oracle Solaris 11 Express
+    Fedora18
+
+作者について
+
+    ab25(ab25cq@gmail.com)
+
+注意
+
+    このソフトウェアは自分の責任において実行してください。実行に被る結果について作者は責任を取れません。
+    
+インストール方法
+
+    最初に以下のライブラリやソフトウェアをインストールしてください。
+    パッケージは開発版(-devel. -devなど)があれば、そちらが必要となります。
+    
+    gcc 
+    GNU make
+    libc
+    libm 
+    ncurses(w)
+    readline
+    oniguruma
+    iconv
+
+    ncursesはncurseswでないと端末制御するときに日本語が扱えません。
+
+    インストールしたら以下を実行してください
+    
+    ./configure --with-optimize
+    make
+    sudo make install
+
+    または
+
+    ./configure --with-optimize
+    make
+    su
+    make install
+    exit
+
+    デフォルトでは/usr/local/bin以下にインストールされます。よってmake installには管理者権限が必要となります。
+
+    もしインストールするディレクトリを変えたい場合は以下をタイプしてください。
+    
+    ./configure --prefix=??? --with-optimize
+    make
+    sudo make install
+
+    もしデフォルトでインストールすれば、実行ファイルは/usr/local/bin, 設定ファイルは/usr/local/etc/xyzshにインストールされます。
+
+    configure オプションは以下
+    
+    --prefix
+        インストールするディレクトリを指定します。--prefix=$HOMEとすればホームディレクトリにインストールされます。
+        この場合は管理者権限は必要ありません。
+    --with-optimize
+        コードの最適化を行うオプションです。実行速度の速いプログラムが作成されます。つけたほうが良いでしょう。
+    --with-onig-dir
+        /usrや/usr/localに鬼車がインストールされていない場合、鬼車がインストールされているディレクトリを指定します。]
+        管理者権限がない場合にシステム管理者が鬼車をインストールしていない時、ホームディレクトリに鬼車を自分で
+        コンパイルしてインストールして、ここで$HOMEを指定すれば管理者権限がなくてもxyzshをインストールできます。
+    --with-readline-dir
+        /usrや/usr/localにreadlineがインストールされていない場合
+        readlineがインストールされているディレクトリを指定します。
+    --with-debug
+        デバッグモードのプログラムを作成。-gオプションをつけてgccを実行します。
+        gdbでデバッグができるようになります。またxyzsh自身のメモリーリーク検出機能を有効にします。
+    --with-gprof-debug
+        デバッグモードのプログラムを作成。-pgオプションをつけてgccを実行します。
+        gprofでプロファイルが可能になります。(関数ごとの実行速度の評価を行う)
+    --with-static
+        静的ライブラリを作成します。実行プログラムも静的にリンクされ動的ライブラリは必要なくなります。
+        通常では必要がないはずです。
+    
+    日本人向けのオプション
+    
+    --with-migemo
+        migemo_match内部コマンドを作成します。
+    --with-migemo-dir
+        デフォルトでは/usr, /usr/localで検索されるmigemoのインストール先を指定します。
+        これも管理者権限がない場合で自分のホームディレクトリにmigemoをインストールした場合には必要になるでしょう。
+    --with-system-migemodir
+        migemoの辞書がインストールされたディレクトリを指定します。
+        通常ではFedoraでインストールされる/usr/share/migemoを想定しています。
+        自分でmigemoをコンパイルした場合はここで/usr/local/share/migemoなどが必要になります。
+    
+    xyzshはライブラリを作成するのでライブラリが作成されたディレクトリ(通常は/usr/local/lib)を/etc/ld.so.confに追加して
+    以下を実行しないといけません。/usr/local/libは標準ではライブラリの検索パスに加えてられないことが多く
+    たいていの環境(Linux)ではこの作業が必要になります。
+    
+    sudo ldconfig
+    
+    もしくは
+
+    su
+    ldconfig
+    exit
+    
+
+    もし管理者権限がない場合はこの作業を行えないので
+    
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+    
+    などとライブラリがインストールされるディレクトリをLD_LIBRARY_PATHに追加してください。(.bashrcなどに書く)
+    (OSXではDYLD_LIBRARY_PATH_FALLBAK)
+    プログラムが動的ライブラリをリンクして実行できるようになります。
+    （動的ライブラリのある場所が決まらないとxyzshは実行できない)
+
+OSXでは
+
+    OSXで標準でインストールされているreadlineはlibeditで、それはxyzshから使えません。GNU readlineが必要となります。
+    Macportsなどのパッケージツールを使ってインストールするか自分でコンパイルしてGNU readlineをインストールする必要があります。
+
+xyzshが使用するファイル
+
+    /usr/local/bin/xyzsh --> プログラム本体
+    /usr/local/etc/xyzsh/xyzsh.xyzsh --> 設定ファイル
+    /usr/local/etc/xyzsh/completion.xyzsh --> 補完関係の設定ファイル
+    /usr/local/etc/xyzsh/help.xyzsh --> ヘルプ関連の設定ファイル
+    ~/.xyzsh/xyzsh.xyzsh --> /usr/local/etc/xyzsh.xyzshの後に呼ばれるユーザーの設定ファイル
+    ~/.xyzsh/history --> コマンドライン履歴が保存されたファイル
+    ~/.xyzsh/macro --> コマンドラインでControl-xを押した場合に表示されるワンライナーの一覧。
+                       ワンライナーの実行結果がコマンドラインに貼り付けられる。
+                       このファイルにワンライナーを追加することでcntrol-xが押されたときに表示される一覧に
+                       ワンライナーが追加される。
+    ~/.xyzsh/jump --> jump内部コマンドを実行したときに表示されるジャンプ先のディレクトリ一覧
+    ~/.xyzsh/menu --> menu内部コマンドを実行したときに表示されるワンライナーの一覧。
+    ~/.xyzsh/program --> sys::を省略したい外部プログラムの一覧。このファイルに外部プログラム名を追加して
+                         rehashコマンドを実行すれば、sys::を省略することができるようになる。
+    
+エンコードと改行コードについて
+
+    xyzshスクリプトはUTF-8エンコードとLF改行コードを使ってかかれなければなりません。
+    xyzshが扱うエンコードや改行コードにはUTF-8,EUCJP, SJIS, ByteやLF,CR,CRLFが使えます。(オプションで指定する)。
+    端末のエンコードはByteかUTF-8でなければ、なりません。
+    
+使い方
+
+    > xyzsh
+
+    とbashなどから実行すればインタラクティブシェルが起動します。
+    
+    > xyzsh -c "command"
+
+    とすればコマンドが実行されます。
+    
+    > xyzsh ファイル
+    
+    とすればスクリプトファイルを実行できます。
+    
+配布されるアーカイブに含まれるファイル
+
+    AUTHORS --> 著者情報
+    CHANGELOG --> 更新履歴
+    LINCENSE --> ラインセンス情報
+    Makefile.in --> Makefileの元となるファイル。./configureで使われる
+    README --> このファイルの英語版
+    README.ja --> このファイル
+    USAGE --> 使い方の英語版
+    USAGE.ja --> 使い方
+    config.h.in --> ./configureに使われるファイル。config.hの元となる
+    configure --> インストール時に実行されるプログラム。OSの種別などを判別する。
+    configure.in --> configureの元となったファイル。autoconfコマンドによってconifugreファイルに変換される
+    install.sh --> configureプログラムに必要なファイル
+    src/xyzsh/xyzsh.h --> xyzshヘッダーファイル。このファイルをインクルードして-lxyzshオプションをgccにつければ、xyzshを組み込んだプログラムも作成できます
+    xyzsh.xyzsh --> xyzshランタイムスクリプト
+    completion.xyzsh --> 補完関係のxyzshランタイムスクリプト
+    src/xyzsh --> ヘッダーが含まれるディレクトリ
+    src/block.c --> コードを格納するblock_obj関連の実装
+    src/class.c --> classオブジェクトの実装。
+    src/cmd_ary.c --> 配列関連の内部コマンドが定義されている
+    src/cmd_base.c --> 基本となる内部コマンドが定義されている
+    src/cmd_condition.c --> -ltなど条件判定を行う内部コマンドが実装されている
+    src/cmd_curses.c --> pやselectorなど端末制御を行う内部コマンドが実装されている
+    src/cmd_file.c --> ファイル操作を行う内部コマンドが実装されている
+    src/cmd_num.c --> 四則演算を行う内部コマンドが実装されている
+    src/cmd_obj.c --> オブジェクト指向を行う内部コマンドが実装されている。変数を扱う。
+    src/cmd_str.c --> 文字列処理を行う内部コマンドが実装されている。
+    src/completion.c --> completionオブジェクトの実装
+    src/curses.c --> 端末制御関連の関数が実装されている
+    src/debug.c --> オリジナルのデバッグ用の関数が実装されている。メモリリークの検出など。
+    src/fun.c --> 関数オブジェクトの実装
+    src/gc.c --> xyzshのオブジェクトのガベージコレクションの実装。
+    src/hash.c --> 連想配列のライブラリの実装。
+    src/interface.c --> xyzshを組み込んだプログラムから呼び出されるインターフェース関数の実装。
+    src/kanji.c --> UTF-8やSJIS, EUCJPを扱うライブラリの実装。
+    src/list.c --> リストのライブラリの実装。
+    src/main.c --> メイン関数が定義されている
+    src/object.c --> その他のオブジェクトの実装
+    src/parser.c --> パーサー本体
+    src/xyzsh.c --> xyzshのその他のルーチンを集めている
+    src/readline.c --> readlineを扱っているソース。
+    src/run.c --> xyzshのメインエンジン
+    src/stack.c --> xyzshのスタックを扱う実装。
+    src/string.c --> 文字列ライブラリ
+    src/uobject --> ユーザーオブジェクトの定義
+    src/vector.c --> 動的配列の実装
+    src/nfun.c --> ネイティブ関数オブジェクトの実装
+    src/fd.c --> ファイル記述子オブジェクトの実装
+    src/extprog.c --> 外部プログラムオブジェクトの実装
+
+ラインセンス
+
+    MITラインセンスです。

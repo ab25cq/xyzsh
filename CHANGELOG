@@ -1,0 +1,598 @@
+
+2013 1月10日 version 1.3.0
+
+	1. ダイナミックライブラリーのバージョンアップ
+
+	2. リファクタリング。memcheckerの廃止。オブジェクトの消費メモリが少なくなりました。(1オブジェクトを32バイトまで落とせた)
+
+mfiler4にも影響があります。mfiler4は1.0.9以上から、このxyzshに対応します。
+
+2013 1月6日 version 1.2.9
+    
+    1. defとclassに-copy-stackframeオプションがつきました。xyzsh.xyzshで定義されているtimes関数で使われてます。
+
+    今までは
+
+    > ls | var -local a b c; times 3 ( a )
+    run time error
+    not found variable(a)
+
+    とtimesのブロック内から外のローカル変数にアクセスできませんでしたが
+
+    これからは
+
+    > ls | var -local a b c ; times 3 ( a )
+    bin
+    bin
+    bin
+
+    のようにブロックの外のローカル変数にアクセスできます。
+    times内で定義したローカル変数はtimesのブロックの外に出ると消えます。
+
+    2. ダイナミックライブラリーのバージョンアップ
+
+2013 4th January version 1.2.8
+
+    1. Refactoring.
+
+    2. Fixed a memory leak bug.
+
+    3. Dynamic Library version up. This change involves mfiler4.
+
+2013 1月4日 version 1.2.8
+
+    1. リファクタリング。
+    2. メモリーリークを修正。
+    3.  ダイナミックライブラリのバージョンアップ。mfiler4にも影響があります。mfiler4は1.0.7から、このxyzshに対応します。
+
+2012 12月20日 version 1.2.7
+
+	1. グロブの展開がパーサー時ではなくて実行時に起こるように変更。
+
+	いままでだとスクリプトをloadして、その中にグロブの記述がある場合、もし中でcdをしても、スクリプトをloadした時点でのカレントディレクトリでグロブが検索されていました。
+
+	> vim a.xyzsh
+	cd /
+	echo *
+	> echo *
+	a.c b.c d.c
+	> load a.xyzsh
+	a.c b.c d.c
+
+	↑おかしい
+
+	2.  ダイナミックライブラリのバージョンアップ。mfiler4にも影響があります。mfiler4は1.0.6から、このxyzshに対応します。
+
+2012 12月14日 version 1.2.6
+
+    1. 独自のcursesライブラリを破棄。ncurseswやncursesを使うようにしました。mfiler4に影響があります。ダイナミックライブラリのバージョンアップ
+
+2012 14th December version 1.2.6
+
+    1. Deleted my original curses library. Instead of this, xyzsh start to use ncurses or ncursesw.  Dynamic library version up
+
+2012 12月08日 version 1.2.5c
+
+    1. readlineコマンドが入力が空の時落ちていました。
+
+2012 8th December version 1.2.5c
+	
+    1. If input was empty, readline command would occur error on xyzsh previous version.
+
+2012 12月08日 version 1.2.5b
+
+	1. 最適化レベルを3にしてみました。問題があればまた1に戻します。
+
+2012 8th December version 1.2.5b
+	
+	1. Up optimize level from 1 to 3.
+
+2012 12月04日 version 1.2.5a
+
+	1. クォートの仕様が変わっています。
+
+	シングルクォートは今までと同じです。ダブルクォートはダブルクォートの中でクォートを使った場合動きが変わっています。
+
+	> print "Hello World\n"
+	Hello World
+
+	> print "\\\\ \n"
+	\\
+
+	普通のスクリプト言語やbashと同じようになっています。
+
+	シングルクォートの場合は今までと同じです。
+
+	> print 'Hello World\n'
+	Hello World\n
+
+	> print '\\\\'
+	\\\\
+
+2012 4th December version 1.2.5a
+
+	1. Changed double quote way like below
+
+	> print "Hello World\n"
+	Hello World
+
+	> print "\\\\ \n"
+	\\
+
+	Sigle quote way is
+
+	> print 'Hello World\n'
+	Hello World\n
+
+	> print '\\\\'
+	\\\\
+
+2012 11月30日 version 1.2.5
+
+	1. オプションに変数展開があると変数が展開されないバグを修正
+
+2012 30th November version 1.2.5
+
+	1. Fixed a bug with expanding variables in option argument.
+
+2012 11月29日 version 1.2.4a
+
+	1. xyzshの設定ファイルを修正。
+
+	2. forコマンドを追加
+
+2012 29th November version 1.2.4a
+
+    1. Changed xyzsh.xyzsh setting file.
+
+	  2. Added "for" iner command.
+
+2012 11月26日 version 1.2.4
+
+    1. rowsのutf8コード処理時の範囲指定の場合文字数がおかしかったバグを修正。
+
+    > kanjicode 
+    utf8
+    > print AUTHORS | rows 0..1
+    AUT
+
+    と表示されていた。
+
+2012 26th November version 1.2.4
+
+    1. Fixed bug with rows
+
+    Before
+
+    > kanjicode 
+    utf8
+    > print AUTHORS | rows 0..1
+    AUT
+
+    Now
+
+    > kanjicode 
+    utf8
+    > print AUTHORS | rows 0..1
+    AU
+
+2012 11月26日 version 1.2.3a
+
+    1. linesとrowsのブロックは省略できるようになりました。
+
+    > print aaa\nbbb\nccc | lines 0
+    aaa
+
+    > print aaa\nbbb\nccc | lines 0..1 ( |less) 1
+    bbb
+
+2012 26th November version 1.2.3a
+
+    1. You can ignore block with lines and rows
+
+    > print aaa\nbbb\nccc | lines 0
+    aaa
+
+    > print aaa\nbbb\nccc | lines 0..1 ( |less) 1
+    bbb
+
+2012 11月26日 version 1.2.3
+
+    1. 重要な変更を行なっています。$()でのブロックの張り付けのコンテキストパイプが受け取るデータが変わりました。
+
+    今までは
+
+    > def fun ( print aaa | print $(|print) )
+    > print bbb | fun
+
+    は
+
+    aaa を出力していましたが
+
+    1.2.3よりbbbを出力します。
+
+    個人的にはbbbを出力しているつもりで作っていました。申し訳ないです。
+    mfiler4への影響はありません。
+
+2012 26th November version 1.2.3
+
+    Changed a method with $().
+
+    Before
+
+    > def fun ( print aaa | print $(|print) )
+    > print bbb | fun
+    aaa
+
+    Now
+
+    > def fun ( print aaa | print $(|print) )
+    > print bbb | fun
+    bbb
+
+    I'm so sorry for this change.
+    This change does not influence mfiler4.
+
+2012 11月26日 version 1.2.2e
+
+    1. 標準入力が端末のときにコンテキストパイプを使った場合、標準入力が閉じてしまうバグを修正。xyzshがフィルターとして使われた場合のみ、読む込むようにしました。
+
+2012 26th November version 1.2.2e
+
+    1. Fixed bug with using context pipe when stdin is a terminal. It had occured to close stdin.
+
+2012 11月25日 version 1.2.2d
+
+	1. グローバルパイプに追記機能を追加しました。
+
+2012 25th November version 1.2.2d
+
+	1. Added appending data function to global pipe with |>>
+
+2012 11月24日 version 1.2.2c
+
+	1. 環境変数の補完を入れました。
+
+	2. readlineで=が単語の区切りになりました。
+
+2012 24th November version 1.2.2c
+
+	1. Implematation of environment variable completion.
+
+	2. Begin to use = character as word break character.
+
+2012 11月24日 version 1.2.2b
+
+	1. パイプの中のオブジェクト数に制限をかけました。128個以上になるとエラーを出して止まります。
+
+	2. print ""\nとした場合パーサーがエラーを出していたバグを修正。
+
+2012 24th November version 1.2.2b
+
+	1. Set limit to the number of objects in pipe.
+
+	2. Fixed bug which is err with 'print ""\n'.
+
+2012 11月22日 version 1.2.2a
+
+	1. ダイナミックライブラリのバージョンが1.5.1にあがりました。
+
+	2. var, ary, hash, objectに-newオプションができました。
+
+	3. times 関数を追加。
+
+2012 22th November version 1.2.2a
+
+	1. Version up dynamic linked library
+
+	2. Added -new option to "var", "ary", "hash", and "object" inner command.
+
+	3. Added "times" function.
+
+2012 11月22日 version 1.2.2
+
+    1. Fixed def and class bug.
+
+2012 11月22日 version 1.2.2
+
+    1. def 関数名
+
+    class クラス名
+
+    で落ちていたバグを修正
+
+2012 22th November version 1.2.2
+
+    1. Fixed def and class bug.
+
+2012 22th November version 1.2.1
+
+	1. Add -local option to "ref" command.
+
+	2. Fixed sweep [object name] bug.
+
+2012 11月22日 version 1.2.1
+
+	1. refコマンドに-localオプションを追加
+
+	2. sweep オブジェクト名でxyzshが落ちていたバグを修正。
+
+2012 22th November version 1.2.1
+
+	1. Add -local option to "ref" command.
+
+	2. Fixed sweep [object name] bug.
+
+2012 11月12日 version 1.2.0
+
+    1. Fedoraでのコンパイルエラーを修正。gMigemo変数をstaticに変更。
+
+2012 12th November version 1.2.0
+
+    1. Checked to compile xyzsh on Fedora 18. gMigemo variable has been changed to static variable
+
+2012 11月8日 version 1.1.9
+
+    1. コマンドが見つからない場合のエラーメッセージを改良しました。ちゃんとプログラム名が書かれます。
+
+    2. FreeBSDでの実行に考慮しました。今までは画面が乱れたりしてました。
+
+    3. ジョブのタイトルが分かりやすくなりました。
+
+    4. exit -forceした場合全てのジョブを消していましたが、そうするとmfiler4からの実行で問題が起こるので、直しました。（ジョブがあってコマンドラインに移るとファイラー画面に戻るには全てのジョブを消さないといけない）
+
+    5. write -error　とした場合ファイルにエラー出力を書き込むだけでなく入力をそのまま出力するようにしました。このように使えます。
+
+    > ./error-output-program | write -error data-from-error | write data
+
+    今までのように動かすには
+
+    > ./error-output-program | write -error data-from-error | write -force /dev/null
+
+    もしくは
+
+    > ./error-output-program | write -error data-from-error > /dev/null
+
+    とすれば良いです。
+
+    エラー出力について使い方をUSAGEとUSAGE.jaに書きました。エラー出力は使いづらいかもしれません。
+
+2012 8th Norvember version 1.1.9
+
+    Changed "write -error" action. See help
+
+2012 8th Norvember version 1.1.8c
+
+    Fixed kill completion bug
+
+2012 8th Norvember version 1.1.8b
+
+    Changed "exit -force" action for mfiler4. 
+
+    Modified job title more better.
+
+    Modified for FreeBSD
+
+2012 5th Norvember version 1.1.8a
+
+	Fixed errror message.
+
+2012 30th Octorber version 1.1.8
+
+	Added -index option to "add" inner command and "del" inner command.
+
+	Added ~/.xyzsh/program mechanizm to entry external program for root
+	object. See USAGE or USAGE.ja
+
+2012 30th Octorber version 1.1.7a
+
+	Deleted castamized code for CYGWIN. It has not been required.
+
+2012 30th Octorber version 1.1.7
+
+	Fixed a bug with expanding environmet on redirects
+
+	Fixed Makefile.in
+
+2012 30th Octorber version 1.1.6
+
+    Made runnable on cygwin
+
+2012 28th Octorber version 1.1.5
+
+    Fixed run time script bug.
+
+    Made runnable on cygwin
+
+2012 28th Octorber version 1.1.4
+
+    Fixed xyzsh with migemo bug.
+
+2012 28th Octorber version 1.1.3
+
+    Prevent stack overflow segmentation error on recurcive function call.
+
+2012 28th Octorber version 1.1.2
+
+    add function with running completion block to "completion" inner command.
+    fixed sudo completion. you can use completion to type after sudo.
+
+2012 18th Octorber version 1.1.1
+
+    add "defined" inner command. see help
+
+    add "kanjicode" inner command. see help
+
+    fixed help bug
+
+2012 18th Octorber version 1.1.0
+
+    fixed break in while loop bug
+    fixed output pipe bug
+
+    > (print aaa\n; print bbb\n > b; print ccc\n ) > a
+
+    > cat a
+    aaa
+    ccc
+
+    > cat b
+    bbb
+
+    can be worked just as one intended
+
+    fixed selector -preserve-position bug
+
+    fixed var, hash, ary override bug
+
+    fixed inherit arguments bug
+
+    Dynamic library version up
+
+2012 17th Octorber version 1.0.9a
+
+    Change xyzsh_readline_interface_onetime interface.
+
+2012 11th Octorber version 1.0.9
+
+    Fixed inherit bug
+
+    Added line context pipe for xyzsh.
+
+    Dynamic library version up
+
+2012 11th Octorber version 1.0.8b
+
+    Change interface of xyzsh_run
+
+    Dynamic library version up
+
+2012 11th Octorber version 1.0.8a
+
+    Fixed a realated with $() bug
+
+2012 11th Octorber version 1.0.8
+
+    Added $$() to xyzsh. see USAGE
+
+    Dynamic library version up
+
+2012 11th Octorber version 1.0.7d
+
+    Change works with xyzsh_run
+
+2012 11th Octorber version 1.0.7c
+
+    Change return code of xyzsh_readline_interface_onetime.
+
+    Dynamic library version up
+
+2012 11th Octorber version 1.0.7b
+
+    Fixed kanji encode bug with kanji_convert for mfiler4.
+
+2012 7th Octorber version 1.0.7a
+
+    Fixed memory leack bug with block_clone_malloc.
+
+2012 7th Octorber version 1.0.7
+    
+    Fixed bug which is a redirect file name with variables.
+
+2012 3rd Octorber version 1.0.6a
+
+    change function name of vector_size to vector_count.
+    erase macro name of string_size.
+
+    add size function to all objects.
+
+    made smaller size of block_obj.
+
+    change definition of function and class, completion.
+
+    Version up dynamic linked library
+
+2012 3rd Octorber version 1.0.6
+    
+    made better treatment of binary data in pipe.
+
+2012 3rd Octorber version 1.0.5
+    
+    Add output redirect. (> and >>)
+
+    Change notaition -> to ::
+    You must use sys::ls instead of sys->ls.
+
+2012 2nd Octorber version 1.0.3
+    
+    Made better working to -c option.
+
+    Made better working to readline history size.
+
+2012 2nd Octorber version 1.0.2
+
+	Version up dynamic linked library
+
+	Add interface for xyzsh
+
+	Made sObject memory size smaller
+
+2012 12th August version 1.0.1a
+
+	Version up dynamic linked library
+
+	Add interface for xyzsh
+
+2012 12th August version 1.0.1
+
+	Deleted write command which behave like a redirect, and make newer write command.
+
+2012 12th August version 1.0.0b
+
+	Fixed valid file archive type.
+
+2012 12th August version 1.0.0a
+	
+	Fixed dead lock of pipes with big data.
+
+2012 12th August version 1.0.0
+	
+	Added redirects(<) to xyzsh.
+
+	Fixed write inner command.
+
+2012 12th August version 0.9.9g
+	
+	Fixed WINCH signal.
+
+2012 12th August version 0.9.9f
+	
+	Fixed tcsetpgrp argument.
+
+2012 12th August version 0.9.9e
+
+	Gabage Collection bug was fixed.
+
+2012 9th August version 0.9.9d
+
+	Fixed STDOUT buffer bugs.
+
+2012 8th August version 0.9.9c
+
+	Fiexed completion bugs. I'm sorry I've found the bugs yet.
+
+2012 8th August version 0.9.9b
+
+	Fixed completion bugs. I think maybe desipated all completion bugs.
+
+	Version 0.9.9b is Released
+
+2012 7th August version 0.9.9a
+
+	Fixed completion bugs
+
+	Version 0.9.9a is Released
+
+2012 5th August version 0.9.9
+	Version 0.9.9 is Released
+
