@@ -11,6 +11,63 @@ Compiled and tested xyzsh below Operating systems
     CentOS 5.8
     Oracle Solaris 11 Express
 
+    > ls -F
+    docs/ main.c samples/ sub.c
+        
+    > ls | each ( | chomp | -d && | print )
+    docs
+    samples
+
+    > ls -F | grep -v /
+    main.c sub.c
+
+    > ls | each ( ! | chomp | -d && | print )
+    main.c sub.c
+
+    > ls | each ( | printf "-+- %s -+-"\n ) | join " "
+    -+- docs -+- -+- main -+- -+- samples -+- -+- sub.c -+-
+
+    > ls | each ( | scan . | join " " )
+    d o c s
+    m a i n . c
+    s a m p l e s
+    s u b . c
+
+    > cat data
+    Gorou Yamanaka
+    Rei Tanaka
+    Yumiko Shiratori
+
+    > cat data | each ( | =~ Yamanaka && | print )
+    Gorou Yamanaka
+
+    > cat data | lines 0 1
+    Gorou Yamanaka
+    Rei Tanaka
+        
+    > cat data | each ( | split | lines 1 0 | join )
+    Yamanaka Gorou
+    Tanaka Rei
+    Shiratori Yumiko
+        
+    > vim student.xyzsh
+    class Student ( 
+        | var first_name second_name age country
+        
+        def show (
+            var first_name second_name age country | printf "name: %s %s?nage: %s?ncountry: %s?n"
+        )
+    )
+        
+    object student
+    student::run ( print "Yamanaka Gorou 23 Japan" | split | Student )
+        
+    > load student.xyzsh
+    > student::show
+    name: Yamanaka Gorou
+    age: 23
+    country: Japan
+
 AUTHORS
     I am a Japanese and an English learner. I'm so sorry for my strange English and please allow me to write such a English. I'll correct this step by step with my understanding English.
 
