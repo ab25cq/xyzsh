@@ -26,11 +26,9 @@
 
 BOOL cmd_plusplus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(!runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(!runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         sObject* current = runinfo->mCurrentObject;
-        sObject* var = access_object(command->mArgsRuntime[1], &current, runinfo->mRunningObject);
+        sObject* var = access_object(runinfo->mArgsRuntime[1], &current, runinfo->mRunningObject);
 
         if(var && TYPE(var) == T_STRING) {
             int num = atoi(string_c_str(var));
@@ -42,7 +40,7 @@ BOOL cmd_plusplus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             runinfo->mRCode = 0;
         }
         else {
-            err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             return FALSE;
         }
     }
@@ -52,11 +50,9 @@ BOOL cmd_plusplus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_minusminus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(!runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(!runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         sObject* current = runinfo->mCurrentObject;
-        sObject* var = access_object(command->mArgsRuntime[1], &current, runinfo->mRunningObject);
+        sObject* var = access_object(runinfo->mArgsRuntime[1], &current, runinfo->mRunningObject);
 
         if(var && TYPE(var) == T_STRING) {
             int num = atoi(string_c_str(var));
@@ -68,7 +64,7 @@ BOOL cmd_minusminus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             runinfo->mRCode = 0;
         }
         else {
-            err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             return FALSE;
         }
     }
@@ -78,20 +74,18 @@ BOOL cmd_minusminus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_plus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// output
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         char* arg = SFD(nextin).mBuf;
         int num = atoi(arg);
 
-        num += atoi(command->mArgsRuntime[1]);
+        num += atoi(runinfo->mArgsRuntime[1]);
 
         char buf[128];
         int size = snprintf(buf, 128, "%d\n", num);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -109,20 +103,18 @@ BOOL cmd_plus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_minus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// output
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         char* arg = SFD(nextin).mBuf;
         int num = atoi(arg);
 
-        num -= atoi(command->mArgsRuntime[1]);
+        num -= atoi(runinfo->mArgsRuntime[1]);
 
         char buf[128];
         int size = snprintf(buf, 128, "%d\n", num);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -140,20 +132,18 @@ BOOL cmd_minus(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_mult(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// output
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         char* arg = SFD(nextin).mBuf;
         int num = atoi(arg);
 
-        num *= atoi(command->mArgsRuntime[1]);
+        num *= atoi(runinfo->mArgsRuntime[1]);
 
         char buf[128];
         int size = snprintf(buf, 128, "%d\n", num);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -171,17 +161,15 @@ BOOL cmd_mult(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_div(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// output
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         char* arg = SFD(nextin).mBuf;
         int num = atoi(arg);
 
-        int num2 = atoi(command->mArgsRuntime[1]);
+        int num2 = atoi(runinfo->mArgsRuntime[1]);
 
         if(num2 == 0) {
-            err_msg("zero div", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("zero div", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             return FALSE;
         }
 
@@ -191,7 +179,7 @@ BOOL cmd_div(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int size = snprintf(buf, 128, "%d\n", num);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -209,20 +197,18 @@ BOOL cmd_div(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_mod(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// output
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         char* arg = SFD(nextin).mBuf;
         int num = atoi(arg);
 
-        num = num % atoi(command->mArgsRuntime[1]);
+        num = num % atoi(runinfo->mArgsRuntime[1]);
 
         char buf[128];
         int size = snprintf(buf, 128, "%d\n", num);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -240,20 +226,18 @@ BOOL cmd_mod(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_pow(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// output
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         char* arg = SFD(nextin).mBuf;
         int num = atoi(arg);
 
-        num = pow(num, atoi(command->mArgsRuntime[1]));
+        num = pow(num, atoi(runinfo->mArgsRuntime[1]));
 
         char buf[128];
         int size = snprintf(buf, 128, "%d\n", num);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -271,8 +255,6 @@ BOOL cmd_pow(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_abs(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// output
     if(runinfo->mFilter) {
         char* arg = SFD(nextin).mBuf;
@@ -282,7 +264,7 @@ BOOL cmd_abs(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int size = snprintf(buf, 128, "%d\n", num);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }

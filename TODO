@@ -2,10 +2,6 @@ Fedoraなど各環境でコンパイルと日本語を通したselectorのチェ
 
 端末のサイズを変えたときに画面が乱れる mfiler4
 
-block -runがrun_functionになっているのはおかしい
-
-引数のブロックを格納する変数 BLOCKS
-
 ヘルプの整理
 
 xyzshのソースの整理
@@ -16,4 +12,12 @@ ASSERTマクロをもっと使う
 
 変数に新規オブジェクトの作成機能はあるが代入の機能がない。
 
-memcheckerの廃止
+/dev/fdを使った<()と>()
+
+var a::b, ary a::c というコマンドで入力もありにする？completionは許している
+
+-private指定?
+
+blockオブジェクト
+引数のブロックを格納する変数 BLOCKS
+

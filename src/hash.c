@@ -25,11 +25,11 @@ void hash_it_release(hash_it* it, sObject* hash)
 }
          
 #ifndef MDEBUG
-sObject* hash_new_from_malloc(int size)
+sObject* hash_new_on_malloc(int size)
 {
    sObject* self = MALLOC(sizeof(sObject));
 
-   self->mFlg = T_HASH;
+   self->mFlags = T_HASH;
    
    SHASH(self).mTableSize = size;
    SHASH(self).mTable = (hash_it**)MALLOC(sizeof(hash_it*) * size);
@@ -42,11 +42,11 @@ sObject* hash_new_from_malloc(int size)
    return self;
 }
 #else
-sObject* hash_new_from_malloc_debug(int size, const char* fname, int line, const char* func_name)
+sObject* hash_new_on_malloc_debug(int size, const char* fname, int line, const char* func_name)
 {
    sObject* self = CheckMemLeak_Malloc(sizeof(sObject), fname, line, func_name);
 
-   self->mFlg = T_HASH;
+   self->mFlags = T_HASH;
    
    SHASH(self).mTableSize = size;
    SHASH(self).mTable = (hash_it**)MALLOC(sizeof(hash_it*) * size);
@@ -60,7 +60,7 @@ sObject* hash_new_from_malloc_debug(int size, const char* fname, int line, const
 }
 #endif
 
-sObject* hash_new_from_gc(int size, BOOL user_object)
+sObject* hash_new_on_gc(int size, BOOL user_object)
 {
    sObject* self = gc_get_free_object(T_HASH, user_object);
    
@@ -75,7 +75,7 @@ sObject* hash_new_from_gc(int size, BOOL user_object)
    return self;
 }
 
-sObject* hash_new_from_stack(int size)
+sObject* hash_new_on_stack(int size)
 {
    sObject* self = stack_get_free_object(T_HASH);
    
@@ -90,7 +90,7 @@ sObject* hash_new_from_stack(int size)
    return self;
 }
 
-void hash_delete_gc(sObject* self)
+void hash_delete_on_gc(sObject* self)
 {
    ASSERT(TYPE(self) == T_HASH);
 
@@ -105,7 +105,7 @@ void hash_delete_gc(sObject* self)
    FREE(SHASH(self).mTable);
 }
 
-void hash_delete_stack(sObject* self)
+void hash_delete_on_stack(sObject* self)
 {
    ASSERT(TYPE(self) == T_HASH);
 
@@ -120,7 +120,7 @@ void hash_delete_stack(sObject* self)
    FREE(SHASH(self).mTable);
 }
 
-void hash_delete_malloc(sObject* self)
+void hash_delete_on_malloc(sObject* self)
 {
    ASSERT(TYPE(self) == T_HASH);
 

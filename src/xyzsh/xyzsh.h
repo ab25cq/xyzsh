@@ -17,13 +17,18 @@
 #define FALSE 0
 #endif
 
+#ifndef ALLOC
 #define ALLOC                   // indicate that a memory which should be freed after using
-//#define SPACE                   // indicate that a memory which is enough to use
+#endif
+
+#ifndef MANAGED
 #define MANAGED                 // indicate that a memory which is managed inside the function or object
+#endif
 
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long ulong;
+typedef unsigned short ushort;
 
 #include <unistd.h>
 
@@ -159,21 +164,6 @@ typedef struct {
 
 struct sStatment;
 
-#define STATMENT_REVERSE 0x010000
-#define STATMENT_BACKGROUND 0x020000
-#define STATMENT_GLOBALPIPEIN 0x040000
-#define STATMENT_GLOBALPIPEOUT 0x080000
-#define STATMENT_GLOBALPIPEAPPEND 0x1000000
-#define STATMENT_CONTEXTPIPE 0x100000
-#define STATMENT_NORMAL 0x200000
-#define STATMENT_OROR 0x400000
-#define STATMENT_ANDAND 0x800000
-#define STATMENT_CONTEXTPIPE_NUMBER 0xFFFF
-
-#define STATMENT_COMMANDS_MAX 16
-#define XYZSH_OPTION_MAX 32
-#define XYZSH_MESSAGES_MAX 8
-
 struct block_obj;
 struct _sObject;
 
@@ -182,17 +172,20 @@ typedef struct _option_hash_it {
     char* mArg;
 } option_hash_it;
 
-enum eEnvKind { kEnv, kEnvBlock};
+#define ENV_FLAGS_KIND_ENV 0x01
+#define ENV_FLAGS_KIND_BLOCK 0x02
+#define ENV_FLAGS_DOUBLE_DOLLAR 0x10
+
+typedef unsigned char eEnvKind;
 
 typedef struct {
-    enum eEnvKind mKind;
-    BOOL mDoubleDollar;
+    int mFlags;
 
     union {
         struct {
             char* mName;
             char* mKey;
-            BOOL mKeyEnv;
+            uchar mKeyEnv;
         };
         struct {
             struct _sObject* mBlock;
@@ -210,8 +203,14 @@ typedef struct {
 #define REDIRECT_ENV 0x100
 #define REDIRECT_GLOB 0x200
 
-#define ARG_ENV 0x01
-#define ARG_GLOB 0x02
+#define XYZSH_ARGUMENT_ENV 0x01
+#define XYZSH_ARGUMENT_GLOB 0x02
+
+#define XYZSH_ARG_SIZE_MAX 65536*3
+#define XYZSH_REDIRECT_SIZE_MAX 72
+#define XYZSH_BLOCK_SIZE_MAX 72
+#define XYZSH_MESSAGE_SIZE_MAX 72
+#define XYZSH_ENV_SIZE_MAX 72
 
 typedef struct {
     enum eCommandKind mKind;
@@ -222,40 +221,48 @@ typedef struct {
     int mArgsSize;
 
     sEnv* mEnvs;
-    int mEnvsNum;
-    int mEnvsSize;
+    uchar mEnvsNum;
+    uchar mEnvsSize;
 
     struct _sObject** mBlocks;     // block_obj**
-    int mBlocksNum;
-    int mBlocksSize;
+    uchar mBlocksNum;
+    uchar mBlocksSize;
 
     char** mRedirectsFileNames;
     int* mRedirects;
-    int mRedirectsNum;
-    int mRedirectsSize;
+    uchar mRedirectsNum;
+    uchar mRedirectsSize;
 
-    option_hash_it mOptions[XYZSH_OPTION_MAX];  // open adressing hash
-
-    char* mMessages[XYZSH_MESSAGES_MAX];
-    int mMessagesNum;
-
-    char** mArgsRuntime;  // runtime info
-    int mArgsNumRuntime;
-    int mArgsSizeRuntime;
-
-    char** mRedirectsFileNamesRuntime; //runtime info
+    char** mMessages;
+    uchar mMessagesNum;
+    uchar mMessagesSize;
 } sCommand;
+
+#define STATMENT_FLAGS_REVERSE 0x010000
+#define STATMENT_FLAGS_BACKGROUND 0x020000
+#define STATMENT_FLAGS_GLOBAL_PIPE_IN 0x040000
+#define STATMENT_FLAGS_GLOBAL_PIPE_OUT 0x080000
+#define STATMENT_FLAGS_GLOBAL_PIPE_APPEND 0x1000000
+#define STATMENT_FLAGS_CONTEXT_PIPE 0x100000
+#define STATMENT_FLAGS_NORMAL 0x200000
+#define STATMENT_FLAGS_OROR 0x400000
+#define STATMENT_FLAGS_ANDAND 0x800000
+#define STATMENT_FLAGS_CONTEXT_PIPE_NUMBER 0xFFFF
+
+#define STATMENT_COMMANDS_MAX 12
+#define XYZSH_OPTION_MAX 16
 
 typedef struct {
     sCommand mCommands[STATMENT_COMMANDS_MAX];
-    int mCommandsNum;
+    uchar mCommandsNum;
 
     char* mFName;
-    int mLine;
+    ushort mLine;
 
-    int mFlags;
+    uint mFlags;
 } sStatment;
 
+#define COMPLETION_FLAGS_BLOCK_OR_ENV_NUM 0xff
 #define COMPLETION_FLAGS_INPUTING_COMMAND_NAME 0x0100
 #define COMPLETION_FLAGS_COMMAND_END 0x0200
 #define COMPLETION_FLAGS_ENV 0x0800
@@ -264,6 +271,7 @@ typedef struct {
 #define COMPLETION_FLAGS_TILDA 0x4000
 #define COMPLETION_FLAGS_STATMENT_END 0x8000
 #define COMPLETION_FLAGS_STATMENT_HEAD 0x10000
+#define COMPLETION_FLAGS_AFTER_REDIRECT 0x20000
 
 struct block_obj
 {
@@ -271,7 +279,7 @@ struct block_obj
     int mStatmentsNum;
     int mStatmentsSize;
     char* mSource;
-    int mCompletionFlags;
+    uint mCompletionFlags;
 };
 
 struct _sObject;
@@ -353,14 +361,14 @@ typedef struct {
 #define GC_MARK 0x8000
 
 #define SOBJ_USER_OBJECT 0x100
-#define IS_USER_OBJECT(o) ((o)->mFlg & SOBJ_USER_OBJECT)
-#define SET_USER_OBJECT(o) ((o)->mFlg |= SOBJ_USER_OBJECT)
+#define IS_USER_OBJECT(o) ((o)->mFlags & SOBJ_USER_OBJECT)
+#define SET_USER_OBJECT(o) ((o)->mFlags |= SOBJ_USER_OBJECT)
 
-#define IS_MARKED(o) ((o)->mFlg & GC_MARK)
-#define SET_MARK(o) ((o)->mFlg |= GC_MARK)
+#define IS_MARKED(o) ((o)->mFlags & GC_MARK)
+#define SET_MARK(o) ((o)->mFlags |= GC_MARK)
 
-#define TYPE(o) ((o)->mFlg & 0xFF)
-#define CLEAR_MARK(o) ((o)->mFlg &= ~GC_MARK)
+#define TYPE(o) ((o)->mFlags & 0xFF)
+#define CLEAR_MARK(o) ((o)->mFlags &= ~GC_MARK)
 
 #define T_STRING 1
 #define T_VECTOR 2
@@ -380,7 +388,7 @@ typedef struct {
 #define T_TYPE_MAX 16
 
 typedef struct _sObject {
-    int mFlg;         // contains a kind of the above and a mark flag, user object flag
+    int mFlags;         // contains a kind of the above and a mark flag, user object flag
     struct _sObject* mNextFreeObject;
 
     union {
@@ -441,18 +449,18 @@ BOOL stack_valid_object(sObject* object);
 #include <xyzsh/block.h>
 #include <xyzsh/curses.h>
 
-sObject* extobj_new_from_gc(void* object, fExtObjMarkFun mark_fun, fExtObjFreeFun free_fun, fExtObjMainFun main_fun, BOOL user_object);
-#define EXTOBJ_NEW_GC(o, o2, o3, o4, o5) extobj_new_from_gc(o, o2, o3, o4, o5)
+sObject* extobj_new_on_gc(void* object, fExtObjMarkFun mark_fun, fExtObjFreeFun free_fun, fExtObjMainFun main_fun, BOOL user_object);
+#define EXTOBJ_NEW_GC(o, o2, o3, o4, o5) extobj_new_on_gc(o, o2, o3, o4, o5)
 
-#define UOBJECT_NEW_GC(o, o2, o3, o4) uobject_new_from_gc(o, o2, o3, o4)
-#define UOBJECT_NEW_STACK(o, o2, o3) uobject_new_from_stack(o, o2, o3)
+#define UOBJECT_NEW_GC(o, o2, o3, o4) uobject_new_on_gc(o, o2, o3, o4)
+#define UOBJECT_NEW_STACK(o, o2, o3) uobject_new_on_stack(o, o2, o3)
 
-void uobject_delete_gc(sObject* self);
-void uobject_delete_stack(sObject* self);
+void uobject_delete_on_gc(sObject* self);
+void uobject_delete_on_stack(sObject* self);
 int uobject_gc_children_mark(sObject* self);
 
-sObject* uobject_new_from_gc(int size, sObject* parent, char* name, BOOL user_object);
-sObject* uobject_new_from_stack(int size, sObject* object, char* name);
+sObject* uobject_new_on_gc(int size, sObject* parent, char* name, BOOL user_object);
+sObject* uobject_new_on_stack(int size, sObject* object, char* name);
 void uobject_put(sObject* self, char* key, void* item);
 void uobject_init(sObject* self);
 void uobject_root_init(sObject* self);
@@ -465,56 +473,56 @@ char* uobject_loop_key(uobject_it* it);
 uobject_it* uobject_loop_next(uobject_it* it);
 int uobject_count(sObject* self);
 
-sObject* external_prog_new_from_gc(char* path, BOOL user_object);
-void external_prog_delete_gc();
+sObject* external_prog_new_on_gc(char* path, BOOL user_object);
+void external_prog_delete_on_gc();
 
-#define EXTPROG_NEW_GC(o, o2) external_prog_new_from_gc(o, o2)
+#define EXTPROG_NEW_GC(o, o2) external_prog_new_on_gc(o, o2)
 
-sObject* completion_new_from_gc(sObject* block, BOOL user_object);
+sObject* completion_new_on_gc(sObject* block, BOOL user_object);
 int completion_gc_children_mark(sObject* self);
 
-#define COMPLETION_NEW_GC(o, o2) completion_new_from_gc(o, o2)
+#define COMPLETION_NEW_GC(o, o2) completion_new_on_gc(o, o2)
 
-sObject* nfun_new_from_gc(fXyzshNativeFun fun, sObject* parent, BOOL user_object);
-#define NFUN_NEW_GC(o, o2, o3) nfun_new_from_gc(o, o2, o3)
+sObject* nfun_new_on_gc(fXyzshNativeFun fun, sObject* parent, BOOL user_object);
+#define NFUN_NEW_GC(o, o2, o3) nfun_new_on_gc(o, o2, o3)
 int nfun_gc_children_mark(sObject* self);
-void nfun_delete_gc(sObject* self);
+void nfun_delete_on_gc(sObject* self);
 BOOL nfun_put_option_with_argument(sObject* self, MANAGED char* key);
 BOOL nfun_option_with_argument_item(sObject* self, char* key);
 
-sObject* fun_new_from_gc(sObject* parent, BOOL user_object, BOOL no_stackframe);
-#define FUN_NEW_GC(o, o2, o3) fun_new_from_gc(o, o2, o3)
-void fun_delete_gc(sObject* self);
+sObject* fun_new_on_gc(sObject* parent, BOOL user_object, BOOL no_stackframe);
+#define FUN_NEW_GC(o, o2, o3) fun_new_on_gc(o, o2, o3)
+void fun_delete_on_gc(sObject* self);
 int fun_gc_children_mark(sObject* self);
-#define FUN_NEW_STACK(o) fun_new_from_stack(o)
-sObject* fun_new_from_stack(sObject* parent);
-void fun_delete_stack(sObject* self);
+#define FUN_NEW_STACK(o) fun_new_on_stack(o)
+sObject* fun_new_on_stack(sObject* parent);
+void fun_delete_on_stack(sObject* self);
 BOOL fun_put_option_with_argument(sObject* self, MANAGED char* key);
 BOOL fun_option_with_argument_item(sObject* self, char* key);
 
-sObject* class_new_from_gc(sObject* parent, BOOL user_object, BOOL no_stackframe);
-#define CLASS_NEW_GC(o, o2, o3) class_fun_new_from_gc(o, o2, o3)
-void class_delete_gc(sObject* self);
-void class_delete_stack(sObject* self);
+sObject* class_new_on_gc(sObject* parent, BOOL user_object, BOOL no_stackframe);
+#define CLASS_NEW_GC(o, o2, o3) class_fun_new_on_gc(o, o2, o3)
+void class_delete_on_gc(sObject* self);
+void class_delete_on_stack(sObject* self);
 BOOL class_option_with_argument_item(sObject* self, char* key);
 BOOL class_put_option_with_argument(sObject* self, MANAGED char* key);
 int class_gc_children_mark(sObject* self);
 
-sObject* fd_new_from_stack();
-void fd_delete_stack(sObject* self);
-#define FD_NEW_STACK() fd_new_from_stack()
+sObject* fd_new_on_stack();
+void fd_delete_on_stack(sObject* self);
+#define FD_NEW_STACK() fd_new_on_stack()
 BOOL fd_write(sObject* self, char* str, int size);
 
 void fd_split(sObject* self, eLineField lf);
 BOOL fd_guess_lf(sObject* self, eLineField* lf);
 void fd_put(sObject* self, MANAGED char* buf, int buf_size, int buf_len);
 
-sObject* fd2_new_from_stack(uint fd);
-#define FD2_NEW_STACK(o) fd2_new_from_stack(o)
+sObject* fd2_new_on_stack(uint fd);
+#define FD2_NEW_STACK(o) fd2_new_on_stack(o)
 
-sObject* job_new_from_gc(char* name, pid_t pgroup, struct termios tty);
-#define JOB_NEW_GC(o, o2, o3) job_new_from_gc(o, o2, o3)
-void job_delete_gc(sObject* self);
+sObject* job_new_on_gc(char* name, pid_t pgroup, struct termios tty);
+#define JOB_NEW_GC(o, o2, o3) job_new_on_gc(o, o2, o3)
+void job_delete_on_gc(sObject* self);
 void job_push_back_child_pid(sObject* self, pid_t pid);
 
 /// structure used from run function, which contains run time info
@@ -530,6 +538,21 @@ typedef struct _sRunInfo {
     sObject* mCurrentObject;
     sObject* mRunningObject;
     sObject* mRecieverObject;
+
+    option_hash_it mOptions[XYZSH_OPTION_MAX];  // open adressing hash
+    
+    char** mArgs;
+    int mArgsNum;
+
+    char** mArgsRuntime;
+    int mArgsNumRuntime;
+    int mArgsSizeRuntime;
+
+    char** mRedirectsFileNamesRuntime;
+    int mRedirectsNumRuntime;
+
+    struct _sObject** mBlocks;     // block_obj**
+    int mBlocksNum;
 } sRunInfo;
 
 BOOL xyzsh_rehash(char* sname, int sline);
@@ -745,7 +768,7 @@ BOOL run_function(sObject* fun, sObject* nextin, sObject* nextout, sRunInfo* run
 #define PARSER_MAGIC_NUMBER_OPTION 5
 
 #include <oniguruma.h>
-int get_onig_regex(regex_t** reg, sCommand* command, char* regex);
+int get_onig_regex(regex_t** reg, sRunInfo* runinfo, char* regex);
 
 int readline_signal();
 void clear_matching_info_variable();
@@ -772,6 +795,9 @@ char* xstrncpy(char* src, char* des, int size);
 char* xstrncat(char* src, char* des, int size);
 
 BOOL contained_in_pipe(sObject* object);
+BOOL get_object_from_str(sObject** object, char* str, sObject* current_object, sObject* running_object, sRunInfo* runinfo) ;
+void split_prefix_of_object_and_name(sObject** object, sObject* prefix, sObject* name, char* str);
+void split_prefix_of_object_and_name2(sObject** object, sObject* prefix, sObject* name, char* str, sObject* current_object);
 
 //////////////////////////////////////////////////////////////////////
 // xyzsh API

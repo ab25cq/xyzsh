@@ -3,11 +3,11 @@
 #include <string.h>
 #include <stdio.h>
 
-sObject* completion_new_from_gc(sObject* block, BOOL user_object)
+sObject* completion_new_on_gc(sObject* block, BOOL user_object)
 {
    sObject* self = gc_get_free_object(T_COMPLETION, user_object);
    
-   SCOMPLETION(self).mBlock = block_clone_gc(block, T_BLOCK, user_object);
+   SCOMPLETION(self).mBlock = block_clone_on_gc(block, T_BLOCK, user_object);
 
    return self;
 }

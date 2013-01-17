@@ -117,6 +117,8 @@ static BOOL read_quote(char**p, sBuf* buf, char* sname, int* sline)
 static BOOL block_parse(char** p, char* sname, int* sline, sObject* block, sObject** current_object);
 static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_quote, sCommand* command, sObject* block, sObject** current_object);
 
+#define XYZSH_VARIABLE_OBJECT_MAX 8
+
 static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_quote, sCommand* command, sObject* block, sObject** current_object)
 {
     (*p)++;
@@ -156,9 +158,9 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
 
         sObject* block2 = BLOCK_NEW_STACK();
         if(!block_parse(p, sname, sline, block2, current_object)) {
-            sCommand_add_env_block(command, block2, double_dollar, lf);
+            (void)sCommand_add_env_block(command, block2, double_dollar, lf, sname, *sline);
             SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_ENV_BLOCK;
-            SBLOCK(block).mCompletionFlags |= command->mEnvsNum & 0xFF;
+            SBLOCK(block).mCompletionFlags |= command->mEnvsNum & COMPLETION_FLAGS_BLOCK_OR_ENV_NUM;
             return FALSE;
         }
 
@@ -170,7 +172,9 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
         add_str_to_buf(buf, buf2);
         add_char_to_buf(buf, PARSER_MAGIC_NUMBER_ENV);
 
-        sCommand_add_env_block(command, block2, double_dollar, lf);
+        if(!sCommand_add_env_block(command, block2, double_dollar, lf, sname, *sline)) {
+            return FALSE;
+        }
     }
     else {
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_ENV;
@@ -208,7 +212,7 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
             }
         }
         else {
-            while(**p >= 'a' && **p <= 'z' || **p >= 'A' && **p <= 'Z' || **p == '_' || **p >= '0' && **p <= '9')
+            while(**p >= 'a' && **p <= 'z' || **p >= 'A' && **p <= 'Z' || **p == '_' || **p >= '0' && **p <= '9' || **p == ':')
             {
                 add_char_to_buf(&name, **p);
                 (*p)++;
@@ -222,7 +226,7 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
             {
                 FREE(name.mBuf);
                 if(key.mEnv) {  // for readline
-                    sCommand_add_arg_to_command(command, MANAGED key.mBuf, TRUE, FALSE);
+                    (void)sCommand_add_arg(command, MANAGED key.mBuf, TRUE, FALSE, sname, *sline);
                 }
                 else {
                     FREE(key.mBuf);
@@ -248,13 +252,15 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
         add_str_to_buf(buf, buf2);
         add_char_to_buf(buf, PARSER_MAGIC_NUMBER_ENV);
 
-        sCommand_add_env(command, MANAGED name.mBuf, MANAGED key.mBuf, key.mEnv, double_dollar);
+        if(!sCommand_add_env(command, MANAGED name.mBuf, MANAGED key.mBuf, key.mEnv, double_dollar, sname, *sline)) {
+            return FALSE;
+        }
     }
 
     return TRUE;
 }
 
-static BOOL add_argument_to_command(sBuf* buf, sCommand* command, char* sname, int* sline);
+static BOOL add_argument_to_command(MANAGED sBuf* buf, sCommand* command, char* sname, int* sline);
 
 static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_quote, sCommand* command, sObject* block, sObject** current_object)
 {
@@ -430,51 +436,15 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
             buf->mTilda = TRUE;
         }
         /// redirect out ///
-        else if(**p == '%') {
-            if(buf->mBuf[0] != 0) {
-                /// message passing ///
-                if(buf->mMessagePassing) {
-                    if(!sCommand_add_message(command, MANAGED buf->mBuf)) {
-                        err_msg("too many message", sname, *sline, buf->mBuf);
-                        FREE(buf->mBuf);
-                        return FALSE;
-                    }
-                }
-                else if(!add_argument_to_command(buf, command, sname, sline)) {
-                    return FALSE;
-                }
-
-                memset(buf, 0, sizeof(sBuf));
-                buf->mBuf = MALLOC(64);
-                buf->mBuf[0] = 0;
-                buf->mSize = 64;
-            }
-
-            (*p)+=2;
-
-            if(**p == '%') {
-                (*p)++;
-
-                buf->mRedirect = REDIRECT_APPEND;
-            }
-            else {
-                buf->mRedirect = REDIRECT_OUT;
-            }
-
-            skip_spaces(p);
-        }
-        /// redirect out ///
         else if(**p == '>') {
             if(buf->mBuf[0] != 0) {
                 /// message passing ///
                 if(buf->mMessagePassing) {
-                    if(!sCommand_add_message(command, MANAGED buf->mBuf)) {
-                        err_msg("too many message", sname, *sline, buf->mBuf);
-                        FREE(buf->mBuf);
+                    if(!sCommand_add_message(command, MANAGED buf->mBuf, sname, *sline)) {
                         return FALSE;
                     }
                 }
-                else if(!add_argument_to_command(buf, command, sname, sline)) {
+                else if(!add_argument_to_command(MANAGED buf, command, sname, sline)) {
                     return FALSE;
                 }
 
@@ -494,6 +464,8 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
                 buf->mRedirect = REDIRECT_OUT;
             }
 
+            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_AFTER_REDIRECT;
+
             skip_spaces(p);
         }
         /// redirect in ///
@@ -501,13 +473,11 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
             if(buf->mBuf[0] != 0) {
                 /// message passing ///
                 if(buf->mMessagePassing) {
-                    if(!sCommand_add_message(command, MANAGED buf->mBuf)) {
-                        err_msg("too many message", sname, *sline, buf->mBuf);
-                        FREE(buf->mBuf);
+                    if(!sCommand_add_message(command, MANAGED buf->mBuf, sname, *sline)) {
                         return FALSE;
                     }
                 }
-                else if(!add_argument_to_command(buf, command, sname, sline)) {
+                else if(!add_argument_to_command(MANAGED buf, command, sname, sline)) {
                     return FALSE;
                 }
 
@@ -521,20 +491,21 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
 
             buf->mRedirect = REDIRECT_IN;
 
+            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_AFTER_REDIRECT;
+
             skip_spaces(p);
         }
+/*
         /// redirect error out ///
         else if(**p == '2' && *(*p+1) == '>') {
             if(buf->mBuf[0] != 0) {
                 /// message passing ///
                 if(buf->mMessagePassing) {
-                    if(!sCommand_add_message(command, MANAGED buf->mBuf)) {
-                        err_msg("too many message", sname, *sline, buf->mBuf);
-                        FREE(buf->mBuf);
+                    if(!sCommand_add_message(command, MANAGED buf->mBuf, sname, *sline)) {
                         return FALSE;
                     }
                 }
-                else if(!add_argument_to_command(buf, command, sname, sline)) {
+                else if(!add_argument_to_command(MANAGED buf, command, sname, sline)) {
                     return FALSE;
                 }
 
@@ -555,7 +526,10 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
             }
 
             skip_spaces(p);
+
+            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_AFTER_REDIRECT;
         }
+*/
         /// glob ///
         else if(command->mArgsNum > 0 && (**p == '[' || **p == '?' || **p == '*')) {
             add_char_to_buf(buf, **p);
@@ -709,7 +683,7 @@ static BOOL block_parse(char** p, char* sname, int* sline, sObject* block, sObje
     return TRUE;
 }
 
-static BOOL add_argument_to_command(sBuf* buf, sCommand* command, char* sname, int* sline)
+static BOOL add_argument_to_command(MANAGED sBuf* buf, sCommand* command, char* sname, int* sline)
 {
     /// tilda expression ///
     if(buf->mTilda) {
@@ -724,19 +698,27 @@ static BOOL add_argument_to_command(sBuf* buf, sCommand* command, char* sname, i
     if(buf->mRedirect) {
         /// glob ///
         if(buf->mGlob && command->mArgsNum > 0) {
-            sCommand_add_redirect_to_command(command, MANAGED buf->mBuf, buf->mEnv, buf->mGlob, buf->mRedirect);
+            if(!sCommand_add_redirect(command, MANAGED buf->mBuf, buf->mEnv, buf->mGlob, buf->mRedirect, sname, *sline)) {
+                return FALSE;
+            }
         }
         else {
-            sCommand_add_redirect_to_command(command, MANAGED buf->mBuf, buf->mEnv, FALSE, buf->mRedirect);
+            if(!sCommand_add_redirect(command, MANAGED buf->mBuf, buf->mEnv, FALSE, buf->mRedirect, sname, *sline)) {
+                return FALSE;
+            }
         }
     }
     /// glob ///
     else if(buf->mGlob && command->mArgsNum > 0) {
-        sCommand_add_arg_to_command(command, MANAGED buf->mBuf, buf->mEnv, buf->mGlob);
+        if(!sCommand_add_arg(command, MANAGED buf->mBuf, buf->mEnv, buf->mGlob, sname, *sline)) {
+            return FALSE;
+        }
     }
     /// add buf to command ///
     else if(buf->mNullString || buf->mBuf[0] != 0) {
-        sCommand_add_arg_to_command(command, MANAGED buf->mBuf, buf->mEnv, FALSE);
+        if(!sCommand_add_arg(command, MANAGED buf->mBuf, buf->mEnv, FALSE, sname, *sline)) {
+            return FALSE;
+        }
     }
     else {
         FREE(buf->mBuf);
@@ -757,7 +739,7 @@ static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObje
         if(!read_one_argument(p, &buf, sname, sline, TRUE, command, block, current_object)) 
         {
             if(buf.mEnv) {  // for readline
-                sCommand_add_arg_to_command(command, MANAGED buf.mBuf, TRUE, FALSE);
+                (void)sCommand_add_arg(command, MANAGED buf.mBuf, TRUE, FALSE, sname, *sline);
             }
             else {
                 FREE(buf.mBuf);
@@ -767,15 +749,13 @@ static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObje
 
         /// message passing ///
         if(buf.mMessagePassing) {
-            if(!sCommand_add_message(command, MANAGED buf.mBuf)) {
-                err_msg("too many message", sname, *sline, buf.mBuf);
-                FREE(buf.mBuf);
+            if(!sCommand_add_message(command, MANAGED buf.mBuf, sname, *sline)) {
                 return FALSE;
             }
 
             continue;
         }
-        else if(!add_argument_to_command(&buf, command, sname, sline)) {
+        else if(!add_argument_to_command(MANAGED &buf, command, sname, sline)) {
             return FALSE;
         }
 
@@ -786,14 +766,18 @@ static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObje
             if(command->mArgsNum == 0) {
                 sObject* block2 = BLOCK_NEW_STACK();
                 if(!block_parse(p, sname, sline, block2, current_object)) {
-                    sCommand_add_block_to_command(command, block2);
+                    (void)sCommand_add_block(command, block2, sname, *sline);
                     SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_BLOCK;
-                    SBLOCK(block).mCompletionFlags |= command->mBlocksNum & 0xFF;
+                    SBLOCK(block).mCompletionFlags |= command->mBlocksNum & COMPLETION_FLAGS_BLOCK_OR_ENV_NUM;
                     return FALSE;
                 }
 
-                sCommand_add_arg_to_command(command, MANAGED STRDUP("subshell"), 0, 0);
-                sCommand_add_block_to_command(command, block2);
+                if(!sCommand_add_arg(command, MANAGED STRDUP("subshell"), 0, 0, sname, *sline)) {
+                    return FALSE;
+                }
+                if(!sCommand_add_block(command, block2, sname, *sline)) {
+                    return FALSE;
+                }
             }
             else {
                 sObject* current_object_before;
@@ -825,9 +809,9 @@ static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObje
 
                 sObject* block2 = BLOCK_NEW_STACK();
                 if(!block_parse(p, sname, sline, block2, current_object)) {
-                    sCommand_add_block_to_command(command, block2);
+                    (void)sCommand_add_block(command, block2, sname, *sline);
                     SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_BLOCK;
-                    SBLOCK(block).mCompletionFlags |= command->mBlocksNum & 0xFF;
+                    SBLOCK(block).mCompletionFlags |= command->mBlocksNum & COMPLETION_FLAGS_BLOCK_OR_ENV_NUM;
                     return FALSE;
                 }
 
@@ -836,15 +820,16 @@ static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObje
                     *current_object = current_object_before;
                 }
 
-                sCommand_add_block_to_command(command, block2);
+                if(!sCommand_add_block(command, block2, sname, *sline)) {
+                    return FALSE;
+                }
             }
             SBLOCK(block).mCompletionFlags &= ~COMPLETION_FLAGS_INPUTING_COMMAND_NAME;
         }
         /// spaces ///
         else if(**p == ' ' || **p == '\t') {
             skip_spaces(p);
-            SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_INPUTING_COMMAND_NAME|COMPLETION_FLAGS_ENV|COMPLETION_FLAGS_TILDA);
-
+            SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_INPUTING_COMMAND_NAME|COMPLETION_FLAGS_ENV|COMPLETION_FLAGS_TILDA|COMPLETION_FLAGS_AFTER_REDIRECT);
         }
         else {
             break;
@@ -864,7 +849,7 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
         (*p)++;
         skip_spaces(p);
 
-        statment->mFlags |= STATMENT_REVERSE;
+        statment->mFlags |= STATMENT_FLAGS_REVERSE;
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_HEAD;
     }
 
@@ -874,7 +859,7 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
 
         skip_spaces(p);
 
-        statment->mFlags |= STATMENT_GLOBALPIPEIN;
+        statment->mFlags |= STATMENT_FLAGS_GLOBAL_PIPE_IN;
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_HEAD;
     }
     /// a context pipe ///
@@ -891,14 +876,14 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
 
         skip_spaces(p);
 
-        statment->mFlags |= STATMENT_CONTEXTPIPE;
-        statment->mFlags |= atoi(buf) & STATMENT_CONTEXTPIPE_NUMBER;
+        statment->mFlags |= STATMENT_FLAGS_CONTEXT_PIPE;
+        statment->mFlags |= atoi(buf) & STATMENT_FLAGS_CONTEXT_PIPE_NUMBER;
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_HEAD;
     }
 
     while(**p) {
         if(statment->mCommandsNum >= STATMENT_COMMANDS_MAX) {
-            err_msg("There are max number of commands on this statment", sname, *sline, NULL);
+            err_msg("Overflow command number. Please use global pipe.", sname, *sline, NULL);
             return FALSE;
         }
 
@@ -948,10 +933,10 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
 
         if(**p == '>') {
             (*p)++;
-            statment->mFlags |= STATMENT_GLOBALPIPEAPPEND;
+            statment->mFlags |= STATMENT_FLAGS_GLOBAL_PIPE_APPEND;
         }
         else {
-            statment->mFlags |= STATMENT_GLOBALPIPEOUT;
+            statment->mFlags |= STATMENT_FLAGS_GLOBAL_PIPE_OUT;
         }
 
         skip_spaces(p);
@@ -962,28 +947,28 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
         (*p)+=2;
         skip_spaces(p);
 
-        statment->mFlags |= STATMENT_ANDAND;
+        statment->mFlags |= STATMENT_FLAGS_ANDAND;
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
     }
     else if(**p == '|' && *(*p+1) == '|') {
         (*p)+=2;
         skip_spaces(p);
 
-        statment->mFlags |= STATMENT_OROR;
+        statment->mFlags |= STATMENT_FLAGS_OROR;
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
     }
     else if(**p == '&') {
         (*p)++;
         skip_spaces(p);
 
-        statment->mFlags |= STATMENT_BACKGROUND;
+        statment->mFlags |= STATMENT_FLAGS_BACKGROUND;
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
     }
     else if(**p == '\n') {
         (*p)++; 
         skip_spaces(p);
 
-        statment->mFlags |= STATMENT_NORMAL;
+        statment->mFlags |= STATMENT_FLAGS_NORMAL;
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
         (*sline)++;
     }
@@ -991,11 +976,11 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
         (*p)++;
         skip_spaces(p);
 
-        statment->mFlags |= STATMENT_NORMAL;
+        statment->mFlags |= STATMENT_FLAGS_NORMAL;
         SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
     }
     else if(**p == 0) {
-        statment->mFlags |= STATMENT_NORMAL;
+        statment->mFlags |= STATMENT_FLAGS_NORMAL;
     }
     else if(**p == ')' || **p == '#') {
     }

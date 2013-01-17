@@ -26,44 +26,42 @@
 
 BOOL cmd_write(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 2 && runinfo->mFilter) {
-        char* fname = command->mArgsRuntime[1];
+    if(runinfo->mArgsNumRuntime == 2 && runinfo->mFilter) {
+        char* fname = runinfo->mArgsRuntime[1];
 
         int fd;
-        if(sCommand_option_item(command, "-force")) {
+        if(sRunInfo_option(runinfo, "-force")) {
             fd = open(fname, O_WRONLY|O_CREAT|O_TRUNC, 0644);
         }
-        else if(sCommand_option_item(command, "-append")) {
+        else if(sRunInfo_option(runinfo, "-append")) {
             fd = open(fname, O_WRONLY|O_APPEND);
         }
         else {
             if(access(fname, F_OK) == 0) {
-                err_msg("The file exists. If you want to override, add -force option to \"write\" command", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("The file exists. If you want to override, add -force option to \"write\" runinfo", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
 
             fd = open(fname, O_WRONLY|O_CREAT|O_TRUNC, 0644);
         }
 
-        if(sCommand_option_item(command, "-error")) {
+        if(sRunInfo_option(runinfo, "-error")) {
             if(!bufsiz_write(fd, SFD(gStderr).mBuf, SFD(gStderr).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             fd_clear(gStderr);
 
             if(!fd_write(nextout, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
         }
         else {
             if(!bufsiz_write(fd, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -213,9 +211,7 @@ static int correct_path(char* current_path, char* path, char* path2, int path2_s
 
 BOOL cmd_cd(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 1) {
+    if(runinfo->mArgsNumRuntime == 1) {
         char* path = getenv("HOME");
         if(path) {
             struct stat stat_;
@@ -229,8 +225,8 @@ BOOL cmd_cd(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
         }
     }
-    else if(command->mArgsNumRuntime == 2) {
-        char* path = command->mArgsRuntime[1];
+    else if(runinfo->mArgsNumRuntime == 2) {
+        char* path = runinfo->mArgsRuntime[1];
         char cwd[PATH_MAX];
         char path2[PATH_MAX];
 
@@ -270,10 +266,8 @@ BOOL cmd_popd(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_pushd(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 2) {
-        char* path = command->mArgsRuntime[1];
+    if(runinfo->mArgsNumRuntime == 2) {
+        char* path = runinfo->mArgsRuntime[1];
         char cwd[PATH_MAX];
         char path2[PATH_MAX];
 
@@ -286,12 +280,12 @@ BOOL cmd_pushd(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     vector_add(gDirStack, STRING_NEW_GC(path2, FALSE));
 
                     if(!fd_write(nextout, path2, strlen(path2))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                     if(!fd_write(nextout, "\n", 1)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-sObject* external_prog_new_from_gc(char* path, BOOL user_object)
+sObject* external_prog_new_on_gc(char* path, BOOL user_object)
 {
    sObject* self = gc_get_free_object(T_EXTPROG, user_object);
    
@@ -12,12 +12,12 @@ sObject* external_prog_new_from_gc(char* path, BOOL user_object)
    return self;
 }
 
-void external_prog_delete_gc(sObject* self)
+void external_prog_delete_on_gc(sObject* self)
 {
     FREE(SEXTPROG(self).mPath);
 }
 
-sObject* extobj_new_from_gc(void* object, fExtObjMarkFun mark_fun, fExtObjFreeFun free_fun, fExtObjMainFun main_fun, BOOL user_object)
+sObject* extobj_new_on_gc(void* object, fExtObjMarkFun mark_fun, fExtObjFreeFun free_fun, fExtObjMainFun main_fun, BOOL user_object)
 {
    sObject* self = gc_get_free_object(T_EXTOBJ, user_object);
    

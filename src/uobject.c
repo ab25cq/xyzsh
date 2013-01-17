@@ -57,24 +57,32 @@ void uobject_it_release(uobject_it* it, sObject* hash)
     FREE(it);
 }
 
-
-sObject* uobject_new_from_gc(int size, sObject* parent, char* name, BOOL user_object)
+sObject* uobject_new_on_gc(int size, sObject* parent, char* name, BOOL user_object)
 {
-   sObject* self = gc_get_free_object(T_UOBJECT, user_object);
-   
-   SUOBJECT(self).mTableSize = size;
-   SUOBJECT(self).mTable = (uobject_it**)MALLOC(sizeof(uobject_it*) * size);
-   memset(SUOBJECT(self).mTable, 0, sizeof(uobject_it*)*size);
+    sObject* self = gc_get_free_object(T_UOBJECT, user_object);
+    
+    SUOBJECT(self).mTableSize = size;
+    SUOBJECT(self).mTable = (uobject_it**)MALLOC(sizeof(uobject_it*) * size);
+    memset(SUOBJECT(self).mTable, 0, sizeof(uobject_it*)*size);
 
-   SUOBJECT(self).mEntryIt = NULL;
+    SUOBJECT(self).mEntryIt = NULL;
 
-   SUOBJECT(self).mCounter = 0;
+    SUOBJECT(self).mCounter = 0;
 
-   if(parent) SUOBJECT(self).mParent = parent; else SUOBJECT(self).mParent = self;
+    if(parent) {
+        SUOBJECT(self).mParent = parent;
+    } else {
+        if(gRootObject) {
+            SUOBJECT(self).mParent = gRootObject;
+        }
+        else {
+            SUOBJECT(self).mParent = self;
+        }
+    }
 
-   SUOBJECT(self).mName = STRDUP(name);
+    SUOBJECT(self).mName = STRDUP(name);
 
-   return self;
+    return self;
 }
 
 sObject* uobject_new_from_stack(int size, sObject* parent, char* name)
@@ -284,7 +292,7 @@ void uobject_init(sObject* self)
     uobject_put(self, "show", NFUN_NEW_GC(cmd_mshow, NULL, FALSE));
 }
 
-void uobject_delete_gc(sObject* self)
+void uobject_delete_on_gc(sObject* self)
 {
     ASSERT(TYPE(self) == T_UOBJECT);
 
@@ -300,7 +308,7 @@ void uobject_delete_gc(sObject* self)
    FREE(SUOBJECT(self).mName);
 }
 
-void uobject_delete_stack(sObject* self)
+void uobject_delete_on_stack(sObject* self)
 {
     ASSERT(TYPE(self) == T_UOBJECT);
 

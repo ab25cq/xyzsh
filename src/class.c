@@ -13,7 +13,7 @@ static int options_hash_fun(char* key)
     return value % XYZSH_OPTION_MAX;
 }
 
-sObject* class_new_from_gc(sObject* parent, BOOL user_object, BOOL no_stackframe)
+sObject* class_new_on_gc(sObject* parent, BOOL user_object, BOOL no_stackframe)
 {
    sObject* self = gc_get_free_object(T_CLASS, user_object);
    
@@ -32,11 +32,11 @@ sObject* class_new_from_gc(sObject* parent, BOOL user_object, BOOL no_stackframe
 }
 
 
-sObject* class_clone_from_stack_block_to_gc(sObject* block, BOOL user_object, sObject* parent, BOOL no_stackframe)
+sObject* class_clone_on_gc_from_stack_block(sObject* block, BOOL user_object, sObject* parent, BOOL no_stackframe)
 {
    sObject* self = gc_get_free_object(T_CLASS, user_object);
    
-   SCLASS(self).mBlock = block_clone_gc(block, T_BLOCK, FALSE);
+   SCLASS(self).mBlock = block_clone_on_gc(block, T_BLOCK, FALSE);
 
    SCLASS(self).mParent = parent;
 
@@ -49,11 +49,11 @@ sObject* class_clone_from_stack_block_to_gc(sObject* block, BOOL user_object, sO
    return self;
 }
 
-sObject* class_clone_from_stack_block_to_stack(sObject* block, sObject* parent, BOOL no_stackframe)
+sObject* class_clone_on_stack_from_stack_block(sObject* block, sObject* parent, BOOL no_stackframe)
 {
    sObject* self = stack_get_free_object(T_CLASS);
    
-   SCLASS(self).mBlock = block_clone_stack(block, T_BLOCK);
+   SCLASS(self).mBlock = block_clone_on_stack(block, T_BLOCK);
 
    SCLASS(self).mParent = parent;
 
@@ -67,7 +67,7 @@ sObject* class_clone_from_stack_block_to_stack(sObject* block, sObject* parent, 
    return self;
 }
 
-void class_delete_gc(sObject* self)
+void class_delete_on_gc(sObject* self)
 {
     int i;
     for(i=0; i<XYZSH_OPTION_MAX; i++) {
@@ -99,7 +99,7 @@ BOOL class_put_option_with_argument(sObject* self, MANAGED char* key)
     }
 }
 
-BOOL class_option_with_argument_item(sObject* self, char* key)
+BOOL class_option_with_argument(sObject* self, char* key)
 {
     int hash_value = options_hash_fun(key);
     option_hash_it* p = SCLASS(self).mOptions + hash_value;
@@ -125,7 +125,7 @@ BOOL class_option_with_argument_item(sObject* self, char* key)
     }
 }
 
-void class_delete_stack(sObject* self)
+void class_delete_on_stack(sObject* self)
 {
     int i;
     for(i=0; i<XYZSH_OPTION_MAX; i++) {

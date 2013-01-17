@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-sObject* nfun_new_from_gc(fXyzshNativeFun fun, sObject* parent, BOOL user_object)
+sObject* nfun_new_on_gc(fXyzshNativeFun fun, sObject* parent, BOOL user_object)
 {
    sObject* self = gc_get_free_object(T_NFUN, user_object);
    
@@ -16,7 +16,7 @@ sObject* nfun_new_from_gc(fXyzshNativeFun fun, sObject* parent, BOOL user_object
    return self;
 }
 
-void nfun_delete_gc(sObject* self)
+void nfun_delete_on_gc(sObject* self)
 {
     int i;
     for(i=0; i<XYZSH_OPTION_MAX; i++) {
@@ -58,7 +58,7 @@ BOOL nfun_put_option_with_argument(sObject* self, MANAGED char* key)
     }
 }
 
-BOOL nfun_option_with_argument_item(sObject* self, char* key)
+BOOL nfun_option_with_argument(sObject* self, char* key)
 {
     int hash_value = options_hash_fun(key);
     option_hash_it* p = SNFUN(self).mOptions + hash_value;

@@ -21,38 +21,38 @@ static void object_delete(sObject* obj)
 {
     switch(TYPE(obj)) {
     case T_STRING:
-        string_delete_gc(obj);
+        string_delete_on_gc(obj);
         break;
 
     case T_VECTOR:
-        vector_delete_gc(obj);
+        vector_delete_on_gc(obj);
         break;
 
     case T_HASH:
-        hash_delete_gc(obj);
+        hash_delete_on_gc(obj);
         break;
 
     case T_LIST:
-        list_delete_gc(obj);
+        list_delete_on_gc(obj);
         break;
 
     case T_BLOCK:
-        block_delete_gc(obj);
+        block_delete_on_gc(obj);
         break;
         
     case T_COMPLETION:
         break;
 
     case T_CLASS:
-        class_delete_gc(obj);
+        class_delete_on_gc(obj);
         break;
 
     case T_FUN:
-        fun_delete_gc(obj);
+        fun_delete_on_gc(obj);
         break;
 
     case T_NFUN:
-        nfun_delete_gc(obj);
+        nfun_delete_on_gc(obj);
         break;
 
     case T_FD:
@@ -60,11 +60,11 @@ static void object_delete(sObject* obj)
         exit(1);
 
     case T_JOB:
-        job_delete_gc(obj);
+        job_delete_on_gc(obj);
         break;
 
     case T_UOBJECT:
-        uobject_delete_gc(obj);
+        uobject_delete_on_gc(obj);
         break;
 
     case T_EXTOBJ:
@@ -72,7 +72,7 @@ static void object_delete(sObject* obj)
         break;
 
     case T_EXTPROG:
-        external_prog_delete_gc(obj);
+        external_prog_delete_on_gc(obj);
         break;
     }
 }
@@ -215,7 +215,6 @@ void gc_init(int pool_size)
 
     gCompletionObject = UOBJECT_NEW_GC(8, gRootObject, "compl", FALSE);
     uobject_init(gCompletionObject);
-
     uobject_put(gRootObject, "compl", gCompletionObject);
 
     gXyzshObject = UOBJECT_NEW_GC(8, NULL, "xyzsh", FALSE);
@@ -333,7 +332,7 @@ sObject* gc_get_free_object(int kind, BOOL user_object)
         SET_USER_OBJECT(result);
     }
 
-    result->mFlg |= kind;
+    result->mFlags |= kind;
 
     return result;
 }

@@ -538,10 +538,10 @@ def 関数名（ブロック）
 -inherit 同名の関数を上書きする場合、前の関数を親関数として扱う。新しい関数の定義内ではinherit内部コマンドで親関数を呼び出すことができる。親関数には内部コマンドもなることができる。
 -option-with-argument 複数の引数(カンマ区切り) ある引数を文字列をともに取る引数として設定する。
 (例) > def fun -option-with-argument abc,def ( hash OPTIOINS ); fun -abc aaa -def bbb
--abc
-aaa
--def
-bbb
+ -abc
+ aaa
+ -def
+ bbb
 -copy-stackframe スタックフレーム（ローカル変数の入れ物)を新しく作る際に現在のスタックフレームの内容をコピーします。
 (例)
 > vim a.xyzsh
@@ -567,10 +567,10 @@ class クラス名（ブロック）
 -inherit 同名のクラスを上書きする場合、前のクラスを親クラスとして扱う。新しいクラスの定義内ではinherit内部コマンドで親クラスを呼び出すことができる。
 -option-with-argument 複数の引数(カンマ区切り) ある引数を文字列をともに取る引数として設定する。
 (例) > class klass -option-with-argument abc,def ( hash OPTIOINS ); klass -abc aaa -def bbb
--abc
-aaa
--def
-bbb
+ -abc
+ aaa
+ -def
+ bbb
 -copy-stackframe スタックフレーム（ローカル変数の入れ物)を新しく作る際に現在のスタックフレームの内容をコピーします。
 (例)
 > vim a.xyzsh
@@ -615,6 +615,7 @@ object オブジェクト名1 オブジェクト名2, ..., オブジェクト名
 オブジェクトを作成する。ブロックがある場合はブロックで初期化される。
 
 -new オブジェクトを生成して、アドレスを出力する。
+-local ローカル変数として登録する。
 -
 run (クラス名|ブロック)
 -
@@ -1494,6 +1495,7 @@ object (object name1) (object name2), ..., (object name X) (block)
 Create objects. If a block exists, initialize the objects with block.
 
 -new create a new object and output the address
+-local create a new object as a local variable
 -
 run (class name|block)
 -

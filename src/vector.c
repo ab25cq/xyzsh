@@ -4,7 +4,7 @@
 #include <string.h>
 #include "xyzsh/xyzsh.h"
 
-sObject* vector_new_from_gc(int first_size, BOOL user_object)
+sObject* vector_new_on_gc(int first_size, BOOL user_object)
 {
     sObject* self = (sObject*)gc_get_free_object(T_VECTOR, user_object);
 
@@ -15,7 +15,7 @@ sObject* vector_new_from_gc(int first_size, BOOL user_object)
     return self;
 }
 
-sObject* vector_new_from_stack(int first_size)
+sObject* vector_new_on_stack(int first_size)
 {
     sObject* self = (sObject*)stack_get_free_object(T_VECTOR);
  
@@ -28,11 +28,11 @@ sObject* vector_new_from_stack(int first_size)
 
 #ifndef MDEBUG
 
-sObject* vector_new_from_malloc(int first_size)
+sObject* vector_new_on_malloc(int first_size)
 {
     sObject* self = (sObject*)MALLOC(sizeof(sObject));
 
-    self->mFlg = T_VECTOR;
+    self->mFlags = T_VECTOR;
  
     SVECTOR(self).mTable = (void**)MALLOC(sizeof(void*) * first_size);
     SVECTOR(self).mTableSize = first_size;
@@ -43,11 +43,11 @@ sObject* vector_new_from_malloc(int first_size)
 
 #else
 
-sObject* vector_new_from_malloc_debug(int first_size, const char* fname, int line, const char* func_name)
+sObject* vector_new_on_malloc_debug(int first_size, const char* fname, int line, const char* func_name)
 {
     sObject* self = CheckMemLeak_Malloc(sizeof(sObject), fname, line, func_name);
 
-    self->mFlg = T_VECTOR;
+    self->mFlags = T_VECTOR;
  
     SVECTOR(self).mTable = (void**)MALLOC(sizeof(void*) * first_size);
     SVECTOR(self).mTableSize = first_size;
@@ -58,18 +58,18 @@ sObject* vector_new_from_malloc_debug(int first_size, const char* fname, int lin
 
 #endif
 
-void vector_delete_malloc(sObject* self)
+void vector_delete_on_malloc(sObject* self)
 {
    FREE(SVECTOR(self).mTable);
    FREE(self);
 }
 
-void vector_delete_gc(sObject* self)
+void vector_delete_on_gc(sObject* self)
 {
    FREE(SVECTOR(self).mTable);
 }
 
-void vector_delete_stack(sObject* self)
+void vector_delete_on_stack(sObject* self)
 {
    FREE(SVECTOR(self).mTable);
 }

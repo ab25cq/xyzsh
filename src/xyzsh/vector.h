@@ -6,29 +6,29 @@
 #define XYZSH_VECTOR_H
 
 #ifndef MDEBUG
-sObject* vector_new_from_malloc(int first_size);
+sObject* vector_new_on_malloc(int first_size);
 #else
-sObject* vector_new_from_malloc_debug(int first_size, const char* fname, int line, const char* func_name);
+sObject* vector_new_on_malloc_debug(int first_size, const char* fname, int line, const char* func_name);
 #endif
-sObject* vector_new_from_gc(int first_size, BOOL user_object);
-sObject* vector_new_from_stack(int first_size);
+sObject* vector_new_on_gc(int first_size, BOOL user_object);
+sObject* vector_new_on_stack(int first_size);
 
 #ifndef MDEBUG
-#define VECTOR_NEW_MALLOC(size) vector_new_from_malloc(size)
+#define VECTOR_NEW_MALLOC(size) vector_new_on_malloc(size)
 #else
-#define VECTOR_NEW_MALLOC(size) vector_new_from_malloc_debug(size, __FILE__, __LINE__, __FUNCTION__)
+#define VECTOR_NEW_MALLOC(size) vector_new_on_malloc_debug(size, __FILE__, __LINE__, __FUNCTION__)
 #endif
-#define VECTOR_NEW_STACK(size) vector_new_from_stack(size)
-#define VECTOR_NEW_GC(size, user_object) vector_new_from_gc(size, user_object)
+#define VECTOR_NEW_STACK(size) vector_new_on_stack(size)
+#define VECTOR_NEW_GC(size, user_object) vector_new_on_gc(size, user_object)
 
 sObject* vector_clone(sObject* v);                        // clone
 
 #define vector_item(o, i) SVECTOR(o).mTable[i]
 #define vector_count(o) SVECTOR(o).mCount
 
-void vector_delete_malloc(sObject* self);
-void vector_delete_stack(sObject* self);
-void vector_delete_gc(sObject* self);
+void vector_delete_on_malloc(sObject* self);
+void vector_delete_on_stack(sObject* self);
+void vector_delete_on_gc(sObject* self);
 
 int vector_index(sObject* self, void* item);                 // return item index
 

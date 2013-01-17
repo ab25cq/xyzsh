@@ -76,52 +76,50 @@ static void str_cut(enum eKanjiCode code, char* mbs, int termsize, char* dest_mb
 
 BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(isatty(0) == 0 || isatty(1) == 0) {
-        err_msg("selector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("selector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
     if(tcgetpgrp(0) != getpgid(0)) {
-        err_msg("selector: not forground process group", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("selector: not forground process group", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
     char* term_env = getenv("TERM");
     if(term_env == NULL || strcmp(term_env, "") == 0) {
-        err_msg("selector: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("selector: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
 
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
     }
 
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
 
-    BOOL multiple = sCommand_option_item(command, "-multiple");
+    BOOL multiple = sRunInfo_option(runinfo, "-multiple");
 
     if(runinfo->mFilter) {
         fd_split(nextin, lf);
@@ -142,7 +140,7 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             static int scrolltop = 0;
             static int cursor = 0;
 
-            if(!sCommand_option_item(command, "-preserve-position")) {
+            if(!sRunInfo_option(runinfo, "-preserve-position")) {
                 scrolltop = 0;
                 cursor = 0;
             }
@@ -230,7 +228,7 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     refresh();
                 }
                 else if(key == 'q' || key == 3 || key == 7) {
-                    err_msg("canceled", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("canceled", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     endwin();
                     mrestore_screen();
                     mrestore_ttysettings();
@@ -255,7 +253,7 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             if(markfiles[k]) {
                                 char* str = vector_item(SFD(nextin).mLines, k);
                                 if(!fd_write(nextout,str, strlen(str))) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(markfiles);
                                     return FALSE;
@@ -268,7 +266,7 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         if(!flg_mark) {
                             char* str = vector_item(SFD(nextin).mLines, cursor);
                             if(!fd_write(nextout, str, strlen(str))) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 FREE(markfiles);
                                 return FALSE;
@@ -278,7 +276,7 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     else {
                         char* str = vector_item(SFD(nextin).mLines, cursor);
                         if(!fd_write(nextout, str, strlen(str))) {
-                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             FREE(markfiles);
                             return FALSE;
@@ -337,35 +335,33 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(isatty(0) == 0 || isatty(1) == 0) {
-        err_msg("p: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("p: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
     if(tcgetpgrp(0) != getpgid(0)) {
-        err_msg("p: not forground process group", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("p: not forground process group", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
     char* term_env = getenv("TERM");
     if(term_env == NULL || strcmp(term_env, "") == 0) {
-        err_msg("p: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("p: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
 
     eLineField lf = kLF;
 
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
@@ -377,7 +373,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         while(p - SFD(nextin).mBuf < SFD(nextin).mBufLen) {
             if(*p == '\n') {
                 if(!fd_writec(nextin2, *p)) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -385,12 +381,12 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else if(*p >= 0 && *p <= 31) {
                 if(!fd_writec(nextin2, '^')) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(!fd_writec(nextin2, *p+'@')) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -398,7 +394,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else {
                 if(!fd_writec(nextin2, *p)) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -424,7 +420,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         static int scrolltop = 0;
         static int cursor = 0;
 
-        if(!sCommand_option_item(command, "-prereserve-position")) {
+        if(!sRunInfo_option(runinfo, "-prereserve-position")) {
             scrolltop = 0;
             cursor = 0;
         }
@@ -512,7 +508,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 refresh();
             }
             else if(key == 'q' || key == 3 || key == 7) {
-                err_msg("p: canceled", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("p: canceled", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 endwin();
                 mrestore_screen();
                 mrestore_ttysettings();
@@ -521,7 +517,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else if(key == 10 || key == 13) {
                 if(!fd_write(nextout, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     FREE(markfiles);
                     return FALSE;
@@ -575,25 +571,23 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(isatty(0) == 0 || isatty(1) == 0) {
-        err_msg("readline: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("readline: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
     if(tcgetpgrp(0) != getpgid(0)) {
-        err_msg("readline: not forground process group", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("readline: not forground process group", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
     char* term_env = getenv("TERM");
     if(term_env == NULL || strcmp(term_env, "") == 0) {
-        err_msg("readline: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("readline: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
 
     char* prompt;
-    if(command->mArgsNumRuntime >= 2) {
-        prompt = command->mArgsRuntime[1];
+    if(runinfo->mArgsNumRuntime >= 2) {
+        prompt = runinfo->mArgsRuntime[1];
     }
     else {
         prompt = "> ";
@@ -603,7 +597,7 @@ BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     if(buf) {
         if(!fd_write(nextout, buf, strlen(buf))) {
-            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -935,21 +929,19 @@ static void parentname(char* result, int result_size, char* path)
 
 BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    BOOL multiple = sCommand_option_item(command, "-multiple");
+    BOOL multiple = sRunInfo_option(runinfo, "-multiple");
 
     if(isatty(0) == 0 || isatty(1) == 0) {
-        err_msg("fselector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("fselector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
     if(tcgetpgrp(0) != getpgid(0)) {
-        err_msg("fselector: not forground process group", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("fselector: not forground process group", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
     char* term_env = getenv("TERM");
     if(term_env == NULL || strcmp(term_env, "") == 0) {
-        err_msg("fselector: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("fselector: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
         return FALSE;
     }
 
@@ -1096,7 +1088,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 break;
             }
             else if(key == 'q' || key == 3 || key == 7) {
-                err_msg("canceled", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("canceled", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 endwin();
                 mrestore_screen();
                 mrestore_ttysettings();    // 端末の設定の復帰
@@ -1184,7 +1176,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                 if(!fd_write(nextout, cursor_path2, strlen(cursor_path2)))
                 {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     int i;
                     for(i=0; i<vector_count(v); i++) {
                         sFile_delete(vector_item(v, i));
@@ -1196,7 +1188,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 xstrncat(cursor_path, "\n", PATH_MAX+1);
                 if(!fd_write(nextout, cursor_path, strlen(cursor_path)))
                 {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     int i;
                     for(i=0; i<vector_count(v); i++) {
                         sFile_delete(vector_item(v, i));
@@ -1223,7 +1215,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!fd_write(nextout, full_path2, strlen(full_path2)))
                     {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         int i;
                         for(i=0; i<vector_count(v); i++) {
                             sFile_delete(vector_item(v, i));
@@ -1235,7 +1227,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     xstrncat(full_path, "\n", PATH_MAX+1);
                     if(!fd_write(nextout, full_path, strlen(full_path)))
                     {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         int i;
                         for(i=0; i<vector_count(v); i++) {
                             sFile_delete(vector_item(v, i));

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-sObject* fd_new_from_stack()
+sObject* fd_new_on_stack()
 {
     sObject* self = stack_get_free_object(T_FD);
 
@@ -20,14 +20,14 @@ sObject* fd_new_from_stack()
     return self;
 }
 
-void fd_delete_stack(sObject* self)
+void fd_delete_on_stack(sObject* self)
 {
     sObject* v = SFD(self).mLines;
     int i;
     for(i=0; i<vector_count(v); i++) {
        FREE(vector_item(v, i));
     }
-    vector_delete_malloc(SFD(self).mLines);
+    vector_delete_on_malloc(SFD(self).mLines);
 
     FREE(SFD(self).mBuf);
 }
@@ -352,7 +352,7 @@ BOOL fd_flash(sObject* self, int fd)
     return TRUE;
 }
 
-sObject* fd2_new_from_stack(uint fd)
+sObject* fd2_new_on_stack(uint fd)
 {
     sObject* self = stack_get_free_object(T_FD2);
 

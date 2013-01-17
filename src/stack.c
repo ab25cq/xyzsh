@@ -21,45 +21,45 @@ static void object_delete(sObject* obj)
 {
     switch(TYPE(obj)) {
         case T_STRING:
-            string_delete_stack(obj);
+            string_delete_on_stack(obj);
             break;
 
         case T_VECTOR:
-            vector_delete_stack(obj);
+            vector_delete_on_stack(obj);
             break;
 
         case T_LIST:
-            list_delete_stack(obj);
+            list_delete_on_stack(obj);
             break;
 
         case T_HASH:
-            hash_delete_stack(obj);
+            hash_delete_on_stack(obj);
             break;
 
         case T_BLOCK:
-            block_delete_stack(obj);
+            block_delete_on_stack(obj);
             break;
 
         case T_COMPLETION:
             break;
 
         case T_FD:
-            fd_delete_stack(obj);
+            fd_delete_on_stack(obj);
             break;
 
         case T_FD2:
              break;
 
         case T_FUN:
-            fun_delete_stack(obj);
+            fun_delete_on_stack(obj);
             break;
 
         case T_CLASS:
-            class_delete_stack(obj);
+            class_delete_on_stack(obj);
             break;
 
         case T_UOBJECT:
-            uobject_delete_stack(obj);
+            uobject_delete_on_stack(obj);
             break;
 
         case T_EXTOBJ:
@@ -189,7 +189,7 @@ sObject* stack_get_free_object(int kind)
 
     sObject* result = gStack[gStackPage] + gStackSlot++;
 
-    result->mFlg = kind;
+    result->mFlags = kind;
 
     return result;
 }

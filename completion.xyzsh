@@ -23,11 +23,13 @@ def program_completion (
     )
 )
 
+compl::run( object rl )
+
 completion rl::help (
     rl::self | egrep native\ function\$ | root::scan '(^.+?):' | each ( | chomp | quote | pomch )
 )
 
-root | egrep ': native function$' | egrep -v '^run: native function$' | scan '(^.+):' | add sub\nsplit\nscan\n | each (
+root | egrep ': native function$' | egrep -v '^run: native function$|^show: native function$' | scan '(^.+):' | add sub\nsplit\nscan\n | each (
         | var -local command
 
         help $command | lines 1..-1 | scan '^-[a-zA-Z0-9-]+' |chomp| add -number 0 $command\a | hash -append -La COMPLETION_OPTIONS
@@ -39,9 +41,75 @@ root | egrep ': native function$' | egrep -v '^run: native function$' | scan '(^
 EOS | eval
 )
 
+class object_completion (
+    ary ARGV -index 0 | var -local KIND
+
+    | split '(?<!\\) +' | lines -1 | var -local inputing
+    if(inputing | index -quiet ::) (
+        inputing |chomp | split :: | lines 0..-2 | if( | -n) (
+            | join ::| var -local PREFIX
+            if(KIND | = all\n) (
+                eval "${PREFIX}::show" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'; |print ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
+            ) else (
+                eval "${PREFIX}::show" | egrep ": $KIND\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'; | print ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
+            )
+        )
+    ) else (
+        pwo  | var -local current
+        while(true) (
+            if(KIND | = all\n) (
+                eval "${current}show" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'; |print ) else (|print) ) | root::scan '(^.+?:?:?):' 
+            ) else (
+                eval "${current}show" | egrep ": $KIND\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'; |print ) else (|print) ) | root::scan '(^.+?:?:?):' 
+            )
+            if(current | = root::\n) ( break )
+            current | split :: | lines 0..-4 | join :: |chomp| add :: | var -local current
+        )
+    )
+)
+
+completion var (
+    | object_completion var
+    hash COMPLETION_OPTIONS -key var
+)
+
+completion ary (
+    | object_completion array
+    hash COMPLETION_OPTIONS -key ary
+)
+
+completion hash (
+    | object_completion hash
+    hash COMPLETION_OPTIONS -key hash
+)
+
+completion class (
+    | object_completion class
+    hash COMPLETION_OPTIONS -key class
+)
+
+completion def (
+    | object_completion function
+    hash COMPLETION_OPTIONS -key def
+)
+
+completion completion (
+    | object_completion completion
+    hash COMPLETION_OPTIONS -key completion
+)
+
+completion co (
+    | object_completion object
+)
+
+
 completion ref (
-    self | egrep -v external\ program\$ | egrep -v native\ function\$ | egrep -v '^root:|^self:|^parent:|^run:'| root::scan '(^.+?):' 
+    | object_completion all
     hash COMPLETION_OPTIONS -key ref
+)
+
+completion export (
+    sys::env | scan '(.+?)='
 )
 
 completion sweep (
@@ -53,44 +121,10 @@ completion defined (
     self | egrep -v external\ program\$ | egrep -v native\ function\$ | egrep -v '^root:|^self:|^parent:|^run:'| root::scan '(^.+?):' 
 )
 
-completion var (
-    self | egrep ': var$' | root::scan '(^.+?):' 
-    hash COMPLETION_OPTIONS -key var
-)
-
-completion ary (
-    self | egrep ': array$' | root::scan '(^.+?):' 
-    hash COMPLETION_OPTIONS -key ary
-)
-
-completion hash (
-    self | egrep ': hash$' | root::scan '(^.+?):' 
-    hash COMPLETION_OPTIONS -key hash
-)
-
-completion export (
-    sys::env | scan '(.+?)='
-)
-
-completion class (
-    self | egrep ': class$' | root::scan '(^.+?):' 
-    hash COMPLETION_OPTIONS -key class
-)
-
-completion def (
-    self | egrep ': function$' | root::scan '(^.+?):' 
-    hash COMPLETION_OPTIONS -key def
-)
-
 completion help (
     root::self | egrep native\ function\$ | root::scan '(^.+?):' | add sub\nsplit\nscan\n | each ( | chomp | quote | pomch )
     hash COMPLETION_OPTIONS -key help
 )
-
-completion co (
-    self | egrep -v '^root: object$|^self: object$'| scan '(^.+?): object$'
-)
-
 
 completion write (
     hash COMPLETION_OPTIONS -key write

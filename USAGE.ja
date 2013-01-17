@@ -476,15 +476,6 @@
 
     オブジェクトaにAAA配列オブジェクトが追加される。
 
-    ただし、関数とはその中で定義されるオブジェクトの格納先が違います。
-
-    > class klass ( ls | ary AAA )
-    > def fun ( ls | ary BBB)
-    > object a
-    > co a
-    > fun     # BBBが親オブジェクトに追加される
-    > klass   # AAAがオブジェクトaに追加される
-
     もしmainという名前のオブジェクトがオブジェクトで定義されていたら、オブジェクトをコマンドとして呼び出した場合、そのmainというオブジェクトが実行されます。
 
     > object a ( def main ( print called \n ) )

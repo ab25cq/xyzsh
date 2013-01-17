@@ -32,7 +32,7 @@ AC_SUBST(SYSTEM_MIGEMODIR)
 #####################################################################
 # check operating systems
 #####################################################################
-SO_VERSION=1.6.1
+SO_VERSION=1.7.0
 AC_SUBST(SO_VERSION)
 AC_MSG_CHECKING(Operating System)
 

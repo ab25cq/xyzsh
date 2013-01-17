@@ -385,7 +385,7 @@
     -ghi
     -ghi
 
-1.9 clas
+1.9 class
 
     A class is almost same as a function.
     
@@ -400,15 +400,6 @@
     > a::run klass
 
     "AAA" array is added to "a" object.
-
-    But there is a different with a function to object contained place.
-
-    > class klass ( ls | ary AAA )
-    > def fun ( ls | ary BBB)
-    > object a
-    > co a
-    > fun     # BBB is added to parent object
-    > klass   # AAA is added to "a" object
 
     If "main" object is defined in the class, xyzsh called the item when command name is the object.
 

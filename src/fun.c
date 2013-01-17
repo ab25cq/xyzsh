@@ -13,7 +13,7 @@ static int options_hash_fun(char* key)
     return value % XYZSH_OPTION_MAX;
 }
 
-sObject* fun_new_from_gc(sObject* parent, BOOL user_object, BOOL no_stackframe)
+sObject* fun_new_on_gc(sObject* parent, BOOL user_object, BOOL no_stackframe)
 {
    sObject* self = gc_get_free_object(T_FUN, user_object);
    
@@ -33,7 +33,7 @@ sObject* fun_new_from_gc(sObject* parent, BOOL user_object, BOOL no_stackframe)
    return self;
 }
 
-sObject* fun_new_from_stack(sObject* parent)
+sObject* fun_new_on_stack(sObject* parent)
 {
    sObject* self = stack_get_free_object(T_FUN);
    
@@ -52,11 +52,11 @@ sObject* fun_new_from_stack(sObject* parent)
    return self;
 }
 
-sObject* fun_clone_from_stack_block_to_gc(sObject* block, BOOL user_object, sObject* parent, BOOL no_stackframe)
+sObject* fun_clone_on_gc_from_stack_block(sObject* block, BOOL user_object, sObject* parent, BOOL no_stackframe)
 {
    sObject* self = gc_get_free_object(T_FUN, user_object);
    
-   SFUN(self).mBlock = block_clone_gc(block, T_BLOCK, FALSE);
+   SFUN(self).mBlock = block_clone_on_gc(block, T_BLOCK, FALSE);
 
    SFUN(self).mParent = parent;
 
@@ -71,11 +71,11 @@ sObject* fun_clone_from_stack_block_to_gc(sObject* block, BOOL user_object, sObj
    return self;
 }
 
-sObject* fun_clone_from_stack_block_to_stack(sObject* block, sObject* parent, BOOL no_stackframe)
+sObject* fun_clone_on_stack_from_stack_block(sObject* block, sObject* parent, BOOL no_stackframe)
 {
    sObject* self = stack_get_free_object(T_FUN);
    
-   SFUN(self).mBlock = block_clone_stack(block, T_BLOCK);
+   SFUN(self).mBlock = block_clone_on_stack(block, T_BLOCK);
 
    SFUN(self).mParent = parent;
 
@@ -90,7 +90,7 @@ sObject* fun_clone_from_stack_block_to_stack(sObject* block, sObject* parent, BO
    return self;
 }
 
-void fun_delete_gc(sObject* self)
+void fun_delete_on_gc(sObject* self)
 {
     int i;
     for(i=0; i<XYZSH_OPTION_MAX; i++) {
@@ -100,7 +100,7 @@ void fun_delete_gc(sObject* self)
     FREE(SFUN(self).mOptions);
 }
 
-void fun_delete_stack(sObject* self)
+void fun_delete_on_stack(sObject* self)
 {
     int i;
     for(i=0; i<XYZSH_OPTION_MAX; i++) {
@@ -175,7 +175,7 @@ BOOL fun_put_option_with_argument(sObject* self, MANAGED char* key)
     }
 }
 
-BOOL fun_option_with_argument_item(sObject* self, char* key)
+BOOL fun_option_with_argument(sObject* self, char* key)
 {
     int hash_value = options_hash_fun(key);
     option_hash_it* p = SFUN(self).mOptions + hash_value;

@@ -28,19 +28,19 @@ char *strcasestr(const char *haystack, const char *needle);
 
 #include "xyzsh/xyzsh.h"
 
-int get_onig_regex(regex_t** reg, sCommand* command, char* regex)
+int get_onig_regex(regex_t** reg, sRunInfo* runinfo, char* regex)
 {
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
@@ -64,10 +64,10 @@ int get_onig_regex(regex_t** reg, sCommand* command, char* regex)
     }
 
     OnigOptionType option = ONIG_OPTION_DEFAULT;
-    if(sCommand_option_item(command, "-ignore-case")) {
+    if(sRunInfo_option(runinfo, "-ignore-case")) {
         option |= ONIG_OPTION_IGNORECASE;
     }
-    else if(sCommand_option_item(command, "-multi-line")) {
+    else if(sRunInfo_option(runinfo, "-multi-line")) {
         option |= ONIG_OPTION_MULTILINE;
     }
 
@@ -82,19 +82,17 @@ int get_onig_regex(regex_t** reg, sCommand* command, char* regex)
 
 BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
@@ -108,7 +106,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -118,7 +116,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "\\%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -134,7 +132,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     p++;
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -144,7 +142,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -154,7 +152,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "\\%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -169,7 +167,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -179,7 +177,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "\\%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -202,40 +200,38 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
     }
 
     /// output
     if(runinfo->mFilter) {
         /// line number
-        if(sCommand_option_item(command, "-line-num")) {
+        if(sRunInfo_option(runinfo, "-line-num")) {
             int result = 0;
             char* p = SFD(nextin).mBuf;
             if(lf == kCRLF) {
@@ -282,7 +278,7 @@ BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             int size = snprintf(buf, 128, "%d\n", result);
 
             if(!fd_write(nextout, buf, size)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -295,7 +291,7 @@ BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             int size = snprintf(buf, 128, "%d\n", len);
 
             if(!fd_write(nextout, buf, size)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -314,18 +310,16 @@ BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_x(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// input
     if(runinfo->mFilter) {
-        if(command->mArgsNumRuntime == 2) {
-            int multiple = atoi(command->mArgsRuntime[1]);
+        if(runinfo->mArgsNumRuntime == 2) {
+            int multiple = atoi(runinfo->mArgsRuntime[1]);
             if(multiple < 1) multiple = 1;
 
             int i;
             for(i=0; i<multiple; i++) {
                 if(!fd_write(nextout, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -346,38 +340,36 @@ BOOL cmd_x(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
     /// output
     if(runinfo->mFilter) {
-        if(command->mArgsNumRuntime == 2) {
+        if(runinfo->mArgsNumRuntime == 2) {
             char* target = SFD(nextin).mBuf;
 
-            char* word = command->mArgsRuntime[1];
+            char* word = runinfo->mArgsRuntime[1];
 
             /// get starting point ///
             int start;
             char* number;
-            if(number = sCommand_option_with_argument_item(command, "-number")) {
+            if(number = sRunInfo_option_with_argument(runinfo, "-number")) {
                 start = atoi(number);
 
                 int len = str_kanjilen(code, target);
                 if(len < 0) {
-                    err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
 
@@ -397,7 +389,7 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             /// get search count ///
             int match_count;
             char* count;
-            if(count = sCommand_option_with_argument_item(command, "-count")) {
+            if(count = sRunInfo_option_with_argument(runinfo, "-count")) {
                 match_count = atoi(count);
                 if(match_count <= 0) { match_count = 1; }
             }
@@ -408,11 +400,11 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             char* start_byte = str_kanjipos2pointer(code, target, start);
             char* p = start_byte;
             char* result = NULL;
-            if(sCommand_option_item(command, "-ignore-case")) {
+            if(sRunInfo_option(runinfo, "-ignore-case")) {
                 while(p < start_byte + strlen(start_byte)) {
                     if(gXyzshSigInt) {
                         gXyzshSigInt = FALSE;
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -434,7 +426,7 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 while(p < start_byte + strlen(start_byte)) {
                     if(gXyzshSigInt) {
                         gXyzshSigInt = FALSE;
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -472,14 +464,14 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
 
             /// Ω–Œœ ///
-            if(!sCommand_option_item(command, "-quiet")) {
+            if(!sRunInfo_option(runinfo, "-quiet")) {
                 if(!fd_write(nextout, msg, size)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(!fd_write(nextout, "\n", 1)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -562,38 +554,36 @@ static char* strcasestr_back(char* p, char* start, char* word, char* sname, int 
 
 BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
     /// output
     if(runinfo->mFilter) {
-        if(command->mArgsNumRuntime == 2) {
+        if(runinfo->mArgsNumRuntime == 2) {
             char* target = SFD(nextin).mBuf;
-            char* word = command->mArgsRuntime[1];
+            char* word = runinfo->mArgsRuntime[1];
 
             /// get starting point ///
             int len = str_kanjilen(code, target);
             if(len < 0) {
-                err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
 
             int start;
             char* number;
-            if(number = sCommand_option_with_argument_item(command, "-number")) {
+            if(number = sRunInfo_option_with_argument(runinfo, "-number")) {
                 start = atoi(number);
 
                 if(start < 0) { 
@@ -613,7 +603,7 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             /// get search count ///
             int match_count;
             char* count;
-            if(count = sCommand_option_with_argument_item(command, "-count")) {
+            if(count = sRunInfo_option_with_argument(runinfo, "-count")) {
                 match_count = atoi(count);
                 if(match_count <= 0) { match_count = 1; }
             }
@@ -625,13 +615,13 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             char* start_byte = str_kanjipos2pointer(code, target, start+1);
             char* p = start_byte;
             char* result = NULL;
-            if(sCommand_option_item(command, "-ignore-case")) {
+            if(sRunInfo_option(runinfo, "-ignore-case")) {
                 while(p>=target) {
-                    result = strcasestr_back(p, target, word, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    result = strcasestr_back(p, target, word, runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
 
                     if(gXyzshSigInt) {
                         gXyzshSigInt = FALSE;
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -650,11 +640,11 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else {
                 while(p>=target) {
-                    result = strstr_back(p, target, word, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    result = strstr_back(p, target, word, runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
 
                     if(gXyzshSigInt) {
                         gXyzshSigInt = FALSE;
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -691,14 +681,14 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
 
             /// Ω–Œœ ///
-            if(!sCommand_option_item(command, "-quiet")) {
+            if(!sRunInfo_option(runinfo, "-quiet")) {
                 if(!fd_write(nextout, msg, size)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(!fd_write(nextout, "\n", 1)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -711,19 +701,17 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_lc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
@@ -732,7 +720,7 @@ BOOL cmd_lc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         string_tolower(str, code);
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -750,19 +738,17 @@ BOOL cmd_lc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_uc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
@@ -771,7 +757,7 @@ BOOL cmd_uc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         string_toupper(str, code);
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -789,8 +775,6 @@ BOOL cmd_uc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_chomp(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         sObject* str = STRING_NEW_STACK(SFD(nextin).mBuf);
         if(string_chomp(str)) {
@@ -811,7 +795,7 @@ BOOL cmd_chomp(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -822,19 +806,17 @@ BOOL cmd_chomp(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_chop(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
@@ -901,7 +883,7 @@ BOOL cmd_chop(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -912,19 +894,17 @@ BOOL cmd_chop(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_pomch(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
     }
 
@@ -948,7 +928,7 @@ BOOL cmd_pomch(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -959,27 +939,25 @@ BOOL cmd_pomch(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
     }
 
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         fd_split(nextin, lf);
 
         /// go ///
-        char* p = command->mArgsRuntime[1];
+        char* p = runinfo->mArgsRuntime[1];
 
         int strings_num = 0;
         while(*p) {
@@ -989,7 +967,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(*p == '%') {
                     p++;
                     if(!fd_writec(nextout, '%')) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -1014,7 +992,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         int size = asprintf(&buf, aformat, atoi(arg));
 
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -1039,7 +1017,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         int size = asprintf(&buf, aformat, atof(arg));
 
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -1065,21 +1043,21 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         int size = asprintf(&buf, aformat, string_c_str(arg));
 
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                         free(buf);
                     }
                     else {
-                        err_msg("invalid format at printf", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("invalid format at printf", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         return FALSE;
                     }
                 }
             }
             else {
                 if(!fd_writec(nextout, *p++)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -1109,17 +1087,15 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-    
-    BOOL quiet = sCommand_option_item(command, "-quiet");
+    BOOL quiet = sRunInfo_option(runinfo, "-quiet");
 
-    if(runinfo->mFilter && (command->mArgsNumRuntime == 3 || command->mArgsNumRuntime == 2 && command->mBlocksNum >= 1)) {
+    if(runinfo->mFilter && (runinfo->mArgsNumRuntime == 3 || runinfo->mArgsNumRuntime == 2 && runinfo->mBlocksNum >= 1)) {
         sObject* block;
         sObject* nextin2;
         sObject* nextout2;
 
-        if(command->mBlocksNum >= 1) {
-            block = command->mBlocks[0];
+        if(runinfo->mBlocksNum >= 1) {
+            block = runinfo->mBlocks[0];
             nextin2 = FD_NEW_STACK();
             nextout2 = FD_NEW_STACK();
         }
@@ -1127,15 +1103,15 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             block = NULL;
         }
 
-        BOOL global = sCommand_option_item(command, "-global");
+        BOOL global = sRunInfo_option(runinfo, "-global");
 
-        char* regex = command->mArgsRuntime[1];
-        char* destination = command->mArgsRuntime[2];
+        char* regex = runinfo->mArgsRuntime[1];
+        char* destination = runinfo->mArgsRuntime[2];
 
         int sub_count = 0;
 
         regex_t* reg;
-        int r = get_onig_regex(&reg, command, regex);
+        int r = get_onig_regex(&reg, runinfo, regex);
 
         if(r == ONIG_NORMAL) {
            char* p = SFD(nextin).mBuf;
@@ -1160,7 +1136,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!quiet) {
                         if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_free(reg);
                             return FALSE;
@@ -1216,7 +1192,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         fd_clear(nextout2);
 
                         if(!fd_write(nextin2, target + region->beg[0], region->end[0]-region->beg[0])) {
-                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_region_free(region, 1);
                             onig_free(reg);
@@ -1297,14 +1273,14 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!quiet) {
                         if(!fd_write(nextout, p, region->beg[0]-point)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_region_free(region, 1);
                             onig_free(reg);
                             return FALSE;
                         }
                         if(!fd_write(nextout, string_c_str(sub_str), string_length(sub_str))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_region_free(region, 1);
                             onig_free(reg);
@@ -1321,7 +1297,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(!quiet) {
                             if(!fd_write(nextout, buf, 1)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_region_free(region, 1);
                                 onig_free(reg);
@@ -1343,7 +1319,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!global && !quiet) {
                         if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_free(reg);
                             return FALSE;
@@ -1378,28 +1354,26 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     char* field = "\n";
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         field = "\r\n";
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         field = "\r";
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         field = "\n";
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         field = "\a";
     }
     
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         sObject* block;
         sObject* nextin2;
 
-        if(command->mBlocksNum >= 1) {
-            block = command->mBlocks[0];
+        if(runinfo->mBlocksNum >= 1) {
+            block = runinfo->mBlocks[0];
             nextin2 = FD_NEW_STACK();
         }
         else {
@@ -1407,10 +1381,10 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
 
         int match_count = 0;
-        char* regex = command->mArgsRuntime[1];
+        char* regex = runinfo->mArgsRuntime[1];
 
         regex_t* reg;
-        int r = get_onig_regex(&reg, command, regex);
+        int r = get_onig_regex(&reg, runinfo, regex);
 
         if(r == ONIG_NORMAL) {
             char* target = SFD(nextin).mBuf;
@@ -1435,14 +1409,14 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             const int n = region->end[0] - region->beg[0];
 
                             if(!fd_write(nextin2, target + region->beg[0], n)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 onig_region_free(region, 1);
                                 return FALSE;
                             }
                             if(!fd_write(nextin2, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 onig_region_free(region, 1);
@@ -1456,7 +1430,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 const int size = region->end[i] - region->beg[i];
 
                                 if(!fd_write(nextin2, target + region->beg[i], size)) {
-                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_free(reg);
                                     onig_region_free(region, 1);
@@ -1465,7 +1439,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                                 if(i==region->num_regs-1) {
                                     if(!fd_write(nextin2, field, strlen(field))) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_free(reg);
                                         onig_region_free(region, 1);
@@ -1474,7 +1448,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
                                 else {
                                     if(!fd_write(nextin2, "\t", 1)) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_free(reg);
                                         onig_region_free(region, 1);
@@ -1537,14 +1511,14 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             const int n = region->end[0] - region->beg[0];
 
                             if(!fd_write(nextout, target + region->beg[0], n)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 onig_region_free(region, 1);
                                 return FALSE;
                             }
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 onig_region_free(region, 1);
@@ -1558,7 +1532,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 const int size = region->end[i] - region->beg[i];
 
                                 if(!fd_write(nextout, target + region->beg[i], size)) {
-                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_free(reg);
                                     onig_region_free(region, 1);
@@ -1567,7 +1541,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                                 if(i==region->num_regs-1) {
                                     if(!fd_write(nextout, field, strlen(field))) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_free(reg);
                                         onig_region_free(region, 1);
@@ -1576,7 +1550,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
                                 else {
                                     if(!fd_write(nextout, "\t", 1)) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_free(reg);
                                         onig_region_free(region, 1);
@@ -1621,53 +1595,51 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     char* field = "\n";
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
         field = "\r\n";
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
         field = "\r";
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
         field = "\n";
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
         field = "\a";
     }
 
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
     if(runinfo->mFilter) {
         char* regex;
 
-        if(command->mArgsNumRuntime == 1) {
+        if(runinfo->mArgsNumRuntime == 1) {
             regex = "\\s+";
         }
-        else if(command->mArgsNumRuntime >= 2) {
-            regex = command->mArgsRuntime[1];
+        else if(runinfo->mArgsNumRuntime >= 2) {
+            regex = runinfo->mArgsRuntime[1];
         }
 
         regex_t* reg;
-        int r = get_onig_regex(&reg, command, regex);
+        int r = get_onig_regex(&reg, runinfo, regex);
 
         if(r == ONIG_NORMAL) {
             char* target;
@@ -1688,7 +1660,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(*p) {
                         if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_free(reg);
                             return FALSE;
@@ -1696,7 +1668,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
 
                     if(!fd_write(nextout, field, strlen(field))) {
-                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         onig_free(reg);
                         return FALSE;
@@ -1713,7 +1685,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                             if(size > 0) {
                                 if(!fd_write(nextout, p, size)) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -1721,7 +1693,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
 
                                 if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -1741,7 +1713,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                             if(size > 0) {
                                 if(!fd_write(nextout, p, size)) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -1749,7 +1721,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
 
                                 if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -1758,7 +1730,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             }
                             else if(size == 0) {
                                 if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -1774,7 +1746,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(size > 0) {
                             if(!fd_write(nextout, p, size)) {
-                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_region_free(region, 1);
                                 onig_free(reg);
@@ -1782,7 +1754,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             }
 
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_region_free(region, 1);
                                 onig_free(reg);
@@ -1791,7 +1763,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         }
                         else if(size == 0) {
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_region_free(region, 1);
                                 onig_free(reg);
@@ -1809,7 +1781,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             const int size = region->end[i]-region->beg[i];
                             if(size > 0) {
                                 if(!fd_write(nextout, target + region->beg[i], size)) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -1817,7 +1789,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
 
                                 if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -1852,30 +1824,28 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_add(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
-        char* arg = command->mArgsRuntime[1];
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
+        char* arg = runinfo->mArgsRuntime[1];
         int number;
         char* argument;
-        if(argument = sCommand_option_with_argument_item(command, "-number")) {
+        if(argument = sRunInfo_option_with_argument(runinfo, "-number")) {
             number = atoi(argument);
         }
-        else if(argument = sCommand_option_with_argument_item(command, "-index")) {
+        else if(argument = sRunInfo_option_with_argument(runinfo, "-index")) {
             number = atoi(argument);
         }
         else {
@@ -1892,29 +1862,29 @@ BOOL cmd_add(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         if(number < len) {
             int point = str_kanjipos2pointer(code, SFD(nextin).mBuf, number) - SFD(nextin).mBuf;
             if(!fd_write(nextout, SFD(nextin).mBuf, point)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, arg, strlen(arg))) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, SFD(nextin).mBuf + point, SFD(nextin).mBufLen - point)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
         }
         else {
             if(!fd_write(nextout, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, arg, strlen(arg))) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -1933,33 +1903,31 @@ BOOL cmd_add(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_del(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
     
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
-        char* arg = command->mArgsRuntime[1];
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
+        char* arg = runinfo->mArgsRuntime[1];
         int index = atoi(arg);
 
         int number;
         char* argument;
-        if(argument = sCommand_option_with_argument_item(command, "-number")) {
+        if(argument = sRunInfo_option_with_argument(runinfo, "-number")) {
             number = atoi(argument);
         }
-        else if(argument = sCommand_option_with_argument_item(command, "-index")) {
+        else if(argument = sRunInfo_option_with_argument(runinfo, "-index")) {
             number = atoi(argument);
         }
         else {
@@ -1980,14 +1948,14 @@ BOOL cmd_del(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int point = str_kanjipos2pointer(code, SFD(nextin).mBuf, index) - SFD(nextin).mBuf;
         
         if(!fd_write(nextout, SFD(nextin).mBuf, point)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
         if(index + number < len) {
             char* point = str_kanjipos2pointer(code, SFD(nextin).mBuf, index + number);
             if(!fd_write(nextout, point, strlen(point))) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -2006,23 +1974,21 @@ BOOL cmd_del(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
-    if(runinfo->mFilter && command->mArgsNumRuntime > 1 && command->mBlocksNum <= command->mArgsNumRuntime-1) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime > 1 && runinfo->mBlocksNum <= runinfo->mArgsNumRuntime-1) {
         if(SFD(nextin).mBufLen == 0) {
             runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
         }
@@ -2031,8 +1997,8 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
 
         int i;
-        for(i=1; i<command->mArgsNumRuntime; i++) {
-            char* arg = command->mArgsRuntime[i];
+        for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+            char* arg = runinfo->mArgsRuntime[i];
             char* p;
             if(p = strstr(arg, "..")) {
                 char buf[128+1];
@@ -2047,7 +2013,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     buf2[len2] = 0;
                 }
                 else {
-                    err_msg("invalid range", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("invalid range", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
 
@@ -2118,15 +2084,15 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             fd_clear(nextin2);
 
                             if(!fd_write(nextin2, array[j], array[j+1] -array[j])) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 FREE(array);
                                 return FALSE;
                             }
 
-                            if(i-1 < command->mBlocksNum) {
+                            if(i-1 < runinfo->mBlocksNum) {
                                 int rcode = 0;
-                                if(!run(command->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                                if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
                                     runinfo->mRCode = rcode;
                                     FREE(array);
                                     return FALSE;
@@ -2136,7 +2102,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             else {
                                 if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
                                 {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(array);
                                     return FALSE;
@@ -2153,15 +2119,15 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             fd_clear(nextin2);
 
                             if(!fd_write(nextin2, array[j], array[j+1]-array[j])) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 FREE(array);
                                 return FALSE;
                             }
 
-                            if(i-1 < command->mBlocksNum) {
+                            if(i-1 < runinfo->mBlocksNum) {
                                 int rcode = 0;
-                                if(!run(command->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                                if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
                                     runinfo->mRCode = rcode;
                                     FREE(array);
                                     return FALSE;
@@ -2171,7 +2137,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             else {
                                 if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
                                 {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(array);
                                     return FALSE;
@@ -2202,14 +2168,14 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 char* str = str_kanjipos2pointer(code, SFD(nextin).mBuf, num);
                 char* str2 = str_kanjipos2pointer(code, str, 1);
                 if(!fd_write(nextin2, str, str2 -str)) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
 
-                if(i-1 < command->mBlocksNum) {
+                if(i-1 < runinfo->mBlocksNum) {
                     int rcode = 0;
-                    if(!run(command->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                    if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
                         runinfo->mRCode = rcode;
                         return FALSE;
                     }
@@ -2218,7 +2184,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 else {
                     if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
                     {
-                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }

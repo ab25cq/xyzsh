@@ -27,8 +27,6 @@
 
 BOOL cmd_condition_n(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         if(SFD(nextin).mBufLen > 0) {
@@ -41,8 +39,6 @@ BOOL cmd_condition_n(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_z(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         if(SFD(nextin).mBufLen == 0) {
@@ -55,8 +51,6 @@ BOOL cmd_condition_z(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_b(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -72,8 +66,6 @@ BOOL cmd_condition_b(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_c(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -89,8 +81,6 @@ BOOL cmd_condition_c(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_d(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -106,8 +96,6 @@ BOOL cmd_condition_d(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_f(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -123,8 +111,6 @@ BOOL cmd_condition_f(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_h(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -140,8 +126,6 @@ BOOL cmd_condition_h(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_l(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -157,8 +141,6 @@ BOOL cmd_condition_l(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -180,8 +162,6 @@ BOOL cmd_condition_t(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_s2(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -197,8 +177,6 @@ BOOL cmd_condition_s2(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_g(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -214,8 +192,6 @@ BOOL cmd_condition_g(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_k(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -238,8 +214,6 @@ BOOL cmd_condition_k(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_u(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -255,8 +229,6 @@ BOOL cmd_condition_u(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_r(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         if(access(SFD(nextin).mBuf, R_OK) == 0) {
@@ -269,8 +241,6 @@ BOOL cmd_condition_r(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_w(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         if(access(SFD(nextin).mBuf, W_OK) == 0) {
@@ -283,8 +253,6 @@ BOOL cmd_condition_w(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_x(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         if(access(SFD(nextin).mBuf, X_OK) == 0) {
@@ -297,8 +265,6 @@ BOOL cmd_condition_x(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_o(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -314,8 +280,6 @@ BOOL cmd_condition_o(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_g2(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -331,8 +295,6 @@ BOOL cmd_condition_g2(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_e(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -346,8 +308,6 @@ BOOL cmd_condition_e(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_s(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat stat_;
@@ -363,17 +323,15 @@ BOOL cmd_condition_s(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_eq(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(sCommand_option_item(command, "-ignore-case")) {
-            if(strcasecmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) == 0) {
+        if(sRunInfo_option(runinfo, "-ignore-case")) {
+            if(strcasecmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) == 0) {
                 runinfo->mRCode = 0;
             }
         }
         else {
-            if(strcmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) == 0) {
+            if(strcmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) == 0) {
                 runinfo->mRCode = 0;
             }
         }
@@ -384,17 +342,15 @@ BOOL cmd_condition_eq(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_neq(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(sCommand_option_item(command, "-ignore-case")) {
-            if(strcasecmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) != 0) {
+        if(sRunInfo_option(runinfo, "-ignore-case")) {
+            if(strcasecmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) != 0) {
                 runinfo->mRCode = 0;
             }
         }
         else {
-            if(strcmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) != 0) {
+            if(strcmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) != 0) {
                 runinfo->mRCode = 0;
             }
         }
@@ -405,17 +361,15 @@ BOOL cmd_condition_neq(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_slt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(sCommand_option_item(command, "-ignore-case")) {
-            if(strcasecmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) < 0) {
+        if(sRunInfo_option(runinfo, "-ignore-case")) {
+            if(strcasecmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) < 0) {
                 runinfo->mRCode = 0;
             }
         }
         else {
-            if(strcmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) < 0) {
+            if(strcmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) < 0) {
                 runinfo->mRCode = 0;
             }
         }
@@ -426,17 +380,15 @@ BOOL cmd_condition_slt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_sgt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(sCommand_option_item(command, "-ignore-case")) {
-            if(strcasecmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) > 0) {
+        if(sRunInfo_option(runinfo, "-ignore-case")) {
+            if(strcasecmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) > 0) {
                 runinfo->mRCode = 0;
             }
         }
         else {
-            if(strcmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) > 0) {
+            if(strcmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) > 0) {
                 runinfo->mRCode = 0;
             }
         }
@@ -447,17 +399,15 @@ BOOL cmd_condition_sgt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_sle(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(sCommand_option_item(command, "-ignore-case")) {
-            if(strcasecmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) <= 0) {
+        if(sRunInfo_option(runinfo, "-ignore-case")) {
+            if(strcasecmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) <= 0) {
                 runinfo->mRCode = 0;
             }
         }
         else {
-            if(strcmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) <= 0) {
+            if(strcmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) <= 0) {
                 runinfo->mRCode = 0;
             }
         }
@@ -468,17 +418,15 @@ BOOL cmd_condition_sle(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_sge(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(sCommand_option_item(command, "-ignore-case")) {
-            if(strcasecmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) >= 0) {
+        if(sRunInfo_option(runinfo, "-ignore-case")) {
+            if(strcasecmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) >= 0) {
                 runinfo->mRCode = 0;
             }
         }
         else {
-            if(strcmp(SFD(nextin).mBuf, command->mArgsRuntime[1]) >= 0) {
+            if(strcmp(SFD(nextin).mBuf, runinfo->mArgsRuntime[1]) >= 0) {
                 runinfo->mRCode = 0;
             }
         }
@@ -489,11 +437,9 @@ BOOL cmd_condition_sge(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_eq2(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(atoi(SFD(nextin).mBuf) == atoi(command->mArgsRuntime[1])) {
+        if(atoi(SFD(nextin).mBuf) == atoi(runinfo->mArgsRuntime[1])) {
             runinfo->mRCode = 0;
         }
     }
@@ -503,11 +449,9 @@ BOOL cmd_condition_eq2(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_ne(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(atoi(SFD(nextin).mBuf) != atoi(command->mArgsRuntime[1])) {
+        if(atoi(SFD(nextin).mBuf) != atoi(runinfo->mArgsRuntime[1])) {
             runinfo->mRCode = 0;
         }
     }
@@ -517,11 +461,9 @@ BOOL cmd_condition_ne(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_lt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(atoi(SFD(nextin).mBuf) < atoi(command->mArgsRuntime[1])) {
+        if(atoi(SFD(nextin).mBuf) < atoi(runinfo->mArgsRuntime[1])) {
             runinfo->mRCode = 0;
         }
     }
@@ -531,11 +473,9 @@ BOOL cmd_condition_lt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_le(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(atoi(SFD(nextin).mBuf) <= atoi(command->mArgsRuntime[1])) {
+        if(atoi(SFD(nextin).mBuf) <= atoi(runinfo->mArgsRuntime[1])) {
             runinfo->mRCode = 0;
         }
     }
@@ -545,11 +485,9 @@ BOOL cmd_condition_le(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_gt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(atoi(SFD(nextin).mBuf) > atoi(command->mArgsRuntime[1])) {
+        if(atoi(SFD(nextin).mBuf) > atoi(runinfo->mArgsRuntime[1])) {
             runinfo->mRCode = 0;
         }
     }
@@ -559,11 +497,9 @@ BOOL cmd_condition_gt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_ge(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
-        if(atoi(SFD(nextin).mBuf) >= atoi(command->mArgsRuntime[1])) {
+        if(atoi(SFD(nextin).mBuf) >= atoi(runinfo->mArgsRuntime[1])) {
             runinfo->mRCode = 0;
         }
     }
@@ -573,14 +509,12 @@ BOOL cmd_condition_ge(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_nt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat lstat_;
         struct stat rstat_;
         if(lstat(SFD(nextin).mBuf, &lstat_) == 0) {
-            if(lstat(command->mArgsRuntime[1], &rstat_) == 0) {
+            if(lstat(runinfo->mArgsRuntime[1], &rstat_) == 0) {
                 if(lstat_.st_mtime > rstat_.st_mtime) 
                 {
                     runinfo->mRCode = 0;
@@ -594,14 +528,12 @@ BOOL cmd_condition_nt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_condition_ot(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         struct stat lstat_;
         struct stat rstat_;
         if(lstat(SFD(nextin).mBuf, &lstat_) == 0) {
-            if(lstat(command->mArgsRuntime[1], &rstat_) == 0) {
+            if(lstat(runinfo->mArgsRuntime[1], &rstat_) == 0) {
                 if(lstat_.st_mtime < rstat_.st_mtime) 
                 {
                     runinfo->mRCode = 0;
@@ -648,36 +580,34 @@ void clear_matching_info_variable()
 
 BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
-    BOOL verbose = sCommand_option_item(command, "-verbose");
-    BOOL offsets = sCommand_option_item(command, "-offsets");
+    BOOL verbose = sRunInfo_option(runinfo, "-verbose");
+    BOOL offsets = sRunInfo_option(runinfo, "-offsets");
 
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         clear_matching_info_variable();
 
-        //BOOL preserve = sCommand_option_item(command, "-preserve");
+        //BOOL preserve = sRunInfo_option(runinfo, "-preserve");
 
         runinfo->mRCode = RCODE_NFUN_FALSE;
         char* target = SFD(nextin).mBuf;
-        char* regex = command->mArgsRuntime[1];
+        char* regex = runinfo->mArgsRuntime[1];
 
         regex_t* reg;
-        int r = get_onig_regex(&reg, command, regex);
+        int r = get_onig_regex(&reg, runinfo, regex);
 
         if(r == ONIG_NORMAL) {
             //sObject* preserved_data = STRING_NEW_STACK();
@@ -731,7 +661,7 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     char buf[1024];
                     int size = snprintf(buf, 1024, "%d\n", point);
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         onig_region_free(region, 1);
                         onig_free(reg);
@@ -747,7 +677,7 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         char buf[1024];
                         int size = snprintf(buf, 1024, "%d\n", point);
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_region_free(region, 1);
                             onig_free(reg);
@@ -758,7 +688,7 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         size = snprintf(buf, 1024, "%d\n", point);
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_region_free(region, 1);
                             onig_free(reg);
@@ -775,7 +705,7 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else {
             onig_free(reg);
-            err_msg("=~: invalid regex", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("=~: invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             return FALSE;
         }
     }
@@ -829,14 +759,12 @@ void migemo_final()
 
 BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
+    BOOL quiet = sRunInfo_option(runinfo, "-quiet");
 
-    BOOL quiet = sCommand_option_item(command, "-quiet");
-
-    if(runinfo->mFilter && command->mArgsNumRuntime == 2) {
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
         runinfo->mRCode = RCODE_NFUN_FALSE;
         char* target = SFD(nextin).mBuf;
-        char* regex = command->mArgsRuntime[1];
+        char* regex = runinfo->mArgsRuntime[1];
 
         if(regex[0] == 0) {
             runinfo->mRCode = 0;
@@ -844,7 +772,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 char buf[1024];
                 int n = snprintf(buf, 1024, "0%d\n", (int)strlen(target));
                 if(!fd_write(nextout, buf, n)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -853,7 +781,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         else {
             OnigUChar * p = migemo_query(gMigemo, regex);
             if(p == NULL) {
-                err_msg("migemo query failed", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("migemo query failed", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 migemo_release(gMigemo, (unsigned char*) p);
                 return FALSE;
             }
@@ -885,7 +813,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             migemo_release(gMigemo, (unsigned char*) p);
 
             if(r != ONIG_NORMAL && r != 0) {
-                err_msg("regex of migemo query failed", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("regex of migemo query failed", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 onig_free(reg);
                 return FALSE;
             }
@@ -899,7 +827,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     char buf[1024];
                     int n = snprintf(buf, 1024, "%d\n%d\n", region->beg[0], region->end[0]);
                     if(!fd_write(nextout, buf, n)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         onig_region_free(region, 1);
                         onig_free(reg);
@@ -912,7 +840,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     char buf[1024];
                     int n = snprintf(buf, 1024, "-1\n-1\n");
                     if(!fd_write(nextout, buf, n)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         onig_region_free(region, 1);
                         onig_free(reg);

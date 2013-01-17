@@ -61,6 +61,7 @@ static char* message_completion(const char* text, int stat)
             object = uobject_item(current, command->mMessages[0]);
             if(object || current == gRootObject) break;
             current = SUOBJECT((current)).mParent;
+            if(current == NULL) break;
         }
 
         string_put(messages, command->mMessages[0]);
@@ -167,6 +168,8 @@ static char* all_program_completion(const char* text, int stat)
             if(current == gRootObject) break;
 
             current = SUOBJECT(current).mParent;
+
+            if(current == NULL) break;
         }
         vector_sort(gCompletionArray, name_sort);
 
@@ -224,6 +227,8 @@ static char* program_completion(const char* text, int stat)
             if(current == gRootObject) break;
 
             current = SUOBJECT(current).mParent;
+
+            if(current == NULL) break;
         }
         vector_sort(gCompletionArray, name_sort);
 
@@ -276,7 +281,13 @@ static char* user_completion(const char* text, int stat)
         index++;
 
         if(!strncmp(text, candidate, wordlen)) {
-            rl_completion_append_character = ' ';
+            int l = strlen(candidate);
+            if(l > 2 && candidate[l-2] == ':' && candidate[l-1] == ':') {
+                rl_completion_append_character = 0;
+            }
+            else {
+                rl_completion_append_character = ' ';
+            }
             return strdup(candidate);
         }
     }
@@ -349,30 +360,71 @@ static char* env_completion(const char* text, int stat_)
             vector_add(gCompletionArray, string_c_str(string));
         }
 
-        sObject* current = gReadlineCurrentObject;
-        while(1) {
-            uobject_it* it = uobject_loop_begin(current);
-            while(it) {
-                char* key = uobject_loop_key(it);
-                sObject* object = uobject_loop_item(it);
+        if(strstr((char*)text, "::")) {
+            sObject* current = gReadlineCurrentObject;
+            sObject* prefix = STRING_NEW_STACK("");
+            sObject* name = STRING_NEW_STACK("");
 
-                if(hash_item(hash, key) == NULL) {
-                    if(TYPE(object) == T_STRING || TYPE(object) == T_VECTOR || TYPE(object) == T_HASH) {
-                        hash_put(hash, key, object);
+            split_prefix_of_object_and_name2(&current, prefix, name, (char*)text, gReadlineCurrentObject);
 
+            if(current && TYPE(current) == T_UOBJECT) {
+                uobject_it* it = uobject_loop_begin(current);
+                while(it) {
+                    char* key = uobject_loop_key(it);
+                    sObject* object = uobject_loop_item(it);
+
+                    if(TYPE(object) == T_UOBJECT) {
                         sObject* candidate = STRING_NEW_STACK("");
-                        string_push_back(candidate, uobject_loop_key(it));
+                        string_push_back(candidate, string_c_str(prefix));
+                        string_push_back(candidate, key);
+                        string_push_back(candidate, "::");
 
                         vector_add(gCompletionArray, string_c_str(candidate));
                     }
+                    else if(TYPE(object) == T_STRING || TYPE(object) == T_VECTOR || TYPE(object) == T_HASH) {
+                        sObject* candidate = STRING_NEW_STACK("");
+                        string_push_back(candidate, string_c_str(prefix));
+                        string_push_back(candidate, key);
+
+                        vector_add(gCompletionArray, string_c_str(candidate));
+                    }
+
+                    it = uobject_loop_next(it);
                 }
-
-                it = uobject_loop_next(it);
             }
-            
-            if(current == gRootObject) break;
+        }
+        else {
+            sObject* current = gReadlineCurrentObject;
 
-            current = SUOBJECT(current).mParent;
+            while(1) {
+                uobject_it* it = uobject_loop_begin(current);
+                while(it) {
+                    char* key = uobject_loop_key(it);
+                    sObject* object = uobject_loop_item(it);
+
+                    if(TYPE(object) == T_UOBJECT) {
+                        sObject* candidate = STRING_NEW_STACK("");
+                        string_push_back(candidate, key);
+                        string_push_back(candidate, "::");
+
+                        vector_add(gCompletionArray, string_c_str(candidate));
+                    }
+                    else if(TYPE(object) == T_STRING || TYPE(object) == T_VECTOR || TYPE(object) == T_HASH) {
+                        sObject* candidate = STRING_NEW_STACK("");
+                        string_push_back(candidate, key);
+
+                        vector_add(gCompletionArray, string_c_str(candidate));
+                    }
+
+                    it = uobject_loop_next(it);
+                }
+                
+                if(current == gRootObject) break;
+
+                current = SUOBJECT(current).mParent;
+
+                if(current == NULL) break;
+            }
         }
 
         vector_sort(gCompletionArray, name_sort);
@@ -402,7 +454,7 @@ static char* env_completion(const char* text, int stat_)
 
 static void get_current_completion_object(sObject** completion_object, sObject** current_object)
 {
-    if(*current_object != gRootObject) {
+    if(*current_object && *current_object != gRootObject) {
         sObject* parent_object = SUOBJECT(*current_object).mParent;
         get_current_completion_object(completion_object, &parent_object);
         if(*completion_object) *completion_object = uobject_item(*completion_object, SUOBJECT(*current_object).mName);
@@ -419,6 +471,8 @@ static sObject* access_object_compl(char* name, sObject** current)
         if(object || *current == gCompletionObject) { return object; }
 
         *current = SUOBJECT((*current)).mParent;
+
+        if(*current == NULL) return NULL;;
     }
 }
 
@@ -445,7 +499,7 @@ char** readline_on_complete(const char* text, int start, int end)
                 if(statment->mCommandsNum > 0) {
                     sCommand* command = statment->mCommands + statment->mCommandsNum-1;
 
-                    int num = SBLOCK(gReadlineBlock).mCompletionFlags & 0xFF;
+                    int num = SBLOCK(gReadlineBlock).mCompletionFlags & COMPLETION_FLAGS_BLOCK_OR_ENV_NUM;
 
                     if(num > 0) {
                         if(SBLOCK(gReadlineBlock).mCompletionFlags & COMPLETION_FLAGS_ENV_BLOCK) {
@@ -479,6 +533,10 @@ char** readline_on_complete(const char* text, int start, int end)
         char** result = rl_completion_matches(text, all_program_completion);
         stack_end_stack();
         return result;
+    }
+    else if(SBLOCK(gReadlineBlock).mCompletionFlags & COMPLETION_FLAGS_AFTER_REDIRECT) {
+        stack_end_stack();
+        return NULL;
     }
     else {
         sStatment* statment = SBLOCK(gReadlineBlock).mStatments + SBLOCK(gReadlineBlock).mStatmentsNum - 1;
@@ -633,131 +691,46 @@ char** readline_on_complete(const char* text, int start, int end)
 
 BOOL cmd_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime >= 2) {
-        if(command->mBlocksNum == 1) {
-            sObject* block = command->mBlocks[0];
+    if(runinfo->mArgsNumRuntime >= 2) {
+        /// input ///
+        if(runinfo->mBlocksNum == 1) {
+            sObject* block = runinfo->mBlocks[0];
 
             int i;
-            for(i=1; i<command->mArgsNumRuntime; i++) {
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
                 sObject* object = gCompletionObject;
+                sObject* prefix = STRING_NEW_STACK("");
+                sObject* name = STRING_NEW_STACK("");
 
-                sObject* str = STRING_NEW_GC("", FALSE);
-                char* p = command->mArgsRuntime[i];
-                while(*p) {
-                    if(*p == ':' && *(p+1) == ':') {
-                        if(string_c_str(str)[0] == 0) {
-                            err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                            return FALSE;
-                        }
-                        p+=2;
+                split_prefix_of_object_and_name(&object, prefix, name, runinfo->mArgsRuntime[i]);
 
-                        sObject* object2 = uobject_item(object, string_c_str(str));
-                        if(object2 == NULL || TYPE(object2) !=T_UOBJECT) {
-                            sObject* new_object = UOBJECT_NEW_GC(8, object, string_c_str(str), TRUE);
-                            uobject_put(object, string_c_str(str), new_object);
-                            uobject_init(new_object);
-
-                            object = new_object;
-                        }
-                        else {
-                            object = object2;
-                        }
-                        string_put(str, "");
-                    }
-                    else {
-                        string_push_back2(str, *p);
-                        p++;
-                    }
-                }
-                if(object && TYPE(object) == T_UOBJECT && string_c_str(str)[0] != 0) {
-                    uobject_put(object, string_c_str(str), COMPLETION_NEW_GC(block, FALSE));
+                if(object && TYPE(object) == T_UOBJECT && string_c_str(name)[0] != 0) {
+                    uobject_put(object, string_c_str(name), COMPLETION_NEW_GC(block, FALSE));
                 }
                 else {
-                    err_msg("There is no object", runinfo->mSName, runinfo->mSLine, command->mArgsRuntime[i]);
-
+                    err_msg("invalid variable name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
             }
 
             runinfo->mRCode = 0;
         }
-        else if(command->mBlocksNum == 0) {
+        /// output ///
+        else if(runinfo->mBlocksNum == 0) {
             int i;
-            for(i=1; i<command->mArgsNumRuntime; i++) {
-                sObject* object = gCompletionObject;
-
-                sObject* str = STRING_NEW_GC("", FALSE);
-                char* p = command->mArgsRuntime[i];
-                while(*p) {
-                    if(*p == ':' && *(p+1) == ':') {
-                        if(string_c_str(str)[0] == 0) {
-                            err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                            return FALSE;
-                        }
-                        p+=2;
-
-                        sObject* object2 = uobject_item(object, string_c_str(str));
-                        if(object2 == NULL || TYPE(object2) !=T_UOBJECT) {
-                            sObject* new_object = UOBJECT_NEW_GC(8, object, string_c_str(str), TRUE);
-                            uobject_put(object, string_c_str(str), new_object);
-                            uobject_init(new_object);
-
-                            object = new_object;
-                        }
-                        else {
-                            object = object2;
-                        }
-                        string_put(str, "");
-                    }
-                    else {
-                        string_push_back2(str, *p);
-                        p++;
-                    }
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* compl;
+                if(!get_object_from_str(&compl, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
                 }
-                if(object && TYPE(object) == T_UOBJECT && string_c_str(str)[0] != 0) {
-                    sObject* completion = uobject_item(object, string_c_str(str));
-                    if(completion) {
-                        stack_start_stack();
 
-                        sObject* fun = FUN_NEW_STACK(NULL);
-                        sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
-                        vector_add(gStackFrames, stackframe);
-                        //uobject_init(stackframe);
-                        SFUN(fun).mLocalObjects = stackframe;
-
-                        xyzsh_set_signal();
-                        int rcode = 0;
-                        if(!run(SCOMPLETION(completion).mBlock, nextin, nextout, &rcode, gRootObject, fun)) {
-                            if(rcode == RCODE_BREAK) {
-                            }
-                            else if(rcode == RCODE_RETURN) {
-                            }
-                            else if(rcode == RCODE_EXIT) {
-                            }
-                            else {
-                                err_msg_adding("run time error\n", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                            }
-
-                            (void)vector_pop_back(gStackFrames);
-                            readline_signal();
-                            stack_end_stack();
-
-                            return FALSE;
-                        }
-                        (void)vector_pop_back(gStackFrames);
-                        readline_signal();
-                        stack_end_stack();
-                    }
-                    else {
-                        err_msg("There is no object", runinfo->mSName, runinfo->mSLine, command->mArgsRuntime[i]);
-
+                if(compl && TYPE(compl) == T_COMPLETION) {
+                    if(!run_object(compl, nextin, nextout, runinfo)) {
                         return FALSE;
                     }
                 }
                 else {
-                    err_msg("There is no object", runinfo->mSName, runinfo->mSLine, command->mArgsRuntime[i]);
+                    err_msg("There is no object", runinfo->mSName, runinfo->mSLine, runinfo->mArgsRuntime[i]);
 
                     return FALSE;
                 }
@@ -782,10 +755,8 @@ BOOL cmd_readline_clear_screen(sObject* nextin, sObject* nextout, sRunInfo* runi
 
 BOOL cmd_readline_point_move(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 2) {
-        int n = atoi(command->mArgsRuntime[1]);
+    if(runinfo->mArgsNumRuntime == 2) {
+        int n = atoi(runinfo->mArgsRuntime[1]);
 
         if(n < 0) n += strlen(rl_line_buffer) + 1;
         if(n < 0) n = 0;
@@ -801,8 +772,6 @@ BOOL cmd_readline_point_move(sObject* nextin, sObject* nextout, sRunInfo* runinf
 
 BOOL cmd_readline_insert_text(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     if(runinfo->mFilter) {
         (void)rl_insert_text(SFD(nextin).mBuf);
         puts("");
@@ -816,11 +785,9 @@ BOOL cmd_readline_insert_text(sObject* nextin, sObject* nextout, sRunInfo* runin
 
 BOOL cmd_readline_delete_text(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 3) {
-        int n = atoi(command->mArgsRuntime[1]);
-        int m = atoi(command->mArgsRuntime[2]);
+    if(runinfo->mArgsNumRuntime == 3) {
+        int n = atoi(runinfo->mArgsRuntime[1]);
+        int m = atoi(runinfo->mArgsRuntime[2]);
         if(n < 0) n += strlen(rl_line_buffer) + 1;
         if(n < 0) n= 0;
         if(m < 0) m += strlen(rl_line_buffer) + 1;
@@ -840,10 +807,8 @@ BOOL cmd_readline_delete_text(sObject* nextin, sObject* nextout, sRunInfo* runin
 
 BOOL cmd_readline_read_history(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 2) {
-        char* fname = command->mArgsRuntime[1];
+    if(runinfo->mArgsNumRuntime == 2) {
+        char* fname = runinfo->mArgsRuntime[1];
         read_history(fname);
         runinfo->mRCode = 0;
     }
@@ -853,10 +818,8 @@ BOOL cmd_readline_read_history(sObject* nextin, sObject* nextout, sRunInfo* runi
 
 BOOL cmd_readline_write_history(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 2) {
-        char* fname = command->mArgsRuntime[1];
+    if(runinfo->mArgsNumRuntime == 2) {
+        char* fname = runinfo->mArgsRuntime[1];
         write_history(fname);
         runinfo->mRCode = 0;
     }

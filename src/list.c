@@ -22,7 +22,7 @@ static list_it* list_it_allocate(void* item, list_it* prev_it, list_it* next_it)
 
 #if defined(MDEBUG)
 
-sObject* list_new_debug_from_malloc(const char* fname, int line, const char* func_name)
+sObject* list_new_debug_on_malloc(const char* fname, int line, const char* func_name)
 {
    sObject* self = (sObject*)CheckMemLeak_Malloc(sizeof(sObject), fname, line, func_name);
    
@@ -35,7 +35,7 @@ sObject* list_new_debug_from_malloc(const char* fname, int line, const char* fun
 
 #else
 
-sObject* list_new_from_malloc()
+sObject* list_new_on_malloc()
 {
     sObject* self = (sObject*)MALLOC(sizeof(sObject));
     
@@ -47,7 +47,7 @@ sObject* list_new_from_malloc()
 }
 #endif
 
-sObject* list_new_from_gc(BOOL user_object)
+sObject* list_new_on_gc(BOOL user_object)
 {
     sObject* self = gc_get_free_object(T_LIST, user_object);
     
@@ -58,7 +58,7 @@ sObject* list_new_from_gc(BOOL user_object)
     return self;
 }
 
-sObject* list_new_from_stack()
+sObject* list_new_on_stack()
 {
     sObject* self = stack_get_free_object(T_LIST);
     
@@ -69,7 +69,7 @@ sObject* list_new_from_stack()
     return self;
 }
 
-void list_delete_malloc(sObject* self)
+void list_delete_on_malloc(sObject* self)
 {
    list_it* it = SLIST(self).mEntryIt;
    while(it) {
@@ -81,7 +81,7 @@ void list_delete_malloc(sObject* self)
    FREE(self);
 }
 
-void list_delete_gc(sObject* self)
+void list_delete_on_gc(sObject* self)
 {
    list_it* it = SLIST(self).mEntryIt;
    while(it) {
@@ -91,7 +91,7 @@ void list_delete_gc(sObject* self)
    }
 }
 
-void list_delete_stack(sObject* self)
+void list_delete_on_stack(sObject* self)
 {
    list_it* it = SLIST(self).mEntryIt;
    while(it) {

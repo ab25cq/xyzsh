@@ -9,11 +9,11 @@
 // Initialization
 ////////////////////////////////////////////////////
 #ifndef MDEBUG
-sObject* string_new_from_malloc(char* str)
+sObject* string_new_on_malloc(char* str)
 {
     sObject* self = MALLOC(sizeof(sObject));
 
-    self->mFlg = T_STRING;
+    self->mFlags = T_STRING;
 
     const int len = strlen(str);
 
@@ -28,11 +28,11 @@ sObject* string_new_from_malloc(char* str)
 
 #else
 
-sObject* string_new_from_malloc_debug(char* str, const char* fname, int line, const char* func_name)
+sObject* string_new_on_malloc_debug(char* str, const char* fname, int line, const char* func_name)
 {
     sObject* self = CheckMemLeak_Malloc(sizeof(sObject), fname, line, func_name);
 
-    self->mFlg = T_STRING;
+    self->mFlags = T_STRING;
 
     const int len = strlen(str);
 
@@ -47,7 +47,7 @@ sObject* string_new_from_malloc_debug(char* str, const char* fname, int line, co
 
 #endif
 
-sObject* string_new_from_gc(char* str, BOOL user_object)
+sObject* string_new_on_gc(char* str, BOOL user_object)
 {
     sObject* self = gc_get_free_object(T_STRING, user_object);
 
@@ -62,7 +62,7 @@ sObject* string_new_from_gc(char* str, BOOL user_object)
     return self;
 }
 
-sObject* string_new_from_gc3(char* str, int size, BOOL user_object)
+sObject* string_new_on_gc3(char* str, int size, BOOL user_object)
 {
     sObject* self = gc_get_free_object(T_STRING, user_object);
 
@@ -78,7 +78,7 @@ sObject* string_new_from_gc3(char* str, int size, BOOL user_object)
     return self;
 }
 
-sObject* string_new_from_stack(char* str)
+sObject* string_new_on_stack(char* str)
 {
     sObject* self = stack_get_free_object(T_STRING);
 
@@ -96,19 +96,19 @@ sObject* string_new_from_stack(char* str)
 /////////////////////////////////////////////////////
 // Finalization
 /////////////////////////////////////////////////////
-void string_delete_malloc(sObject* self)
+void string_delete_on_malloc(sObject* self)
 {
     FREE(SSTRING(self).mStr);
 
     FREE(self);
 }
 
-void string_delete_gc(sObject* self)
+void string_delete_on_gc(sObject* self)
 {
     FREE(SSTRING(self).mStr);
 }
 
-void string_delete_stack(sObject* self)
+void string_delete_on_stack(sObject* self)
 {
     FREE(SSTRING(self).mStr);
 }

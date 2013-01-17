@@ -1,5 +1,5 @@
 /*
- * ƒŠƒXƒgƒRƒ“ƒeƒiƒ‰ƒCƒuƒ‰ƒŠ
+ * Ã‰Ã¤Ã‰XÃ‰gÃ‰RÃ‰Ã¬Ã‰eÃ‰iÃ‰Ã¢Ã‰CÃ‰uÃ‰Ã¢Ã‰Ã¤
  */
 
 #ifndef XYZSH_LIST_H
@@ -10,50 +10,50 @@
 #define FALSE 0
 
 ///////////////////////////////////////////////////////////////////////
-// ŠÖ”éŒ¾
+// Ã¤Ã·ÃªÃ®ÃªÃˆÃ¥Ã¦
 ///////////////////////////////////////////////////////////////////////
-// ‰Šú‰»
+// Ã¨Ã¢Ã¤Ë™Ã¢Âª
 #ifdef MDEBUG
-sObject* list_new_debug_from_malloc(const char* fname, int line, const char* func_name);
-#define LIST_NEW_MALLOC() list_new_debug_from_malloc(__FILE__, __LINE__, __FUNCTION__)
+sObject* list_new_debug_on_malloc(const char* fname, int line, const char* func_name);
+#define LIST_NEW_MALLOC() list_new_debug_on_malloc(__FILE__, __LINE__, __FUNCTION__)
 #else
-sObject* list_new_from_malloc();
-#define LIST_NEW_MALLOC() list_new_from_malloc()
+sObject* list_new_on_malloc();
+#define LIST_NEW_MALLOC() list_new_on_malloc()
 #endif
 
-sObject* list_new_from_gc(BOOL user_object);
-#define LIST_NEW_GC(user_object) list_new_from_gc(user_object)
+sObject* list_new_on_gc(BOOL user_object);
+#define LIST_NEW_GC(user_object) list_new_on_gc(user_object)
 
-sObject* list_new_from_stack();
-#define LIST_NEW_STACK() list_new_from_stack()
+sObject* list_new_on_stack();
+#define LIST_NEW_STACK() list_new_on_stack()
 
-void list_delete_malloc(sObject* self);
-void list_delete_stack(sObject* self);
-void list_delete_gc(sObject* self);
+void list_delete_on_malloc(sObject* self);
+void list_delete_on_stack(sObject* self);
+void list_delete_on_gc(sObject* self);
 
-int list_count(sObject* self);                      // ƒTƒCƒY
-BOOL list_empty(sObject* self);                    // ‹ó‚©‚Ç‚¤‚©
-int list_index_of(sObject* self, void* item);      // ƒAƒCƒeƒ€‚ÌƒCƒ“ƒfƒbƒNƒX
-void list_push_front(sObject* self, void* item);   // ƒAƒCƒeƒ€‚ğ‘O‚©‚ç’Ç‰Á
-void list_push_back(sObject* self, void* item);    // ƒAƒCƒeƒ€‚ğŒã‚ë‚©‚ç’Ç‰Á
-void* list_pop_front(sObject* self);               // ‘O‚©‚çƒAƒCƒeƒ€‚ğæ‚èo‚·
-void* list_pop_back(sObject* self);                // Œã‚ë‚©‚çƒAƒCƒeƒ€‚ğæ‚èo‚·
-void list_clear(sObject* self);                    // ƒAƒCƒeƒ€‚ğƒNƒŠƒA
+int list_count(sObject* self);                      // Ã‰TÃ‰CÃ‰Y
+BOOL list_empty(sObject* self);                    // Ã£Ã›Ã‡Â©Ã‡Â«Ã‡Â§Ã‡Â©
+int list_index_of(sObject* self, void* item);      // Ã‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ÃƒÃ‰CÃ‰Ã¬Ã‰fÃ‰bÃ‰NÃ‰X
+void list_push_front(sObject* self, void* item);   // Ã‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã«OÃ‡Â©Ã‡ÃÃ­Â«Ã¢Â¡
+void list_push_back(sObject* self, void* item);    // Ã‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã¥â€Ã‡ÃÃ‡Â©Ã‡ÃÃ­Â«Ã¢Â¡
+void* list_pop_front(sObject* self);               // Ã«OÃ‡Â©Ã‡ÃÃ‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã¨oÃ‡âˆ‘
+void* list_pop_back(sObject* self);                // Ã¥â€Ã‡ÃÃ‡Â©Ã‡ÃÃ‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã¨oÃ‡âˆ‘
+void list_clear(sObject* self);                    // Ã‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã‰NÃ‰Ã¤Ã‰A
 
-list_it* list_begin(sObject* self);                // æ“ª‚ÌƒŠƒXƒgƒCƒeƒŒ[ƒ^[‚ğæ‚èo‚·
-list_it* list_last(sObject* self);                 // ÅŒã‚ÌƒŠƒXƒgƒCƒeƒŒ[ƒ^[‚ğæ‚èo‚·
-list_it* list_at(sObject* self, int index);        // ”CˆÓ‚ÌêŠ‚ÌƒŠƒXƒgƒCƒeƒŒ[ƒ^[‚ğæ‚è‚¾‚·
-list_it* list_find(sObject* self, void* item);     // ˆø”‚ÌƒAƒCƒeƒ€‚ÌƒCƒeƒŒ[ƒ^[‚ğæ‚èo‚·
-void* list_item(list_it* self);                     // ƒCƒeƒŒ[ƒ^[‚©‚çƒAƒCƒeƒ€‚ğæ‚èo‚·
-list_it* list_next(list_it* self);                  // ƒCƒeƒŒ[ƒ^[‚©‚çŸ‚ÌƒCƒeƒŒ[ƒ^[‚ğæ‚èo‚·
-list_it* list_prev(list_it* self);                  // ƒCƒeƒŒ[ƒ^[‚©‚ç‘O‚ÌƒCƒeƒŒ[ƒ^[‚ğæ‚èo‚·
-void list_replace(list_it* self, void* item);       // ƒCƒeƒŒ[ƒ^[‚ÌƒAƒCƒeƒ€‚ğ’u‚«Š·‚¦‚é
-list_it* list_erase(list_it* self, sObject* owner);    // ƒCƒeƒŒ[ƒ^[‚ÌƒAƒCƒeƒ€‚ğíœ‚·‚éBŸ‚ÌIT‚ğ•Ô‚·
-void list_insert_front(list_it* self, void* item, sObject* owner);     // ƒCƒeƒŒ[ƒ^[‚Ì‘O‚ÉƒAƒCƒeƒ€‚ğ’Ç‰Á‚·‚é
-void list_insert_back(list_it* self, void* item, sObject* owner);      // ƒCƒeƒŒ[ƒ^[‚ÌŒã‚ë‚ÉƒAƒCƒeƒ€‚ğ’Ç‰Á‚·‚é
+list_it* list_begin(sObject* self);                // ÃªÃŠÃ¬â„¢Ã‡ÃƒÃ‰Ã¤Ã‰XÃ‰gÃ‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã¨oÃ‡âˆ‘
+list_it* list_last(sObject* self);                 // Ã§â‰ˆÃ¥â€Ã‡ÃƒÃ‰Ã¤Ã‰XÃ‰gÃ‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã¨oÃ‡âˆ‘
+list_it* list_at(sObject* self, int index);        // Ã®CÃ â€Ã‡ÃƒÃ¨ÃÃ¨Ã¤Ã‡ÃƒÃ‰Ã¤Ã‰XÃ‰gÃ‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã‡Ã¦Ã‡âˆ‘
+list_it* list_find(sObject* self, void* item);     // Ã Â¯ÃªÃ®Ã‡ÃƒÃ‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ÃƒÃ‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã¨oÃ‡âˆ‘
+void* list_item(list_it* self);                     // Ã‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡Â©Ã‡ÃÃ‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã¨oÃ‡âˆ‘
+list_it* list_next(list_it* self);                  // Ã‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡Â©Ã‡ÃÃ©Ã¼Ã‡ÃƒÃ‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã¨oÃ‡âˆ‘
+list_it* list_prev(list_it* self);                  // Ã‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡Â©Ã‡ÃÃ«OÃ‡ÃƒÃ‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ï£¿Ã©ÃŠÃ‡Ã‹Ã¨oÃ‡âˆ‘
+void list_replace(list_it* self, void* item);       // Ã‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ÃƒÃ‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã­uÃ‡Â´Ã¤âˆ‘Ã‡Â¶Ã‡Ãˆ
+list_it* list_erase(list_it* self, sObject* owner);    // Ã‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ÃƒÃ‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã§ÃŒÃ¨ÃºÃ‡âˆ‘Ã‡ÃˆÃ…BÃ©Ã¼Ã‡ÃƒITÃ‡ï£¿Ã¯â€˜Ã‡âˆ‘
+void list_insert_front(list_it* self, void* item, sObject* owner);     // Ã‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ÃƒÃ«OÃ‡â€¦Ã‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã­Â«Ã¢Â¡Ã‡âˆ‘Ã‡Ãˆ
+void list_insert_back(list_it* self, void* item, sObject* owner);      // Ã‰CÃ‰eÃ‰Ã¥Ã…[Ã‰^Ã…[Ã‡ÃƒÃ¥â€Ã‡ÃÃ‡â€¦Ã‰AÃ‰CÃ‰eÃ‰Ã„Ã‡ï£¿Ã­Â«Ã¢Â¡Ã‡âˆ‘Ã‡Ãˆ
 
 /*
-    ‘S‘–¸—á
+    Ã«SÃ«Ã±Ã§âˆÃ³Â·
     
     for(list_it* i=list_begin(gList); i; i=list_next(i)) {
         sItem* item = (sItem*)list_item(i);

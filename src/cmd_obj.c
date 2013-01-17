@@ -26,8 +26,6 @@
 
 BOOL cmd_mshow(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     sObject* object = runinfo->mRecieverObject;
     uobject_it* it = uobject_loop_begin(object);
     while(it) {
@@ -41,7 +39,7 @@ BOOL cmd_mshow(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int size = snprintf(buf, BUFSIZ, "%s: %s\n", key, obj_kind[TYPE(object2)]);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -53,20 +51,211 @@ BOOL cmd_mshow(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
-static BOOL entry_fun(sObject* nextin, sObject* nextout, sRunInfo* runinfo, sObject* block, int type)
+BOOL cmd_defined(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sObject* object = runinfo->mCurrentObject;
-    sCommand* command = runinfo->mCommand;
+    if(runinfo->mArgsNumRuntime > 1) {
+        sObject* object = runinfo->mCurrentObject;
+        int i;
+        for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+            sObject* reciever = runinfo->mCurrentObject;
+            sObject* obj = access_object(runinfo->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
 
-    BOOL no_stackframe = sCommand_option_item(command, "-copy-stackframe");
+            if(obj) {
+                runinfo->mRCode = 0;
+            }
+            else {
+                runinfo->mRCode = RCODE_NFUN_FALSE;
+                break;
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_mrun(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mBlocksNum == 1) {
+        sObject* klass = class_clone_on_stack_from_stack_block(runinfo->mBlocks[0], NULL, sRunInfo_option(runinfo, "-copy-stackframe"));
+
+        int rcode = 0;
+        if(!run(SCLASS(klass).mBlock, nextin, nextout, &rcode, runinfo->mRecieverObject, runinfo->mRunningObject)) {
+            runinfo->mRCode = rcode;
+            return FALSE;
+        }
+
+        runinfo->mRCode = rcode;
+    }
+    else if(runinfo->mArgsNumRuntime >= 2) {
+        sObject* current = runinfo->mCurrentObject;
+        sObject* klass = access_object(runinfo->mArgsRuntime[1], &current, runinfo->mRunningObject);
+
+        if(klass && TYPE(klass) == T_CLASS) {
+            runinfo->mCurrentObject = runinfo->mRecieverObject;
+            if(!run_function(klass, nextin, nextout, runinfo, runinfo->mArgsRuntime + 2, runinfo->mArgsNumRuntime -2, runinfo->mBlocks, runinfo->mBlocksNum)) {
+                return FALSE;
+            }
+
+            //runinfo->mRCode = 0;
+        }
+        else {
+            err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL output_cwo(sObject* nextout, sObject* object, sRunInfo* runinfo) 
+{
+    if(object) {
+        if(object == gRootObject) {
+            if(!fd_write(nextout, SUOBJECT(object).mName, strlen(SUOBJECT(object).mName))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            if(!fd_write(nextout, "::", 2)) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+        }
+        else {
+            if(!output_cwo(nextout, SUOBJECT(object).mParent, runinfo)) {
+                return FALSE;
+            }
+            if(!fd_write(nextout, SUOBJECT(object).mName, strlen(SUOBJECT(object).mName))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            if(!fd_write(nextout, "::", 2)) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_pwo(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(!output_cwo(nextout, runinfo->mCurrentObject, runinfo)) {
+        return FALSE;
+    }
+
+    if(!fd_write(nextout, "\n", 1)) {
+        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+        return FALSE;
+    }
+    runinfo->mRCode = 0;
+
+    return TRUE;
+}
+
+BOOL cmd_co(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mArgsNumRuntime == 2) {
+        sObject* new_current;
+        if(!get_object_from_str(&new_current, runinfo->mArgsRuntime[1], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+            return FALSE;
+        }
+
+        if(new_current && TYPE(new_current) == T_UOBJECT) {
+            gCurrentObject = new_current;
+            runinfo->mRCode = 0;
+        }
+        else {
+            err_msg("can't change the current object", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_inherit(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    sObject* running_object = runinfo->mRunningObject;
+    if(runinfo->mRunningObject) {
+        switch(TYPE(running_object)) {
+        case T_FUN:  {
+            sObject* parent = SFUN(running_object).mParent;
+
+            if(parent) {
+                if(TYPE(parent) == T_NFUN) {
+                    if(gAppType == kATConsoleApp)
+                    {
+                        if(tcsetpgrp(0, getpgid(0)) < 0) {
+                            perror("tcsetpgrp inner command");
+                            exit(1);
+                        }
+                    }
+
+                    runinfo->mRCode = RCODE_NFUN_INVALID_USSING;
+                    if(!SNFUN(parent).mNativeFun(nextin, nextout, runinfo)) {
+                        return FALSE;
+                    }
+                    if(runinfo->mRCode == RCODE_NFUN_INVALID_USSING) {
+                        err_msg("invalid command using", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        return FALSE;
+                    }
+                    //runinfo->mRCode = 0;
+                }
+                else {  // T_FUN
+                    if(!run_function(parent, nextin, nextout, runinfo, runinfo->mArgsRuntime + 1, runinfo->mArgsNumRuntime -1, runinfo->mBlocks, runinfo->mBlocksNum))
+                    {
+                        return FALSE;
+                    }
+                    //runinfo->mRCode = 0;
+                }
+            }
+            }
+            break;
+
+        case T_CLASS: {
+            sObject* parent = SFUN(running_object).mParent;
+
+            if(parent) {
+                if(!run_function(parent, nextin, nextout, runinfo, runinfo->mArgsRuntime + 1, runinfo->mArgsNumRuntime -1, runinfo->mBlocks, runinfo->mBlocksNum))
+                {
+                    return FALSE;
+                }
+                //runinfo->mRCode = 0;
+            }
+            }
+            break;
+
+        case T_NFUN:
+        case T_BLOCK:
+            err_msg("There is not a parent object", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            return FALSE;
+
+        default:
+            fprintf(stderr, "unexpected error in cmd_inherit\n");
+            exit(1);
+        }
+    }
+
+    return TRUE;
+}
+
+static BOOL entry_fun(sObject* nextin, sObject* nextout, sRunInfo* runinfo, sObject* block, int type, sObject* object, char* name)
+{
+    BOOL no_stackframe = sRunInfo_option(runinfo, "-copy-stackframe");
 
     if(type == T_CLASS) 
-        block = class_clone_from_stack_block_to_gc(block, TRUE, NULL, no_stackframe); // block is a stack object, so change the memory manager from stack to gc
+        block = class_clone_on_gc_from_stack_block(block, TRUE, NULL, no_stackframe); // block is a stack object, so change the memory manager from stack to gc
     else
-        block = fun_clone_from_stack_block_to_gc(block, TRUE, NULL, no_stackframe); // block is a stack object, so change the memory manager from stack to gc
+        block = fun_clone_on_gc_from_stack_block(block, TRUE, NULL, no_stackframe); // block is a stack object, so change the memory manager from stack to gc
 
-    if(sCommand_option_item(command, "-inherit")) {
-        sObject* parent = uobject_item(object, command->mArgsRuntime[1]);
+    if(sRunInfo_option(runinfo, "-inherit")) {
+        sObject* parent = uobject_item(object, name);
         if(parent) {
             if(type == T_FUN && (TYPE(parent) == T_FUN || TYPE(parent) == T_NFUN) 
                 || type == T_CLASS && TYPE(parent) == T_CLASS) 
@@ -74,12 +263,12 @@ static BOOL entry_fun(sObject* nextin, sObject* nextout, sRunInfo* runinfo, sObj
                 SFUN(block).mParent = parent;
             }
             else {
-                err_msg("can't inherit a parent function beacuse of the different type", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("can't inherit a parent function beacuse of the different type", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
         }
         else {
-            err_msg("can't inherit. There is not a parent", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("can't inherit. There is not a parent", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             return FALSE;
         }
     }
@@ -88,7 +277,7 @@ static BOOL entry_fun(sObject* nextin, sObject* nextout, sRunInfo* runinfo, sObj
     }
 
     char* argument;
-    if(argument = sCommand_option_with_argument_item(command, "-option-with-argument")) {
+    if(argument = sRunInfo_option_with_argument(runinfo, "-option-with-argument")) {
         char option[BUFSIZ+1];
         char* p = option;
         *p++ = '-';
@@ -98,7 +287,7 @@ static BOOL entry_fun(sObject* nextin, sObject* nextout, sRunInfo* runinfo, sObj
                 *p = 0;
                 if(strlen(option) > 1) {
                     if(!fun_put_option_with_argument(block, STRDUP(option))) {
-                        err_msg("option number is full.", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("option number is full.", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         return FALSE;
                     }
                 }
@@ -115,7 +304,7 @@ static BOOL entry_fun(sObject* nextin, sObject* nextout, sRunInfo* runinfo, sObj
                     }
                 }
                 else {
-                    err_msg("invalid option name", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("invalid option name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
             }
@@ -123,25 +312,23 @@ static BOOL entry_fun(sObject* nextin, sObject* nextout, sRunInfo* runinfo, sObj
         *p = 0;
         if(strlen(option) > 1) {
             if(!fun_put_option_with_argument(block, STRDUP(option))) {
-                err_msg("option number is full.", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("option number is full.", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
         }
     }
 
-    uobject_put(object, command->mArgsRuntime[1], block);
+    uobject_put(object, name, block);
 
     return TRUE;
 }
 
 BOOL cmd_def(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 2) {
+    if(runinfo->mArgsNumRuntime == 2) {
         /// define ///
-        if(command->mBlocksNum >= 1) {
-            if(!entry_fun(nextin, nextout, runinfo, command->mBlocks[0], T_FUN)) {
+        if(runinfo->mBlocksNum >= 1) {
+            if(!entry_fun(nextin, nextout, runinfo, runinfo->mBlocks[0], T_FUN, runinfo->mCurrentObject, runinfo->mArgsRuntime[1])) {
                 return FALSE;
             }
             
@@ -154,12 +341,12 @@ BOOL cmd_def(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             sObject* block = BLOCK_NEW_STACK();
             int sline = 1;
             if(!parse(SFD(nextin).mBuf, "def", &sline, block, NULL)) {
-                err_msg("parser error", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("parser error", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 stack_end_stack();
                 return FALSE;
             }
 
-            if(!entry_fun(nextin, nextout, runinfo, block, T_FUN)) {
+            if(!entry_fun(nextin, nextout, runinfo, block, T_FUN, runinfo->mCurrentObject, runinfo->mArgsRuntime[1])) {
                 stack_end_stack();
                 return FALSE;
             }
@@ -174,18 +361,21 @@ BOOL cmd_def(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         /// output ///
         else {
-            sObject* reciever = runinfo->mCurrentObject;
-            sObject* fun = access_object(command->mArgsRuntime[1], &reciever, runinfo->mRunningObject);
+            sObject* fun;
+            if(!get_object_from_str(&fun, runinfo->mArgsRuntime[1], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                return FALSE;
+            }
+
             if(fun && TYPE(fun) == T_FUN) {
                 char* source = SBLOCK(SFUN(fun).mBlock).mSource;
                 if(!fd_write(nextout, source, strlen(source))) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(source[strlen(source)-1] != '\n') {   /// pomch
                     if(!fd_write(nextout, "\n", 1)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -193,7 +383,7 @@ BOOL cmd_def(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 runinfo->mRCode = 0;
             }
             else {
-                err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
         }
@@ -204,12 +394,10 @@ BOOL cmd_def(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_class(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 2) {
+    if(runinfo->mArgsNumRuntime == 2) {
         /// define ///
-        if(command->mBlocksNum >= 1) {
-            if(!entry_fun(nextin, nextout, runinfo, command->mBlocks[0], T_CLASS)) {
+        if(runinfo->mBlocksNum >= 1) {
+            if(!entry_fun(nextin, nextout, runinfo, runinfo->mBlocks[0], T_CLASS, runinfo->mCurrentObject, runinfo->mArgsRuntime[1])) {
                 return FALSE;
             }
             
@@ -222,12 +410,12 @@ BOOL cmd_class(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             sObject* block = BLOCK_NEW_STACK();
             int sline = 1;
             if(!parse(SFD(nextin).mBuf, "def", &sline, block, NULL)) {
-                err_msg("parser error", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("parser error", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 stack_end_stack();
                 return FALSE;
             }
 
-            if(!entry_fun(nextin, nextout, runinfo, block, T_CLASS)) {
+            if(!entry_fun(nextin, nextout, runinfo, block, T_CLASS, runinfo->mCurrentObject, runinfo->mArgsRuntime[1])) {
                 stack_end_stack();
                 return FALSE;
             }
@@ -242,18 +430,21 @@ BOOL cmd_class(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         /// output ///
         else {
-            sObject* reciever = runinfo->mCurrentObject;
-            sObject* klass = access_object(command->mArgsRuntime[1], &reciever, runinfo->mRunningObject);
+            sObject* klass;
+            if(!get_object_from_str(&klass, runinfo->mArgsRuntime[1], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                return FALSE;
+            }
+
             if(klass && TYPE(klass) == T_CLASS) {
                 char* source = SBLOCK(SCLASS(klass).mBlock).mSource;
                 if(!fd_write(nextout, source, strlen(source))) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(source[strlen(source)-1] != '\n') {   /// pomch
                     if(!fd_write(nextout, "\n", 1)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -261,7 +452,7 @@ BOOL cmd_class(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 runinfo->mRCode = 0;
             }
             else {
-                err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
         }
@@ -270,134 +461,38 @@ BOOL cmd_class(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
-BOOL cmd_defined(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime > 1) {
-        sObject* object = runinfo->mCurrentObject;
-        int i;
-        for(i=1; i<command->mArgsNumRuntime; i++) {
-            sObject* reciever = runinfo->mCurrentObject;
-            sObject* obj = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
-
-            if(obj) {
-                runinfo->mRCode = 0;
-            }
-            else {
-                runinfo->mRCode = RCODE_NFUN_FALSE;
-                break;
-            }
-        }
-    }
-
-    return TRUE;
-}
-
-BOOL cmd_inherit(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    sCommand* command = runinfo->mCommand;
-
-    sObject* running_object = runinfo->mRunningObject;
-    if(runinfo->mRunningObject) {
-        switch(TYPE(running_object)) {
-        case T_FUN:  {
-            sObject* parent = SFUN(running_object).mParent;
-
-            if(parent) {
-                if(TYPE(parent) == T_NFUN) {
-                    if(gAppType == kATConsoleApp)
-                    {
-                        if(tcsetpgrp(0, getpgid(0)) < 0) {
-                            perror("tcsetpgrp inner command b");
-                            exit(1);
-                        }
-                    }
-
-                    runinfo->mRCode = RCODE_NFUN_INVALID_USSING;
-                    if(!SNFUN(parent).mNativeFun(nextin, nextout, runinfo)) {
-                        return FALSE;
-                    }
-                    if(runinfo->mRCode == RCODE_NFUN_INVALID_USSING) {
-                        err_msg("invalid command using", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                        return FALSE;
-                    }
-                    //runinfo->mRCode = 0;
-                }
-                else {  // T_FUN
-                    sCommand* command = runinfo->mCommand;
-                    if(!run_function(parent, nextin, nextout, runinfo, command->mArgsRuntime + 1, command->mArgsNumRuntime -1, command->mBlocks, command->mBlocksNum))
-                    {
-                        return FALSE;
-                    }
-                    //runinfo->mRCode = 0;
-                }
-            }
-            }
-            break;
-
-        case T_CLASS: {
-            sObject* parent = SFUN(running_object).mParent;
-
-            if(parent) {
-                sCommand* command = runinfo->mCommand;
-                if(!run_function(parent, nextin, nextout, runinfo, command->mArgsRuntime + 1, command->mArgsNumRuntime -1, command->mBlocks, command->mBlocksNum))
-                {
-                    return FALSE;
-                }
-                //runinfo->mRCode = 0;
-            }
-            }
-            break;
-
-        case T_NFUN:
-        case T_BLOCK:
-            err_msg("There is not a parent object", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            return FALSE;
-
-        default:
-            fprintf(stderr, "unexpected error in cmd_inherit\n");
-            exit(1);
-        }
-    }
-
-    return TRUE;
-}
-
 BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     char* field = "\n";
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
         field = "\r\n";
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
         field = "\r";
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
         field = "\n";
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
         field = "\a";
     }
 
     enum eKanjiCode code = gKanjiCode;
-    if(sCommand_option_item(command, "-byte")) {
+    if(sRunInfo_option(runinfo, "-byte")) {
         code = kByte;
     }
-    else if(sCommand_option_item(command, "-utf8")) {
+    else if(sRunInfo_option(runinfo, "-utf8")) {
         code = kUtf8;
     }
-    else if(sCommand_option_item(command, "-sjis")) {
+    else if(sRunInfo_option(runinfo, "-sjis")) {
         code = kSjis;
     }
-    else if(sCommand_option_item(command, "-eucjp")) {
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
         code = kEucjp;
     }
 
@@ -405,13 +500,13 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     if(runinfo->mFilter) {
         fd_split(nextin, lf);
 
-        if(sCommand_option_item(command, "-new")) {
+        if(sRunInfo_option(runinfo, "-new")) {
             int max = vector_count(SFD(nextin).mLines);
             if(max > 0) {
                 sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, 0), TRUE);
                 string_chomp(new_var);
 
-                if(!add_object_to_objects_in_pipe(new_var, runinfo, command))
+                if(!add_object_to_objects_in_pipe(new_var, runinfo, runinfo))
                 {
                     return FALSE;
                 }
@@ -419,12 +514,12 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 char buf[128];
                 int size = snprintf(buf, 128, "%p", new_var);
                 if(!fd_write(nextout, buf, size)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(!fd_write(nextout, "\n", 1)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -432,7 +527,7 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             else {
                 sObject* new_var = STRING_NEW_GC("", TRUE);
 
-                if(!add_object_to_objects_in_pipe(new_var, runinfo, command))
+                if(!add_object_to_objects_in_pipe(new_var, runinfo, runinfo))
                 {
                     return FALSE;
                 }
@@ -440,23 +535,23 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 char buf[128];
                 int size = snprintf(buf, 128, "%p", new_var);
                 if(!fd_write(nextout, buf, size)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(!fd_write(nextout, "\n", 1)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
             }
 
-            if(sCommand_option_item(command, "-shift")) {
+            if(sRunInfo_option(runinfo, "-shift")) {
                 int i;
                 for(i=1;i<max; i++) {
                     char* str = vector_item(SFD(nextin).mLines, i);
                     if(!fd_write(nextout, str, strlen(str))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -470,9 +565,9 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 runinfo->mRCode = 0;
             }
         }
-        else if(command->mArgsNumRuntime > 1) {
+        else if(runinfo->mArgsNumRuntime > 1) {
             sObject* object;
-            if(sCommand_option_item(command, "-local")) {
+            if(sRunInfo_option(runinfo, "-local")) {
                 object = SFUN(runinfo->mRunningObject).mLocalObjects;
             }
             else {
@@ -481,12 +576,12 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
             int i;
             int max = vector_count(SFD(nextin).mLines);
-            for(i=1; i<command->mArgsNumRuntime; i++) {
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
                 sObject* current = runinfo->mCurrentObject;
-                sObject* tmp = access_object3(command->mArgsRuntime[i], &current);
+                sObject* tmp = access_object3(runinfo->mArgsRuntime[i], &current);
 
-                if(tmp && sCommand_option_item(command, "-local") && !sCommand_option_item(command, "-force")) {
-                    err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
+                    err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
 
@@ -494,20 +589,20 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i-1), TRUE);
                     string_chomp(new_var);
 
-                    uobject_put(object, command->mArgsRuntime[i], new_var);
+                    uobject_put(object, runinfo->mArgsRuntime[i], new_var);
                 }
                 else {
                     sObject* new_var = STRING_NEW_GC("", TRUE);
 
-                    uobject_put(object, command->mArgsRuntime[i], new_var);
+                    uobject_put(object, runinfo->mArgsRuntime[i], new_var);
                 }
             }
 
-            if(sCommand_option_item(command, "-shift")) {
+            if(sRunInfo_option(runinfo, "-shift")) {
                 for(;i-1<max; i++) {
                     char* str = vector_item(SFD(nextin).mLines, i-1);
                     if(!fd_write(nextout, str, strlen(str))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -524,14 +619,15 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
     /// output ///
     else {
-        if(command->mArgsNumRuntime > 1) {
+        if(runinfo->mArgsNumRuntime > 1) {
             char* argument;
-            if(argument = sCommand_option_with_argument_item(command, "-index")) {
-                sObject* object = runinfo->mCurrentObject;
+            if(argument = sRunInfo_option_with_argument(runinfo, "-index")) {
                 int i;
-                for(i=1; i<command->mArgsNumRuntime; i++) {
-                    sObject* reciever = runinfo->mCurrentObject;
-                    sObject* var = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* var;
+                    if(!get_object_from_str(&var, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
 
                     if(var && TYPE(var) == T_STRING) {
                         if(strlen(string_c_str(var)) > 0) {
@@ -549,12 +645,12 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             char* pos = str_kanjipos2pointer(code, string_c_str(var), num);
                             char* pos2 = str_kanjipos2pointer(code, pos, 1);
                             if(!fd_write(nextout, pos, pos2-pos)) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
@@ -563,32 +659,34 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         runinfo->mRCode = 0;
                     }
                     else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         return FALSE;
                     }
                 }
             }
             else {
-                sObject* object = runinfo->mCurrentObject;
                 int i;
-                for(i=1; i<command->mArgsNumRuntime; i++) {
-                    sObject* reciever = runinfo->mCurrentObject;
-                    sObject* var = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* var;
+                    if(!get_object_from_str(&var, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
+
                     if(var && TYPE(var) == T_STRING) {
                         if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                         if(!fd_write(nextout, field, strlen(field))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                         runinfo->mRCode = 0;
                     }
                     else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         return FALSE;
                     }
                 }
@@ -601,42 +699,43 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     char* field = "\n";
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
         field = "\r\n";
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
         field = "\r";
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
         field = "\n";
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
         field = "\a";
     }
 
     /// size
-    if(sCommand_option_item(command, "-size")) {
-        if(command->mArgsNumRuntime > 1) {
+    if(sRunInfo_option(runinfo, "-size")) {
+        if(runinfo->mArgsNumRuntime > 1) {
             sObject* object = runinfo->mCurrentObject;
             int i;
-            for(i=1; i<command->mArgsNumRuntime; i++) {
-                sObject* reciever = runinfo->mCurrentObject;
-                sObject* ary = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* ary;
+                if(!get_object_from_str(&ary, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
+                }
+
 
                 if(ary && TYPE(ary) == T_VECTOR) {
                     char buf[128];
                     int size = snprintf(buf, 128, "%d\n", vector_count(ary));
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -644,7 +743,7 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     runinfo->mRCode = 0;
                 }
                 else {
-                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
             }
@@ -652,15 +751,17 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
     /// output
     else if(!runinfo->mFilter) {
-        if(command->mArgsNumRuntime > 1) {
+        if(runinfo->mArgsNumRuntime > 1) {
             /// number
             char* argument;
-            if(argument = sCommand_option_with_argument_item(command, "-index")) {
+            if(argument = sRunInfo_option_with_argument(runinfo, "-index")) {
                 sObject* object = runinfo->mCurrentObject;
                 int i;
-                for(i=1; i<command->mArgsNumRuntime; i++) {
-                    sObject* reciever = runinfo->mCurrentObject;
-                    sObject* ary = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* ary;
+                    if(!get_object_from_str(&ary, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
 
                     if(ary && TYPE(ary) == T_VECTOR) {
                         if(vector_count(ary) > 0) {
@@ -677,12 +778,12 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             sObject* var = vector_item(ary, num);
 
                             if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
@@ -691,7 +792,7 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         runinfo->mRCode = 0;
                     }
                     else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         return FALSE;
                     }
                 }
@@ -699,22 +800,25 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             else {
                 sObject* object = runinfo->mCurrentObject;
                 int i;
-                for(i=1; i<command->mArgsNumRuntime; i++) {
-                    sObject* reciever = runinfo->mCurrentObject;
-                    sObject* ary = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* ary;
+                    if(!get_object_from_str(&ary, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
+
                     if(ary && TYPE(ary) == T_VECTOR) {
                         int j;
                         for(j=0; j<vector_count(ary); j++) {
                             sObject* var = vector_item(ary, j);
 
                             if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
 
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
@@ -722,14 +826,15 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         runinfo->mRCode = 0;
                     }
                     else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         return FALSE;
                     }
                 }
             }
         }
     }
-    else if(sCommand_option_item(command, "-new"))
+    /// -new
+    else if(sRunInfo_option(runinfo, "-new"))
     {
         fd_split(nextin, lf);
 
@@ -737,7 +842,7 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int max = vector_count(SFD(nextin).mLines);
         sObject* new_ary = VECTOR_NEW_GC(16, TRUE);
 
-        if(!add_object_to_objects_in_pipe(new_ary, runinfo, command))
+        if(!add_object_to_objects_in_pipe(new_ary, runinfo, runinfo))
         {
             return FALSE;
         }
@@ -745,12 +850,12 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         char buf[128];
         int size = snprintf(buf, 128, "%p", new_ary);
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
         if(!fd_write(nextout, "\n", 1)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -769,17 +874,17 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
     }
     /// input
-    else if(command->mArgsNumRuntime == 2) {
+    else if(runinfo->mArgsNumRuntime == 2) {
         fd_split(nextin, lf);
 
         sObject* reciever = runinfo->mCurrentObject;
-        sObject* ary = access_object(command->mArgsRuntime[1], &reciever, runinfo->mRunningObject);
+        sObject* ary = access_object(runinfo->mArgsRuntime[1], &reciever, runinfo->mRunningObject);
 
         /// number
         char* argument;
-        if(ary && (argument = sCommand_option_with_argument_item(command, "-append"))) {
+        if(ary && (argument = sRunInfo_option_with_argument(runinfo, "-append"))) {
             if(TYPE(ary) != T_VECTOR) {
-                err_msg("different type of object", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("different type of object", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
 
@@ -809,7 +914,7 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else {
             sObject* object;
-            if(sCommand_option_item(command, "-local")) {
+            if(sRunInfo_option(runinfo, "-local")) {
                 object = SFUN(runinfo->mRunningObject).mLocalObjects;
             }
             else {
@@ -821,14 +926,14 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             sObject* new_ary = VECTOR_NEW_GC(16, TRUE);
 
             sObject* current = runinfo->mCurrentObject;
-            sObject* tmp = access_object3(command->mArgsRuntime[1], &current);
+            sObject* tmp = access_object3(runinfo->mArgsRuntime[1], &current);
 
-            if(tmp && sCommand_option_item(command, "-local") && !sCommand_option_item(command, "-force")) {
-                err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
+                err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
 
-            uobject_put(object, command->mArgsRuntime[1], new_ary);
+            uobject_put(object, runinfo->mArgsRuntime[1], new_ary);
 
             for(i=0; i<max; i++) {
                 sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
@@ -850,42 +955,42 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     char* field = "\n";
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
         field = "\r\n";
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
         field = "\r";
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
         field = "\n";
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
         field = "\a";
     }
 
     /// size
-    if(sCommand_option_item(command, "-size")) {
-        if(command->mArgsNumRuntime > 1) {
+    if(sRunInfo_option(runinfo, "-size")) {
+        if(runinfo->mArgsNumRuntime > 1) {
             sObject* object = runinfo->mCurrentObject;
             int i;
-            for(i=1; i<command->mArgsNumRuntime; i++) {
-                sObject* reciever = runinfo->mCurrentObject;
-                sObject* hash = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* hash;
+                if(!get_object_from_str(&hash, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
+                }
 
                 if(hash && TYPE(hash) == T_HASH) {
                     char buf[128];
                     int size = snprintf(buf, 128, "%d\n", hash_count(hash));
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -893,7 +998,7 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     runinfo->mRCode = 0;
                 }
                 else {
-                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
             }
@@ -901,27 +1006,29 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
     /// output
     else if(!runinfo->mFilter) {
-         if(command->mArgsNumRuntime > 1) {
+         if(runinfo->mArgsNumRuntime > 1) {
             /// key
             char* argument;
-            if(argument = sCommand_option_with_argument_item(command, "-key")) {
+            if(argument = sRunInfo_option_with_argument(runinfo, "-key")) {
                 sObject* object = runinfo->mCurrentObject;
                 int i;
-                for(i=1; i<command->mArgsNumRuntime; i++) {
-                    sObject* reciever = runinfo->mCurrentObject;
-                    sObject* hash = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* hash;
+                    if(!get_object_from_str(&hash, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
 
                     if(hash && TYPE(hash) == T_HASH) {
                         sObject* var = hash_item(hash, argument);
 
                         if(var) {
                             if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
@@ -930,7 +1037,7 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         runinfo->mRCode = 0;
                     }
                     else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         return FALSE;
                     }
                 }
@@ -938,9 +1045,11 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             else {
                 sObject* object = runinfo->mCurrentObject;
                 int i;
-                for(i=1; i<command->mArgsNumRuntime; i++) {
-                    sObject* reciever = runinfo->mCurrentObject;
-                    sObject* hash = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* hash;
+                    if(!get_object_from_str(&hash, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
                     if(hash && TYPE(hash) == T_HASH) {
                         hash_it* it = hash_loop_begin(hash);
                         while(it) {
@@ -948,22 +1057,22 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             sObject* var = hash_loop_item(it);
 
                             if(!fd_write(nextout, key, strlen(key))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
                             if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
@@ -973,7 +1082,7 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         runinfo->mRCode = 0;
                     }
                     else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         return FALSE;
                     }
                 }
@@ -981,14 +1090,14 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
     }
     /// input
-    else if(sCommand_option_item(command, "-new")) {
+    else if(sRunInfo_option(runinfo, "-new")) {
         fd_split(nextin, lf);
 
         int i;
         int max = vector_count(SFD(nextin).mLines);
         sObject* new_hash = HASH_NEW_GC(16, TRUE);
 
-        if(!add_object_to_objects_in_pipe(new_hash, runinfo, command))
+        if(!add_object_to_objects_in_pipe(new_hash, runinfo, runinfo))
         {
             return FALSE;
         }
@@ -996,12 +1105,12 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         char buf[128];
         int size = snprintf(buf, 128, "%p", new_hash);
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
         if(!fd_write(nextout, "\n", 1)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -1027,16 +1136,16 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
     }
     /// input ///
-    else if(command->mArgsNumRuntime == 2) {
+    else if(runinfo->mArgsNumRuntime == 2) {
         fd_split(nextin, lf);
 
         sObject* reciever = runinfo->mCurrentObject;
-        sObject* hash = access_object(command->mArgsRuntime[1], &reciever, runinfo->mRunningObject);
+        sObject* hash = access_object(runinfo->mArgsRuntime[1], &reciever, runinfo->mRunningObject);
 
         /// number
-        if(hash && sCommand_option_item(command, "-append")) {
+        if(hash && sRunInfo_option(runinfo, "-append")) {
             if(TYPE(hash) != T_HASH) {
-                err_msg("different type of object", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("different type of object", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
 
@@ -1064,7 +1173,7 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else {
             sObject* object;
-            if(sCommand_option_item(command, "-local")) {
+            if(sRunInfo_option(runinfo, "-local")) {
                 object = SFUN(runinfo->mRunningObject).mLocalObjects;
             }
             else {
@@ -1076,14 +1185,14 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             sObject* new_hash = HASH_NEW_GC(16, TRUE);
 
             sObject* current = runinfo->mCurrentObject;
-            sObject* tmp = access_object3(command->mArgsRuntime[1], &current);
+            sObject* tmp = access_object3(runinfo->mArgsRuntime[1], &current);
 
-            if(tmp && sCommand_option_item(command, "-local") && !sCommand_option_item(command, "-force")) {
-                err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
+                err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
 
-            uobject_put(object, command->mArgsRuntime[1], new_hash);
+            uobject_put(object, runinfo->mArgsRuntime[1], new_hash);
 
             sObject* key = STRING_NEW_STACK("");
             for(i=0; i<max; i++) {
@@ -1112,22 +1221,20 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_object(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
-    if(sCommand_option_item(command, "-new")) {
-        if(command->mBlocksNum >= 1) {
+    if(sRunInfo_option(runinfo, "-new")) {
+        if(runinfo->mBlocksNum >= 1) {
             sObject* object = runinfo->mCurrentObject;
 
             sObject* new_object = UOBJECT_NEW_GC(8, object, "anonymous", TRUE);
             uobject_init(new_object);
 
             int rcode = 0;
-            if(!run(command->mBlocks[0], nextin, nextout, &rcode, new_object, runinfo->mRunningObject)) {
+            if(!run(runinfo->mBlocks[0], nextin, nextout, &rcode, new_object, runinfo->mRunningObject)) {
                 runinfo->mRCode = rcode;
                 return FALSE;
             }
 
-            if(!add_object_to_objects_in_pipe(new_object, runinfo, command))
+            if(!add_object_to_objects_in_pipe(new_object, runinfo, runinfo))
             {
                 return FALSE;
             }
@@ -1135,12 +1242,12 @@ BOOL cmd_object(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             char buf[128];
             int size = snprintf(buf, 128, "%p", new_object);
             if(!fd_write(nextout, buf, size)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, "\n", 1)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -1153,7 +1260,7 @@ BOOL cmd_object(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             sObject* new_object = UOBJECT_NEW_GC(8, object, "anonymous", TRUE);
             uobject_init(new_object);
 
-            if(!add_object_to_objects_in_pipe(new_object, runinfo, command))
+            if(!add_object_to_objects_in_pipe(new_object, runinfo, runinfo))
             {
                 return FALSE;
             }
@@ -1161,12 +1268,12 @@ BOOL cmd_object(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             char buf[128];
             int size = snprintf(buf, 128, "%p", new_object);
             if(!fd_write(nextout, buf, size)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, "\n", 1)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -1174,17 +1281,26 @@ BOOL cmd_object(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             runinfo->mRCode = 0;
         }
     }
-    else if(command->mArgsNumRuntime > 1) {
-        if(command->mBlocksNum >= 1) {
-            sObject* object = runinfo->mCurrentObject;
+    else if(runinfo->mArgsNumRuntime > 1) {
+        if(runinfo->mBlocksNum >= 1) {
+            sObject* object;
+            sObject* parent_object;
+            if(sRunInfo_option(runinfo, "-local")) {
+                object = SFUN(runinfo->mRunningObject).mLocalObjects;
+                parent_object = runinfo->mCurrentObject;
+            }
+            else {
+                object = runinfo->mCurrentObject;
+                parent_object = runinfo->mCurrentObject;
+            }
             int i;
-            for(i=1; i<command->mArgsNumRuntime; i++) {
-                sObject* new_object = UOBJECT_NEW_GC(8, object, command->mArgsRuntime[i], TRUE);
-                uobject_put(object, command->mArgsRuntime[i], new_object);
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* new_object = UOBJECT_NEW_GC(8, parent_object, runinfo->mArgsRuntime[i], TRUE);
+                uobject_put(object, runinfo->mArgsRuntime[i], new_object);
                 uobject_init(new_object);
 
                 int rcode = 0;
-                if(!run(command->mBlocks[0], nextin, nextout, &rcode, new_object, runinfo->mRunningObject)) {
+                if(!run(runinfo->mBlocks[0], nextin, nextout, &rcode, new_object, runinfo->mRunningObject)) {
                     runinfo->mRCode = rcode;
                     return FALSE;
                 }
@@ -1193,11 +1309,21 @@ BOOL cmd_object(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
         }
         else {
-            sObject* object = runinfo->mCurrentObject;
+            sObject* object;
+            sObject* parent_object;
+            if(sRunInfo_option(runinfo, "-local")) {
+                object = SFUN(runinfo->mRunningObject).mLocalObjects;
+                parent_object = runinfo->mCurrentObject;
+            }
+            else {
+                object = runinfo->mCurrentObject;
+                parent_object = runinfo->mCurrentObject;
+            }
+
             int i;
-            for(i=1; i<command->mArgsNumRuntime; i++) {
-                sObject* new_object = UOBJECT_NEW_GC(8, object, command->mArgsRuntime[i], TRUE);
-                uobject_put(object, command->mArgsRuntime[i], new_object);
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* new_object = UOBJECT_NEW_GC(8, parent_object, runinfo->mArgsRuntime[i], TRUE);
+                uobject_put(object, runinfo->mArgsRuntime[i], new_object);
                 uobject_init(new_object);
                 runinfo->mRCode = 0;
             }
@@ -1207,129 +1333,40 @@ BOOL cmd_object(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
-BOOL cmd_mrun(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mBlocksNum == 1) {
-        sObject* klass = class_clone_from_stack_block_to_stack(command->mBlocks[0], NULL, sCommand_option_item(command, "-copy-stackframe"));
-
-        int rcode = 0;
-        if(!run(SCLASS(klass).mBlock, nextin, nextout, &rcode, runinfo->mRecieverObject, runinfo->mRunningObject)) {
-            runinfo->mRCode = rcode;
-            return FALSE;
-        }
-
-        runinfo->mRCode = rcode;
-    }
-    else if(command->mArgsNumRuntime >= 2) {
-        sObject* current = runinfo->mCurrentObject;
-        sObject* klass = access_object(command->mArgsRuntime[1], &current, runinfo->mRunningObject);
-
-        if(klass && TYPE(klass) == T_CLASS) {
-            runinfo->mCurrentObject = runinfo->mRecieverObject;
-            if(!run_function(klass, nextin, nextout, runinfo, command->mArgsRuntime + 2, command->mArgsNumRuntime -2, command->mBlocks, command->mBlocksNum)) {
-                return FALSE;
-            }
-
-            //runinfo->mRCode = 0;
-        }
-        else {
-            err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            return FALSE;
-        }
-    }
-
-    return TRUE;
-}
-
-BOOL cmd_pwo(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    sCommand* command = runinfo->mCommand;
-
-    sObject* object = gCurrentObject;
-    while(object != gRootObject) {
-        if(!fd_write(nextout, SUOBJECT(object).mName, strlen(SUOBJECT(object).mName))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-            return FALSE;
-        }
-        if(!fd_write(nextout, "<-", 2)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-            return FALSE;
-        }
-        
-        object = SUOBJECT(object).mParent;
-    }
-
-    if(!fd_write(nextout, SUOBJECT(object).mName, strlen(SUOBJECT(object).mName))) {
-        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-        return FALSE;
-    }
-
-    if(!fd_write(nextout, "\n", 1)) {
-        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-        return FALSE;
-    }
-    runinfo->mRCode = 0;
-
-    return TRUE;
-}
-
-BOOL cmd_co(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    sCommand* command = runinfo->mCommand;
-
-    if(command->mArgsNumRuntime == 2) {
-        sObject* new_current = uobject_item(gCurrentObject, command->mArgsRuntime[1]);
-        if(new_current && TYPE(new_current) == T_UOBJECT) {
-            gCurrentObject = new_current;
-            runinfo->mRCode = 0;
-        }
-        else {
-            err_msg("can't change the current object", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            return FALSE;
-        }
-    }
-
-    return TRUE;
-}
 
 BOOL cmd_ref(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     char* field = "\n";
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
         field = "\r\n";
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
         field = "\r";
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
         field = "\n";
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
         field = "\a";
     }
 
     /// output
     if(!runinfo->mFilter) {
-        if(command->mArgsNumRuntime > 1) {
+        if(runinfo->mArgsNumRuntime > 1) {
             int i;
-            for(i=1; i<command->mArgsNumRuntime; i++) {
-                sObject* reciever = runinfo->mCurrentObject;
-                sObject* item = access_object(command->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* item;
+                if(!get_object_from_str(&item, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
+                }
+
                 if(item) {
-                    if(!add_object_to_objects_in_pipe(item, runinfo, command))
+                    if(!add_object_to_objects_in_pipe(item, runinfo, runinfo))
                     {
                         return FALSE;
                     }
@@ -1337,19 +1374,19 @@ BOOL cmd_ref(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     char buf[128];
                     int size = snprintf(buf, 128, "%p", item);
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                     if(!fd_write(nextout, field, strlen(field))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                     runinfo->mRCode = 0;
                 }
                 else {
-                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
             }
@@ -1360,14 +1397,14 @@ BOOL cmd_ref(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         fd_split(nextin, lf);
 
         /// type
-        if(sCommand_option_item(command, "-type")) {
+        if(sRunInfo_option(runinfo, "-type")) {
             int i;
             int max = vector_count(SFD(nextin).mLines);
             for(i=0; i<max; i++) {
                 char* line = vector_item(SFD(nextin).mLines, i);
                 void* mem = (void*)(unsigned long)strtoll(line, NULL, 16);
                 if(mem == NULL || !gc_valid_object(mem) || !contained_in_pipe(mem)) {
-                    err_msg("invalid address. it's not memory managed by a xyzsh gabage collecter or it doesn't exist in pipe data", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("invalid address. it's not memory managed by a xyzsh gabage collecter or it doesn't exist in pipe data", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
 
@@ -1381,7 +1418,7 @@ BOOL cmd_ref(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 int size = snprintf(buf, 128, "%s\n", obj_kind[type]);
 
                 if(!fd_write(nextout, buf, size)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -1395,9 +1432,9 @@ BOOL cmd_ref(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
         }
         else {
-            if(command->mArgsNumRuntime > 1) {
+            if(runinfo->mArgsNumRuntime > 1) {
                 sObject* object;
-                if(sCommand_option_item(command, "-local")) {
+                if(sRunInfo_option(runinfo, "-local")) {
                     object = SFUN(runinfo->mRunningObject).mLocalObjects;
                 }
                 else {
@@ -1406,22 +1443,22 @@ BOOL cmd_ref(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                 int i;
                 int max = vector_count(SFD(nextin).mLines);
-                BOOL shift = sCommand_option_item(command, "-shift");
+                BOOL shift = sRunInfo_option(runinfo, "-shift");
                 for(i=0; i<max; i++) {
-                    if(i+1 < command->mArgsNumRuntime) {
+                    if(i+1 < runinfo->mArgsNumRuntime) {
                         char* line = vector_item(SFD(nextin).mLines, i);
                         void* mem = (void*)(unsigned long)strtoll(line, NULL, 16);
                         if(mem == NULL || !gc_valid_object(mem) || !contained_in_pipe(mem)) {
-                            err_msg("invalid address. it's not memory managed by a xyzsh gabage collecter or it doesn't exist in pipe data", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("invalid address. it's not memory managed by a xyzsh gabage collecter or it doesn't exist in pipe data", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             return FALSE;
                         }
 
-                        uobject_put(object, command->mArgsRuntime[i+1], mem);
+                        uobject_put(object, runinfo->mArgsRuntime[i+1], mem);
                     }
                     else if(shift) {
                         char* str = vector_item(SFD(nextin).mLines, i);
                         if(!fd_write(nextout, str, strlen(str))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -1447,42 +1484,40 @@ BOOL cmd_ref(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_export(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     char* field = "\n";
     eLineField lf = gLineField;
-    if(sCommand_option_item(command, "-Lw")) {
+    if(sRunInfo_option(runinfo, "-Lw")) {
         lf = kCRLF;
         field = "\r\n";
     }
-    else if(sCommand_option_item(command, "-Lm")) {
+    else if(sRunInfo_option(runinfo, "-Lm")) {
         lf = kCR;
         field = "\r";
     }
-    else if(sCommand_option_item(command, "-Lu")) {
+    else if(sRunInfo_option(runinfo, "-Lu")) {
         lf = kLF;
         field = "\n";
     }
-    else if(sCommand_option_item(command, "-La")) {
+    else if(sRunInfo_option(runinfo, "-La")) {
         lf = kBel;
         field = "\a";
     }
 
     /// output
     if(!runinfo->mFilter) {
-        if(command->mArgsNumRuntime > 1) {
+        if(runinfo->mArgsNumRuntime > 1) {
             sObject* object = runinfo->mCurrentObject;
             int i;
-            for(i=1; i<command->mArgsNumRuntime; i++) {
-                char* env = getenv(command->mArgsRuntime[i]);
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                char* env = getenv(runinfo->mArgsRuntime[i]);
                 if(env) {
                     if(!fd_write(nextout, env, strlen(env))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                     if(!fd_write(nextout, field, strlen(field))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -1496,25 +1531,25 @@ BOOL cmd_export(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     else {
         fd_split(nextin, lf);
 
-        if(command->mArgsNumRuntime > 1) {
+        if(runinfo->mArgsNumRuntime > 1) {
             int i;
             int max = vector_count(SFD(nextin).mLines);
-            for(i=1; i<command->mArgsNumRuntime; i++) {
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
                 if(i-1 < max) {
                     sObject* new_var = STRING_NEW_STACK(vector_item(SFD(nextin).mLines, i-1));
                     string_chomp(new_var);
-                    setenv(command->mArgsRuntime[i], string_c_str(new_var), 1);
+                    setenv(runinfo->mArgsRuntime[i], string_c_str(new_var), 1);
                 }
                 else {
-                    setenv(command->mArgsRuntime[i], "", 1);
+                    setenv(runinfo->mArgsRuntime[i], "", 1);
                 }
             }
 
-            if(sCommand_option_item(command, "-shift")) {
+            if(sRunInfo_option(runinfo, "-shift")) {
                 for(;i-1<max; i++) {
                     char* str = vector_item(SFD(nextin).mLines, i-1);
                     if(!fd_write(nextout, str, strlen(str))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -1535,15 +1570,13 @@ BOOL cmd_export(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_unset(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    sCommand* command = runinfo->mCommand;
-
     /// output
-    if(!runinfo->mFilter && command->mArgsNumRuntime >= 2) {
+    if(!runinfo->mFilter && runinfo->mArgsNumRuntime >= 2) {
         int i;
-        for(i=1; i<command->mArgsNumRuntime; i++) {
-            char* name = command->mArgsRuntime[i];
+        for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+            char* name = runinfo->mArgsRuntime[i];
             if(unsetenv(name) != 0) {
-                err_msg("invalid env name", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                err_msg("invalid env name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
         }

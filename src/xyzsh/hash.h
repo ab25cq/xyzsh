@@ -12,22 +12,22 @@
 ///////////////////////////////////////////////////////////////////////
 
 #ifndef MDEBUG
-sObject* hash_new_from_malloc(int size);
-#define HASH_NEW_MALLOC(size) hash_new_from_malloc(size)
+sObject* hash_new_on_malloc(int size);
+#define HASH_NEW_MALLOC(size) hash_new_on_malloc(size)
 #else
-sObject* hash_new_from_malloc_debug(int size, const char* fname, int line, const char* func_name);
-#define HASH_NEW_MALLOC(size) hash_new_from_malloc_debug(size, __FILE__, __LINE__, __FUNCTION__)
+sObject* hash_new_on_malloc_debug(int size, const char* fname, int line, const char* func_name);
+#define HASH_NEW_MALLOC(size) hash_new_on_malloc_debug(size, __FILE__, __LINE__, __FUNCTION__)
 #endif
 
-sObject* hash_new_from_gc(int size, BOOL user_object);
-sObject* hash_new_from_stack(int size);
+sObject* hash_new_on_gc(int size, BOOL user_object);
+sObject* hash_new_on_stack(int size);
 
-#define HASH_NEW_GC(size, user_object) hash_new_from_gc(size, user_object)
-#define HASH_NEW_STACK(size) hash_new_from_stack(size)
+#define HASH_NEW_GC(size, user_object) hash_new_on_gc(size, user_object)
+#define HASH_NEW_STACK(size) hash_new_on_stack(size)
 
-void hash_delete_gc(sObject* self);
-void hash_delete_stack(sObject* self);
-void hash_delete_malloc(sObject* self);
+void hash_delete_on_gc(sObject* self);
+void hash_delete_on_stack(sObject* self);
+void hash_delete_on_malloc(sObject* self);
 
 void hash_put(sObject* self, char* key, void* item);
 BOOL hash_erase(sObject* self, char* key);
