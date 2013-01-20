@@ -85,7 +85,7 @@ static void xyzsh_read_rc()
 
 void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 {
-    setenv("XYZSH_VERSION", "1.3.1", 1);
+    setenv("XYZSH_VERSION", "1.3.2", 1);
     setenv("XYZSH_DATAROOTDIR", DATAROOTDIR, 1);
 
     setlocale(LC_ALL, "");

@@ -352,6 +352,14 @@ BOOL fd_flash(sObject* self, int fd)
     return TRUE;
 }
 
+void fd_trunc(sObject* self, int index)
+{
+    if(index >= 0 && index < SFD(self).mBufLen) {
+        SFD(self).mBufLen = index;
+        SFD(self).mBuf[SFD(self).mBufLen] = 0;
+    }
+}
+
 sObject* fd2_new_on_stack(uint fd)
 {
     sObject* self = stack_get_free_object(T_FD2);

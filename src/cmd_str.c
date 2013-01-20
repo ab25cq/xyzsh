@@ -892,6 +892,53 @@ BOOL cmd_chop(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
+BOOL cmd_strip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mFilter) {
+        BOOL first = TRUE;
+        char* last_point = NULL;
+        char* p = SFD(nextin).mBuf;
+        while(*p) {
+            if(*p == '\n' || *p =='\r' || *p == '\t' || *p == ' ' || *p == '\a')
+            {
+                if(!first) {
+                    if(!fd_writec(nextout, *p++)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+                else {
+                    p++;
+                }
+            }
+            else {
+                first = FALSE;
+                last_point = p;
+                if(!fd_writec(nextout, *p++)) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+            }
+        }
+
+        const int space_of_tail_len = SFD(nextin).mBufLen - (last_point - SFD(nextin).mBuf) - 1;
+        if(space_of_tail_len > 0) {
+            fd_trunc(nextout, SFD(nextout).mBufLen - space_of_tail_len);
+        }
+
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
 BOOL cmd_pomch(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     eLineField lf = gLineField;

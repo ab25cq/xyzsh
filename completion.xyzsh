@@ -49,21 +49,21 @@ class object_completion (
         inputing |chomp | split :: | lines 0..-2 | if( | -n) (
             | join ::| var -local PREFIX
             if(KIND | = all\n) (
-                eval "${PREFIX}::show" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'; |print ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
+                eval "${PREFIX}::show" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::' ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
             ) else (
-                eval "${PREFIX}::show" | egrep ": $KIND\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'; | print ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
+                eval "${PREFIX}::show" | egrep ": $KIND\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::' ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
             )
         )
     ) else (
         pwo  | var -local current
         while(true) (
             if(KIND | = all\n) (
-                eval "${current}show" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'; |print ) else (|print) ) | root::scan '(^.+?:?:?):' 
+                eval "${current}::show" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::' ) else (|print) ) | root::scan '(^.+?:?:?):' 
             ) else (
-                eval "${current}show" | egrep ": $KIND\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'; |print ) else (|print) ) | root::scan '(^.+?:?:?):' 
+                eval "${current}::show" | egrep ": $KIND\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'  ) else (|print) ) | root::scan '(^.+?:?:?):' 
             )
-            if(current | = root::\n) ( break )
-            current | split :: | lines 0..-4 | join :: |chomp| add :: | var -local current
+            if(current | = root\n) ( break )
+            current | strip | split :: | lines 0..-2| join :: | var -local current
         )
     )
 )
@@ -108,6 +108,16 @@ completion ref (
     hash COMPLETION_OPTIONS -key ref
 )
 
+completion defined (
+    | object_completion all
+    hash COMPLETION_OPTIONS -key defined
+)
+
+completion objinfo (
+    | object_completion all
+    hash COMPLETION_OPTIONS -key defined
+)
+
 completion export (
     sys::env | scan '(.+?)='
 )
@@ -117,9 +127,6 @@ completion sweep (
     hash COMPLETION_OPTIONS -key sweep
 )
 
-completion defined (
-    self | egrep -v external\ program\$ | egrep -v native\ function\$ | egrep -v '^root:|^self:|^parent:|^run:'| root::scan '(^.+?):' 
-)
 
 completion help (
     root::self | egrep native\ function\$ | root::scan '(^.+?):' | add sub\nsplit\nscan\n | each ( | chomp | quote | pomch )

@@ -54,18 +54,202 @@ BOOL cmd_mshow(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 BOOL cmd_defined(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     if(runinfo->mArgsNumRuntime > 1) {
-        sObject* object = runinfo->mCurrentObject;
         int i;
         for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-            sObject* reciever = runinfo->mCurrentObject;
-            sObject* obj = access_object(runinfo->mArgsRuntime[i], &reciever, runinfo->mRunningObject);
+            sObject* object;
+            if(!get_object_from_str(&object, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                return FALSE;
+            }
 
-            if(obj) {
+            if(object) {
                 runinfo->mRCode = 0;
             }
             else {
                 runinfo->mRCode = RCODE_NFUN_FALSE;
                 break;
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL object_info(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    char buf[128];
+
+    switch(TYPE(object)) {
+        case T_STRING :
+            snprintf(buf, 128, "Type: string\nLength: %d\nMallocLen: %d\n", SSTRING(object).mLen, SSTRING(object).mMallocLen);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_VECTOR:
+            snprintf(buf, 128, "Type: vector\nTable Size: %d\nCount: %d\n", SVECTOR(object).mTableSize, SVECTOR(object).mCount);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_HASH:
+            snprintf(buf, 128, "Type: hash\nTable Size: %d\nCount: %d\n", SHASH(object).mTableSize, SHASH(object).mCounter);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_LIST:
+            snprintf(buf, 128, "Type: list\nCount: %d\n", SLIST(object).mCount);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_NFUN:
+            snprintf(buf, 128, "Type: native function\nParent: %s\n", SNFUN(object).mParent ? "exists" : "no parent");
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_BLOCK:
+            snprintf(buf, 128, "Type: block\nStatment Number: %d\nStatment Size %d\n", SBLOCK(object).mStatmentsNum, SBLOCK(object).mStatmentsSize);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_FD:
+            snprintf(buf, 128, "Type: file discriptor\n\nBuffer Size %d\nBuffer Length: %d\nLine Number %d\nLine Field %d\nReaded Line Number %d\n", SFD(object).mBufSize, SFD(object).mBufLen, vector_count(SFD(object).mLines), SFD(object).mLinesLineField, SFD(object).mReadedLineNumber);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_FD2:
+            snprintf(buf, 128, "Type: file discriptor2\nFile Discriptor %d\n", SFD2(object).mFD);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_JOB:
+            snprintf(buf, 128, "Type: job\nName %s\nProcess Group %d\nSuspended %d\n", SJOB(object).mName, SJOB(object).mPGroup, SJOB(object).mSuspended);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_UOBJECT: 
+            snprintf(buf, 128, "Type: user object\nTable Size %d\nCount %d\nName %s\nParent %s", SUOBJECT(object).mTableSize, SUOBJECT(object).mCounter, SUOBJECT(object).mName, SUOBJECT(object).mParent ? SUOBJECT(SUOBJECT(object).mParent).mName: "no parent");
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_FUN:
+            snprintf(buf, 128, "Type: function\nParent: %s\nNo StackFrame: %d\n", SFUN(object).mParent ? "exists": "no parent", SFUN(object).mFlags & FUN_FLAGS_NO_STACKFRAME);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_CLASS:
+            snprintf(buf, 128, "Type: class\nParent: %s\nNo StackFrame: %d\n", SCLASS(object).mParent ? "exists": "no parent", SCLASS(object).mFlags & FUN_FLAGS_NO_STACKFRAME);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_EXTPROG:
+            snprintf(buf, 128, "Type: external program\nPath: %s\n", SEXTPROG(object).mPath);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        case T_COMPLETION: {
+            sObject* block = SCOMPLETION(object).mBlock;
+            snprintf(buf, 128, "Type: completion\nStatment Number: %d\nStatment Size %d\n", SBLOCK(block).mStatmentsNum, SBLOCK(block).mStatmentsSize);
+
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            }
+            break;
+
+        case T_EXTOBJ:
+            if(!fd_write(nextout, "no info", strlen(buf))) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            break;
+
+        default:
+            fprintf(stderr,"unexpected err in object_info\n");
+            exit(1);
+    }
+}
+
+BOOL cmd_objinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mArgsNumRuntime > 1) {
+        int i;
+        for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+            sObject* object;
+            if(!get_object_from_str(&object, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                return FALSE;
+            }
+
+            if(object) {
+                if(!object_info(object, nextin, nextout, runinfo)) {
+                    return FALSE;
+                }
+                runinfo->mRCode = 0;
             }
         }
     }
@@ -147,6 +331,8 @@ BOOL cmd_pwo(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     if(!output_cwo(nextout, runinfo->mCurrentObject, runinfo)) {
         return FALSE;
     }
+
+    fd_trunc(nextout, SFD(nextout).mBufLen-2);  // delete last ::
 
     if(!fd_write(nextout, "\n", 1)) {
         err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);

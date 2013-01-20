@@ -516,6 +516,7 @@ BOOL fd_write(sObject* self, char* str, int size);
 void fd_split(sObject* self, eLineField lf);
 BOOL fd_guess_lf(sObject* self, eLineField* lf);
 void fd_put(sObject* self, MANAGED char* buf, int buf_size, int buf_len);
+void fd_trunc(sObject* self, int index);
 
 sObject* fd2_new_on_stack(uint fd);
 #define FD2_NEW_STACK(o) fd2_new_on_stack(o)
@@ -562,6 +563,7 @@ typedef BOOL (*fInternalCommand)(sObject*, sObject*, sRunInfo*);
 extern fInternalCommand kInternalCommands[kInnerCommand];
 extern char * gCommandKindStrs[kCommandMax];
 
+BOOL cmd_objinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_kanjicode(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_defined(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_funinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
@@ -689,6 +691,7 @@ BOOL cmd_condition_ef(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_time(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_strip(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 
 #if defined(HAVE_MIGEMO_H)
 BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo);

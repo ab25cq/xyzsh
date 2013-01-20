@@ -3024,7 +3024,7 @@ fi
 #####################################################################
 # check operating systems
 #####################################################################
-SO_VERSION=1.5.8
+SO_VERSION=1.7.0
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking Operating System" >&5
 $as_echo_n "checking Operating System... " >&6; }

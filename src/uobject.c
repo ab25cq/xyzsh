@@ -162,6 +162,7 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "block", NFUN_NEW_GC(cmd_block, NULL, TRUE));
     uobject_put(self, "lc", NFUN_NEW_GC(cmd_lc, NULL, TRUE));
     uobject_put(self, "uc", NFUN_NEW_GC(cmd_uc, NULL, TRUE));
+    uobject_put(self, "strip", NFUN_NEW_GC(cmd_strip, NULL, TRUE));
     uobject_put(self, "chomp", NFUN_NEW_GC(cmd_chomp, NULL, TRUE));
     uobject_put(self, "chop", NFUN_NEW_GC(cmd_chop, NULL, TRUE));
     uobject_put(self, "pomch", NFUN_NEW_GC(cmd_pomch, NULL, TRUE));
@@ -176,6 +177,7 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "errmsg", NFUN_NEW_GC(cmd_errmsg, NULL, TRUE));
     uobject_put(self, "prompt", NFUN_NEW_GC(cmd_prompt, NULL, TRUE));
     uobject_put(self, "defined", NFUN_NEW_GC(cmd_defined, NULL, TRUE));
+    uobject_put(self, "objinfo", NFUN_NEW_GC(cmd_objinfo, NULL, TRUE));
 
     uobject_put(self, "-n", NFUN_NEW_GC(cmd_condition_n, NULL, TRUE));
     uobject_put(self, "-z", NFUN_NEW_GC(cmd_condition_z, NULL, TRUE));

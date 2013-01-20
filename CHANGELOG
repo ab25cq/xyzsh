@@ -1,4 +1,28 @@
 
+2013 20th January version 1.3.2
+
+    1. Added "strip" and "objinfo" inner command
+
+    2. Improved some object completions
+
+2013 1月20日 version 1.3.2
+
+    1. stripとobjinfoコマンドを追加。
+
+    2. コマンドライン補完をいくつか修正。
+
+2013 17th January version 1.3.1
+
+    1. Refactoring.
+
+    2. Dynamic Library version up. This change involves mfiler4.
+
+    3. You can add object prefix to reffer variables.
+
+    > ls / | object a ( | var a b c )
+    > print $a::a \n
+    bin
+
 2013 1月17日 version 1.3.1
 
     1. 大幅なリファクタリング。コードの使用メモリが減っています。--with-optimizeを付けて起動時に3Mくらいまで使用メモリが減りました(OS Xで)。起動も少し早くなったはずです。ダイナミックライブラリーのバージョンアップ。
@@ -13,9 +37,9 @@
 
 2013 1月10日 version 1.3.0
 
-	1. ダイナミックライブラリーのバージョンアップ
+    1. ダイナミックライブラリーのバージョンアップ
 
-	2. リファクタリング。memcheckerの廃止。オブジェクトの消費メモリが少なくなりました。(1オブジェクトを32バイトまで落とせた)
+    2. リファクタリング。memcheckerの廃止。オブジェクトの消費メモリが少なくなりました。(1オブジェクトを32バイトまで落とせた)
 
 mfiler4にも影響があります。mfiler4は1.0.9以上から、このxyzshに対応します。
 
@@ -59,21 +83,21 @@ mfiler4にも影響があります。mfiler4は1.0.9以上から、このxyzsh�
 
 2012 12月20日 version 1.2.7
 
-	1. グロブの展開がパーサー時ではなくて実行時に起こるように変更。
+    1. グロブの展開がパーサー時ではなくて実行時に起こるように変更。
 
-	いままでだとスクリプトをloadして、その中にグロブの記述がある場合、もし中でcdをしても、スクリプトをloadした時点でのカレントディレクトリでグロブが検索されていました。
+    いままでだとスクリプトをloadして、その中にグロブの記述がある場合、もし中でcdをしても、スクリプトをloadした時点でのカレントディレクトリでグロブが検索されていました。
 
-	> vim a.xyzsh
-	cd /
-	echo *
-	> echo *
-	a.c b.c d.c
-	> load a.xyzsh
-	a.c b.c d.c
+    > vim a.xyzsh
+    cd /
+    echo *
+    > echo *
+    a.c b.c d.c
+    > load a.xyzsh
+    a.c b.c d.c
 
-	↑おかしい
+    ↑おかしい
 
-	2.  ダイナミックライブラリのバージョンアップ。mfiler4にも影響があります。mfiler4は1.0.6から、このxyzshに対応します。
+    2.  ダイナミックライブラリのバージョンアップ。mfiler4にも影響があります。mfiler4は1.0.6から、このxyzshに対応します。
 
 2012 12月14日 version 1.2.6
 
@@ -88,76 +112,76 @@ mfiler4にも影響があります。mfiler4は1.0.9以上から、このxyzsh�
     1. readlineコマンドが入力が空の時落ちていました。
 
 2012 8th December version 1.2.5c
-	
+    
     1. If input was empty, readline command would occur error on xyzsh previous version.
 
 2012 12月08日 version 1.2.5b
 
-	1. 最適化レベルを3にしてみました。問題があればまた1に戻します。
+    1. 最適化レベルを3にしてみました。問題があればまた1に戻します。
 
 2012 8th December version 1.2.5b
-	
-	1. Up optimize level from 1 to 3.
+    
+    1. Up optimize level from 1 to 3.
 
 2012 12月04日 version 1.2.5a
 
-	1. クォートの仕様が変わっています。
+    1. クォートの仕様が変わっています。
 
-	シングルクォートは今までと同じです。ダブルクォートはダブルクォートの中でクォートを使った場合動きが変わっています。
+    シングルクォートは今までと同じです。ダブルクォートはダブルクォートの中でクォートを使った場合動きが変わっています。
 
-	> print "Hello World\n"
-	Hello World
+    > print "Hello World\n"
+    Hello World
 
-	> print "\\\\ \n"
-	\\
+    > print "\\\\ \n"
+    \\
 
-	普通のスクリプト言語やbashと同じようになっています。
+    普通のスクリプト言語やbashと同じようになっています。
 
-	シングルクォートの場合は今までと同じです。
+    シングルクォートの場合は今までと同じです。
 
-	> print 'Hello World\n'
-	Hello World\n
+    > print 'Hello World\n'
+    Hello World\n
 
-	> print '\\\\'
-	\\\\
+    > print '\\\\'
+    \\\\
 
 2012 4th December version 1.2.5a
 
-	1. Changed double quote way like below
+    1. Changed double quote way like below
 
-	> print "Hello World\n"
-	Hello World
+    > print "Hello World\n"
+    Hello World
 
-	> print "\\\\ \n"
-	\\
+    > print "\\\\ \n"
+    \\
 
-	Sigle quote way is
+    Sigle quote way is
 
-	> print 'Hello World\n'
-	Hello World\n
+    > print 'Hello World\n'
+    Hello World\n
 
-	> print '\\\\'
-	\\\\
+    > print '\\\\'
+    \\\\
 
 2012 11月30日 version 1.2.5
 
-	1. オプションに変数展開があると変数が展開されないバグを修正
+    1. オプションに変数展開があると変数が展開されないバグを修正
 
 2012 30th November version 1.2.5
 
-	1. Fixed a bug with expanding variables in option argument.
+    1. Fixed a bug with expanding variables in option argument.
 
 2012 11月29日 version 1.2.4a
 
-	1. xyzshの設定ファイルを修正。
+    1. xyzshの設定ファイルを修正。
 
-	2. forコマンドを追加
+    2. forコマンドを追加
 
 2012 29th November version 1.2.4a
 
     1. Changed xyzsh.xyzsh setting file.
 
-	  2. Added "for" iner command.
+      2. Added "for" iner command.
 
 2012 11月26日 version 1.2.4
 
@@ -255,51 +279,51 @@ mfiler4にも影響があります。mfiler4は1.0.9以上から、このxyzsh�
 
 2012 11月25日 version 1.2.2d
 
-	1. グローバルパイプに追記機能を追加しました。
+    1. グローバルパイプに追記機能を追加しました。
 
 2012 25th November version 1.2.2d
 
-	1. Added appending data function to global pipe with |>>
+    1. Added appending data function to global pipe with |>>
 
 2012 11月24日 version 1.2.2c
 
-	1. 環境変数の補完を入れました。
+    1. 環境変数の補完を入れました。
 
-	2. readlineで=が単語の区切りになりました。
+    2. readlineで=が単語の区切りになりました。
 
 2012 24th November version 1.2.2c
 
-	1. Implematation of environment variable completion.
+    1. Implematation of environment variable completion.
 
-	2. Begin to use = character as word break character.
+    2. Begin to use = character as word break character.
 
 2012 11月24日 version 1.2.2b
 
-	1. パイプの中のオブジェクト数に制限をかけました。128個以上になるとエラーを出して止まります。
+    1. パイプの中のオブジェクト数に制限をかけました。128個以上になるとエラーを出して止まります。
 
-	2. print ""\nとした場合パーサーがエラーを出していたバグを修正。
+    2. print ""\nとした場合パーサーがエラーを出していたバグを修正。
 
 2012 24th November version 1.2.2b
 
-	1. Set limit to the number of objects in pipe.
+    1. Set limit to the number of objects in pipe.
 
-	2. Fixed bug which is err with 'print ""\n'.
+    2. Fixed bug which is err with 'print ""\n'.
 
 2012 11月22日 version 1.2.2a
 
-	1. ダイナミックライブラリのバージョンが1.5.1にあがりました。
+    1. ダイナミックライブラリのバージョンが1.5.1にあがりました。
 
-	2. var, ary, hash, objectに-newオプションができました。
+    2. var, ary, hash, objectに-newオプションができました。
 
-	3. times 関数を追加。
+    3. times 関数を追加。
 
 2012 22th November version 1.2.2a
 
-	1. Version up dynamic linked library
+    1. Version up dynamic linked library
 
-	2. Added -new option to "var", "ary", "hash", and "object" inner command.
+    2. Added -new option to "var", "ary", "hash", and "object" inner command.
 
-	3. Added "times" function.
+    3. Added "times" function.
 
 2012 11月22日 version 1.2.2
 
@@ -319,21 +343,21 @@ mfiler4にも影響があります。mfiler4は1.0.9以上から、このxyzsh�
 
 2012 22th November version 1.2.1
 
-	1. Add -local option to "ref" command.
+    1. Add -local option to "ref" command.
 
-	2. Fixed sweep [object name] bug.
+    2. Fixed sweep [object name] bug.
 
 2012 11月22日 version 1.2.1
 
-	1. refコマンドに-localオプションを追加
+    1. refコマンドに-localオプションを追加
 
-	2. sweep オブジェクト名でxyzshが落ちていたバグを修正。
+    2. sweep オブジェクト名でxyzshが落ちていたバグを修正。
 
 2012 22th November version 1.2.1
 
-	1. Add -local option to "ref" command.
+    1. Add -local option to "ref" command.
 
-	2. Fixed sweep [object name] bug.
+    2. Fixed sweep [object name] bug.
 
 2012 11月12日 version 1.2.0
 
@@ -387,24 +411,24 @@ mfiler4にも影響があります。mfiler4は1.0.9以上から、このxyzsh�
 
 2012 5th Norvember version 1.1.8a
 
-	Fixed errror message.
+    Fixed errror message.
 
 2012 30th Octorber version 1.1.8
 
-	Added -index option to "add" inner command and "del" inner command.
+    Added -index option to "add" inner command and "del" inner command.
 
-	Added ~/.xyzsh/program mechanizm to entry external program for root
-	object. See USAGE or USAGE.ja
+    Added ~/.xyzsh/program mechanizm to entry external program for root
+    object. See USAGE or USAGE.ja
 
 2012 30th Octorber version 1.1.7a
 
-	Deleted castamized code for CYGWIN. It has not been required.
+    Deleted castamized code for CYGWIN. It has not been required.
 
 2012 30th Octorber version 1.1.7
 
-	Fixed a bug with expanding environmet on redirects
+    Fixed a bug with expanding environmet on redirects
 
-	Fixed Makefile.in
+    Fixed Makefile.in
 
 2012 30th Octorber version 1.1.6
 
@@ -543,68 +567,68 @@ mfiler4にも影響があります。mfiler4は1.0.9以上から、このxyzsh�
 
 2012 2nd Octorber version 1.0.2
 
-	Version up dynamic linked library
+    Version up dynamic linked library
 
-	Add interface for xyzsh
+    Add interface for xyzsh
 
-	Made sObject memory size smaller
+    Made sObject memory size smaller
 
 2012 12th August version 1.0.1a
 
-	Version up dynamic linked library
+    Version up dynamic linked library
 
-	Add interface for xyzsh
+    Add interface for xyzsh
 
 2012 12th August version 1.0.1
 
-	Deleted write command which behave like a redirect, and make newer write command.
+    Deleted write command which behave like a redirect, and make newer write command.
 
 2012 12th August version 1.0.0b
 
-	Fixed valid file archive type.
+    Fixed valid file archive type.
 
 2012 12th August version 1.0.0a
-	
-	Fixed dead lock of pipes with big data.
+    
+    Fixed dead lock of pipes with big data.
 
 2012 12th August version 1.0.0
-	
-	Added redirects(<) to xyzsh.
+    
+    Added redirects(<) to xyzsh.
 
-	Fixed write inner command.
+    Fixed write inner command.
 
 2012 12th August version 0.9.9g
-	
-	Fixed WINCH signal.
+    
+    Fixed WINCH signal.
 
 2012 12th August version 0.9.9f
-	
-	Fixed tcsetpgrp argument.
+    
+    Fixed tcsetpgrp argument.
 
 2012 12th August version 0.9.9e
 
-	Gabage Collection bug was fixed.
+    Gabage Collection bug was fixed.
 
 2012 9th August version 0.9.9d
 
-	Fixed STDOUT buffer bugs.
+    Fixed STDOUT buffer bugs.
 
 2012 8th August version 0.9.9c
 
-	Fiexed completion bugs. I'm sorry I've found the bugs yet.
+    Fiexed completion bugs. I'm sorry I've found the bugs yet.
 
 2012 8th August version 0.9.9b
 
-	Fixed completion bugs. I think maybe desipated all completion bugs.
+    Fixed completion bugs. I think maybe desipated all completion bugs.
 
-	Version 0.9.9b is Released
+    Version 0.9.9b is Released
 
 2012 7th August version 0.9.9a
 
-	Fixed completion bugs
+    Fixed completion bugs
 
-	Version 0.9.9a is Released
+    Version 0.9.9a is Released
 
 2012 5th August version 0.9.9
-	Version 0.9.9 is Released
+    Version 0.9.9 is Released
 
