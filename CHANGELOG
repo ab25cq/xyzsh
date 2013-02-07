@@ -1,4 +1,8 @@
 
+2013 7th of Feburary version 1.3.6
+
+    1. Fixed bug of file completion which is that user can't use completion with dot file.
+
 2013 7th of Feburary version 1.3.5
 
     1. Fixed migemo completion bug on mfiler4
