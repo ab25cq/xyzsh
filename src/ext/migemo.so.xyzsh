@@ -139,7 +139,7 @@ root::run(
             )  | (| common_head | var -local COMMON_HEAD; | length -line-num | var -local NUM; | print ) 
 
             if(AllAsciiOnly | = 0\n && COMMON_HEAD | chomp | -n) (
-                rl::delete_text $(editing_line | rindex $inputing) $(rl::point)
+                rl::delete_text $(editing_line | rindex -byte $inputing) $(rl::point)
                 if(NUM | chomp | -eq 1 && COMMON_HEAD| chomp | rows -1 | != /) ( 
                     rl::insert_text $COMMON_HEAD" " 
                 ) else (

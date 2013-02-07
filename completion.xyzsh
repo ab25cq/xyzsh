@@ -27,7 +27,7 @@ def expand_tilda (
     ary ARGV -index 0 | var -local editing_line
     ary ARGV -index 1 | var -local inputing
 
-    rl::delete_text $(editing_line | rindex $inputing) $(rl::point)
+    rl::delete_text $(editing_line | rindex -byte $inputing) $(rl::point)
     rl::insert_text $(eval "print $inputing"|chomp)
 )
 
@@ -262,7 +262,7 @@ completion sys::__all__ (
         if(Option | chomp | -z) (
             raise "Please select a line which contains a option name"
         ) else (
-            rl::delete_text $(| rindex $inputing) $(rl::point)
+            rl::delete_text $(| rindex -byte $inputing) $(rl::point)
             rl::insert_text $Option" "
         )
     )
@@ -284,7 +284,7 @@ completion __all__ (
         if(Option | chomp | -z) (
             raise "Please select a line which contains a option name"
         ) else (
-            rl::delete_text $(| rindex $inputing) $(rl::point)
+            rl::delete_text $(| rindex -byte $inputing) $(rl::point)
             rl::insert_text $Option" "
         )
     )
