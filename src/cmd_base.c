@@ -208,8 +208,17 @@ BOOL cmd_if(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_return(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    runinfo->mRCode = RCODE_RETURN;
-    return FALSE;
+    if(runinfo->mArgsNumRuntime >= 2) {
+        uchar code = atoi(runinfo->mArgsRuntime[1]);
+        runinfo->mRCode = RCODE_RETURN | code;
+
+        return FALSE;
+    }
+    else {
+        runinfo->mRCode = RCODE_RETURN;
+
+        return FALSE;
+    }
 }
 
 BOOL cmd_subshell(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
@@ -290,7 +299,7 @@ BOOL cmd_try(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     if(runinfo->mBlocksNum == 2) {
         int rcode = 0;
         if(!run(runinfo->mBlocks[0], nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-            if(rcode == RCODE_NFUN_FALSE || rcode == RCODE_BREAK || rcode == RCODE_RETURN || rcode == RCODE_EXIT) {
+            if(rcode == RCODE_NFUN_FALSE || rcode == RCODE_BREAK || rcode & RCODE_RETURN || rcode == RCODE_EXIT) {
                 runinfo->mRCode = rcode;
                 return FALSE;
             }
@@ -379,7 +388,15 @@ BOOL cmd_sweep(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_load(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    if(runinfo->mArgsNumRuntime >= 2) {
+    if(sRunInfo_option(runinfo, "-dynamic-library")) {
+        if(!load_so_file(runinfo->mArgsRuntime[1], nextin, nextout, runinfo))
+        {
+            return FALSE;
+        }
+
+        runinfo->mRCode = 0;
+    }
+    else if(runinfo->mArgsNumRuntime >= 2) {
         runinfo->mRCode = 0;
         if(!load_file(runinfo->mArgsRuntime[1], nextin, nextout, runinfo, runinfo->mArgsRuntime + 2, runinfo->mArgsNumRuntime -2))
         {

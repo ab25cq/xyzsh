@@ -32,12 +32,15 @@ AC_SUBST(SYSTEM_MIGEMODIR)
 #####################################################################
 # check operating systems
 #####################################################################
+EXTDIR='$(libdir)/xyzsh/'
 SO_VERSION=1.7.0
 AC_SUBST(SO_VERSION)
 AC_MSG_CHECKING(Operating System)
 
 OBJ="src/gc.o src/stack.o src/string.o src/list.o src/kanji.o src/debug.o src/hash.o src/vector.o src/block.o src/fun.o src/class.o src/completion.o src/xyzsh.o src/parser.o src/run.o src/readline.o src/curses.o src/cmd_base.o src/cmd_obj.o src/cmd_file.o src/cmd_str.o src/cmd_ary.o src/cmd_condition.o src/interface.o src/object.o src/uobject.o src/cmd_num.o src/cmd_curses.o src/fd.o src/nfun.o src/extprog.o"
 AC_SUBST(OBJ)
+
+CFLAGS='-DSYSCONFDIR="\"${sysconfdir}/\"" -DDOCDIR="\"${docdir}/\"" -DSYSTEM_MIGEMODIR="\"${SYSTEM_MIGEMODIR}\"" -DEXTDIR="\"${EXTDIR}\""'
 
 if test `uname -s` = "Darwin"; then
     echo "Darwin"
@@ -52,7 +55,7 @@ if test `uname -s` = "Darwin"; then
     LIBXYZSHASTRIP=-s
     AC_SUBST(LIBXYZSHASTRIP)
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC $CFLAGS"
 elif test `uname -s` = "SunOS"; then
     echo "SunOS"
 
@@ -66,7 +69,7 @@ elif test `uname -s` = "SunOS"; then
     LIBXYZSHASTRIP=-s
     AC_SUBST(LIBXYZSHASTRIP)
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC $CFLAGS"
 elif test `uname -s` = "FreeBSD"; then
     echo "FreeBSD"
 
@@ -80,7 +83,7 @@ elif test `uname -s` = "FreeBSD"; then
     LIBXYZSHASTRIP=-s
     AC_SUBST(LIBXYZSHASTRIP)
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC $CFLAGS"
 elif uname -s | grep -q CYGWIN_NT; then
     echo CYGWIN
 
@@ -94,8 +97,9 @@ elif uname -s | grep -q CYGWIN_NT; then
     LIBXYZSHASTRIP=
     AC_SUBST(LIBXYZSHASTRIP)
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib"
-    STATIC_LINK=1
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib $CFLAGS"
+
+    LIBXYZSHA=libxyzsh.a
 else
     echo "Linux"
 
@@ -109,7 +113,7 @@ else
     LIBXYZSHASTRIP=-s
     AC_SUBST(LIBXYZSHASTRIP)
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC $CFLAGS"
 fi
 
 
@@ -193,11 +197,13 @@ fi
 AC_SUBST(LIBXYZSHA)
 AC_SUBST(LIBXYZSHSO1)
 AC_SUBST(LIBXYZSHSO)
-
-CFLAGS="-I./src $CFLAGS"
-CFLAGS="-DSYSCONFDIR=\"\\\"$sysconfdir/xyzsh/\\\"\" -DDATAROOTDIR=\"\\\"$datarootdir/doc/xyzsh/\\\"\" -DSYSTEM_MIGEMODIR=\"\\\"$SYSTEM_MIGEMODIR\\\"\" $CFLAGS"
-
 AC_SUBST(CFLAGS)
+
+##########################################################
+# environmnet variables
+##########################################################
+CC=gcc
+INSTALL="/usr/bin/install -c"
 
 ######################################################################
 # readline settings (When with static link, must be ordered before ncurses)
@@ -230,6 +236,8 @@ then
     exit
 fi
 
+EXTOBJ=
+
 #####################################################################
 # math settings
 #####################################################################
@@ -257,10 +265,17 @@ AC_HAVE_LIBRARY(onig, [ LIBS="$LIBS -lonig"; ], [ exit ])
 ###########################################################################
 if test $ENABLE_MIGEMO = 1
 then
-    AC_CHECK_HEADER(migemo.h, [LIBS="$LIBS -lmigemo"; AC_DEFINE(HAVE_MIGEMO_H, 1)], [ exit ])
+    if test "$OS" = CYGWIN
+    then
+        AC_CHECK_HEADER(migemo.h, [EXTOBJ="$EXTOBJ src/ext/migemo.dll"; OBJ="$OBJ src/ext/migemo.o"; LIBS="$LIBS -lmigemo"; AC_DEFINE(HAVE_MIGEMO_H, 1)], [ exit ])
+    else
+        AC_CHECK_HEADER(migemo.h, [EXTOBJ="$EXTOBJ src/ext/migemo.so"; AC_DEFINE(HAVE_MIGEMO_H, 1)], [ exit ])
+    fi
 fi
 
+AC_SUBST(EXTOBJ)
 AC_SUBST(LIBS)
+AC_SUBST(EXTDIR)
 
 ##########################################################################
 # type checking

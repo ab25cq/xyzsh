@@ -8,15 +8,13 @@
 
     Ofcourse, on interactive shell, it helps you to type with completion.
 
-    Taget users are who has mastered bash, sed/awk, perl, python, ruby and want to seek somemore. If you don't master these tools, you should learn these tools before using xyzsh.
+    Taget users are who has mastered bash, sed/awk, perl, python, ruby and want to seek somemore. If you don't master these tools, you should learn these tools before using xyzsh because these tools are installed on many systems.
 
     I can't take resposbility on your works with xyzsh. I recommend that you use this on your personal systems.
 
     This program linces is MIT Linsence.
 
     You can get this on the internet belows
-
-    Develop version http://code.google.com/p/xyzsh/
 
     Stable version http://sourceforge.jp/projects/xyzsh
     Develop version http://sourceforge.jp/projects/xyzsh/scm/git/xyzsh/
@@ -687,4 +685,13 @@
     You can see command help typing below
 
     help (command name)
+
+3.6 C extension library
+
+    About how to load C language extension library. Searched path is 3 step. First searched it from /usr/local/xyzsh/(pathname) or (installed prefix path)/(pathname), next searched it from ~/lib/(pathname), and finaly searched it from (absolute pathname or relative pathname). You can't ommit the file name extesion.
+    About how to make C language extension library. I made migemo C extension. See src/ext/migemo.c. You need to define dl_init and dl_final. dl_init is called on "load -dynamic-library" command called. dl_final is called on xyzsh exited. You can compile the C extension source like below
+
+    gcc -shared src/ext/migemo.c -o src/ext/migemo.so -lmigemo -lxyzsh $(LIBS) $(CFLAGS)
+
+    Xyzsh reads a xyzsh source which is (dynamic library file).xyzsh on running "load -dynamic-library". You can write help, completion settings, and son initialize function on it.
 

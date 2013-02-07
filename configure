@@ -601,6 +601,8 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+EXTDIR
+EXTOBJ
 EGREP
 GREP
 CPP
@@ -3024,6 +3026,7 @@ fi
 #####################################################################
 # check operating systems
 #####################################################################
+EXTDIR='$(libdir)/xyzsh/'
 SO_VERSION=1.7.0
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking Operating System" >&5
@@ -3031,6 +3034,8 @@ $as_echo_n "checking Operating System... " >&6; }
 
 OBJ="src/gc.o src/stack.o src/string.o src/list.o src/kanji.o src/debug.o src/hash.o src/vector.o src/block.o src/fun.o src/class.o src/completion.o src/xyzsh.o src/parser.o src/run.o src/readline.o src/curses.o src/cmd_base.o src/cmd_obj.o src/cmd_file.o src/cmd_str.o src/cmd_ary.o src/cmd_condition.o src/interface.o src/object.o src/uobject.o src/cmd_num.o src/cmd_curses.o src/fd.o src/nfun.o src/extprog.o"
 
+
+CFLAGS='-DSYSCONFDIR="\"${sysconfdir}/\"" -DDOCDIR="\"${docdir}/\"" -DSYSTEM_MIGEMODIR="\"${SYSTEM_MIGEMODIR}\"" -DEXTDIR="\"${EXTDIR}\""'
 
 if test `uname -s` = "Darwin"; then
     echo "Darwin"
@@ -3046,7 +3051,7 @@ if test `uname -s` = "Darwin"; then
     LIBXYZSHASTRIP=-s
 
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC $CFLAGS"
 elif test `uname -s` = "SunOS"; then
     echo "SunOS"
 
@@ -3061,7 +3066,7 @@ elif test `uname -s` = "SunOS"; then
     LIBXYZSHASTRIP=-s
 
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC $CFLAGS"
 elif test `uname -s` = "FreeBSD"; then
     echo "FreeBSD"
 
@@ -3076,7 +3081,7 @@ elif test `uname -s` = "FreeBSD"; then
     LIBXYZSHASTRIP=-s
 
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC $CFLAGS"
 elif uname -s | grep -q CYGWIN_NT; then
     echo CYGWIN
 
@@ -3091,8 +3096,9 @@ elif uname -s | grep -q CYGWIN_NT; then
     LIBXYZSHASTRIP=
 
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib"
-    STATIC_LINK=1
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib $CFLAGS"
+
+    LIBXYZSHA=libxyzsh.a
 else
     echo "Linux"
 
@@ -3107,7 +3113,7 @@ else
     LIBXYZSHASTRIP=-s
 
 
-    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC"
+    CFLAGS="-Isrc/ -I. -L. -I$myprefix/include -L$myprefix/lib -fPIC $CFLAGS"
 fi
 
 
@@ -3192,10 +3198,12 @@ fi
 
 
 
-CFLAGS="-I./src $CFLAGS"
-CFLAGS="-DSYSCONFDIR=\"\\\"$sysconfdir/xyzsh/\\\"\" -DDATAROOTDIR=\"\\\"$datarootdir/doc/xyzsh/\\\"\" -DSYSTEM_MIGEMODIR=\"\\\"$SYSTEM_MIGEMODIR\\\"\" $CFLAGS"
 
-
+##########################################################
+# environmnet variables
+##########################################################
+CC=gcc
+INSTALL="/usr/bin/install -c"
 
 ######################################################################
 # readline settings (When with static link, must be ordered before ncurses)
@@ -3826,6 +3834,8 @@ then
     exit
 fi
 
+EXTOBJ=
+
 #####################################################################
 # math settings
 #####################################################################
@@ -3949,16 +3959,31 @@ ac_cv_lib_onig=ac_cv_lib_onig_main
 ###########################################################################
 if test $ENABLE_MIGEMO = 1
 then
-    ac_fn_c_check_header_mongrel "$LINENO" "migemo.h" "ac_cv_header_migemo_h" "$ac_includes_default"
+    if test "$OS" = CYGWIN
+    then
+        ac_fn_c_check_header_mongrel "$LINENO" "migemo.h" "ac_cv_header_migemo_h" "$ac_includes_default"
 if test "x$ac_cv_header_migemo_h" = xyes; then :
-  LIBS="$LIBS -lmigemo"; $as_echo "#define HAVE_MIGEMO_H 1" >>confdefs.h
+  EXTOBJ="$EXTOBJ src/ext/migemo.dll"; OBJ="$OBJ src/ext/migemo.o"; LIBS="$LIBS -lmigemo"; $as_echo "#define HAVE_MIGEMO_H 1" >>confdefs.h
 
 else
    exit
 fi
 
 
+    else
+        ac_fn_c_check_header_mongrel "$LINENO" "migemo.h" "ac_cv_header_migemo_h" "$ac_includes_default"
+if test "x$ac_cv_header_migemo_h" = xyes; then :
+  EXTOBJ="$EXTOBJ src/ext/migemo.so"; $as_echo "#define HAVE_MIGEMO_H 1" >>confdefs.h
+
+else
+   exit
 fi
+
+
+    fi
+fi
+
+
 
 
 

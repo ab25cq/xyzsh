@@ -39,7 +39,7 @@ class Help (
             if(ary -size ARGV |= 0\n) (
                 if(funinfo | egrep -q '^current object: help<-root$') (
                     print "-+- マニュアル -+-" \n \n
-                    cat $XYZSH_DATAROOTDIR/USAGE.ja
+                    cat $XYZSH_DOCDIR/USAGE.ja
                     print "-+- コマンド -+-" \n \n
                     hash -La HELPS.ja| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
                 ) else (
@@ -54,7 +54,7 @@ class Help (
         ) else (
             ary -size ARGV | if(| = 0\n ) (
                 if(funinfo | egrep -q '^current object: help<-root$') (
-                    cat $XYZSH_DATAROOTDIR/USAGE
+                    cat $XYZSH_DOCDIR/USAGE
                     hash -La HELPS| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
                 ) else (
                     hash -La HELPS| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
@@ -137,7 +137,7 @@ if (条件式1) (ブロック1) (条件式2) (ブロック2) ... (条件式x) (�
 -
 条件式が真ならば対応するブロックを実行する。もし全部の条件式が偽なら最後のブロックを実行する
 -
-return 
+return (リターンコード)
 -
 関数かクラスを実行中なら、途中で抜ける
 -
@@ -175,6 +175,8 @@ print 文字列1 文字列2, ..., 文字列x
 load ファイル名 引数1 引数2 ... 引数X
 -
 スクリプトファイルを実行する。ローカル変数は初期化される。ARGVに引数が入っている。
+
+-dynamic-library C言語による拡張ライブラリをロードする。サーチパスは/usr/local/lib/xyzsh/"ファイル名"(xyzshをインストールしたディレクトリ/lib/xyzsh/"ファイル名")を探して無いなら、~/lib/"ファイル名"を探す、それでもないなら、"ファイル名(絶対パス、または相対パス)"を探す。拡張子は省略してはならない。
 -
 eval (ブロック|文字列)
 -
@@ -436,6 +438,8 @@ sort (ブロック)
 
 -offsets マッチした位置（インデックス）の始点と終点を出力する(グループ化された文字列も含む)
 -verbose マッチした位置（インデックス）を出力する
+-ignore-case 大文字と小文字を無視する
+-multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
 -byte バイトコードとして処理する
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
@@ -741,8 +745,10 @@ index 文字列
 -
 パイプから文字列を検索して見つかったインデックスを返すフィルター。
 
+-regex 正規表現で検索する
 -quiet 見つかった位置を出力しない。戻り値のみ設定する
 -ignore-case 大文字と小文字を無視する
+-multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
 -number 数値 文字列の検索を開始する位置を設定する
 -count 数値 検索する回数を設定する
 -byte バイトコードとして処理する
@@ -755,8 +761,10 @@ rindex 文字列
 パイプから文字列を検索して見つかったインデックスを返すフィルター。
 末尾から検索する。
 
+-regex 正規表現で検索する
 -quiet 見つかった位置を出力しない。戻り値のみ設定する
 -ignore-case 大文字と小文字を無視する
+-multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
 -number 数値 文字列の検索を開始する位置を設定する
 -count 数値 検索する回数を設定する
 -byte バイトコードとして処理する
@@ -851,9 +859,15 @@ b
 
 変換回数はグローバル変数SUB_COUNTに代入される。
 
+-no-regex 正規表現じゃなくて普通の文字列としてパターンを使う
+-ignore-case 大文字と小文字を無視する
 -multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
 -global 普通なら各行に一回のみ変換を行うが、これを付けると各行何回も変換を行う
 -quiet 変換結果を出力しない。戻り値と変換結果を格納した変数のみ設定する。
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
 -Lw 改行コードをCRLFとして処理する
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
@@ -875,17 +889,28 @@ scan 正規表現 (変換文字列|ブロック)
 最後にマッチした文字列 LAST_MATCH
 マッチした文字列の数 MATCH_NUMBER
 
+-ignore-case 大文字と小文字を無視する
 -multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
 -Lw 改行コードをCRLFとして処理する
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+-
+strip
+-
+このフィルターはパイプのデータの前後のスペース、タブ、改行コードを取り除きます。
 -
 split 正規表現
 -
 パイプから得たテキストを正規表現にマッチする部分を区切りとして分解する。分解結果は複数行の文字列として出力される。
 正規表現が省略されたら、"\s+"が設定される。
 
+-no-regex 正規表現じゃなくて普通の文字列としてパターンを使う
+-ignore-case 大文字と小文字を無視する
 -multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
 -byte バイトコードとして処理する
 -utf8 UTF8コードとして処理する
@@ -942,8 +967,10 @@ completion (オブジェクト::)コマンド名 (ブロック)
 root::complにオブジェクトとして登録される
 ARGVにはコマンド名と入力中の文字列が入っている
 コンテキストパイプには入力中の行が入っている
-コマンド名に*を使うとコマンド名が見つからなかった時は*が使われる
+コマンド名に__all__を使うとコマンド名が見つからなかった時は__all__が使われる
 ブロックが無かった場合は定義された補完を実行して結果を返す。
+
+-source ソースを表示する
 -
 help コマンド名
 -
@@ -1049,7 +1076,7 @@ if (condition1) (block1) (condition2) (block2)...(conditioni X) (block X) (the l
 -
 If the result of condition is true, run conresponding block. If the all result of conditions, runthe last of blocks.
 -
-return 
+return (return code)
 -
 If running function or class, exited from it.
 -
@@ -1085,6 +1112,8 @@ If you use this for filter, outputs the inout then.
 load (script file name) (argument1) (argument2) ... (argument X)
 -
 Run the script file. Local variable stackframe is initialized, and local variable array "ARGV" has the arguments.
+
+-dynamic-library load C language extension library. Searched path is 3 step. First searched it from /usr/local/xyzsh/(pathname) or (installed prefix path)/(pathname), next searched it from ~/lib/(pathname), and finaly searched it from (absolute pathname or relative pathname). You can't ommit the file name extesion.
 -
 eval (block|string)
 -
@@ -1343,6 +1372,8 @@ Matched number --> MATCH_NUMBER
 
 -offsets Output all maching points.
 -verbose Output maching point(index).
+-ignore-case Ignore case.
+-multi-line Allow to write multiline matching regex, but the performance is less than normal.
 -byte assume text encode as byte code.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
@@ -1612,8 +1643,10 @@ index (string)
 -
 It is a filter for outputing the index with searching the string position.
 
+-regex search with regex
 -quiet No output, but set return code.
 -ignore-case Ignore case.
+-multi-line Allow to write multiline matching regex, but the performance is less than normal.
 -number (number) Set the first position on searching string.
 -count 数値 Set the searching count.
 -byte assume text encode as byte code.
@@ -1626,8 +1659,10 @@ rindex (string)
 It is a filter for outputing the index with searching the string position.
 Searching from the tail.
 
+-regex search with regex
 -quiet No output, but set return code.
 -ignore-case Ignore case.
+-multi-line Allow to write multiline matching regex, but the performance is less than normal.
 -number (number) Set the first position on searching string.
 -count 数値 Set the searching count.
 -byte assume text encode as byte code.
@@ -1725,6 +1760,8 @@ b
 
 You can get the count of searching to use the local variable "SUB_COUNT"
 
+-no-regex Don't use regex for pattern. Use it as text.
+-ignore-case ignore case
 -multi-line Allow to write multiline matching regex, but the performance is less than normal.
 -global Allow to match at several times in a line.
 -quiet No output, but set return code and the local variables.
@@ -1732,6 +1769,10 @@ You can get the count of searching to use the local variable "SUB_COUNT"
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
 -
 scan (regex|block)
 -
@@ -1749,17 +1790,29 @@ Postmatched string --> POSTMATCH
 Lastmatched string --> LAST_MATCH
 Matched number --> MATCH_NUMBER
 
+-ignore-case ignore case
 -multi-line Allow to write multiline matching regex, but the performance is less than normal.
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
 -Lw Processing with CRLF line field
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+-
+strip
+-
+It is a filter for removing front and tail spaces, tabs, and line fields.
+
 -
 split (regex)
 -
 It is a filter for spliting pipe data with regex.
 If you omit the argument, xyzsh set "\s+" for it.
 
+-no-regex Don't use regex for pattern. Use it as text.
+-ignore-case ignore case
 -multi-line Allow to write multiline matching regex, but the performance is less than normal.
 -byte assume text encode as byte code.
 -utf8 assume text encode as utf-8 code.
@@ -1814,8 +1867,10 @@ completion (object name::)(command name) (block)
 If there is a block, define the user completion in root::compl. Output of block is candidates for completion.
 ARGV has a command name and an inputing string.
 Context pipe has all inputing line.
-If you use * for command name, it is wild card.
+If you use __all__ for command name, it is wild card.
 If there is not a block, run the completion and return output.
+
+-source output a source program of completion
 -
 help (command name)
 -
@@ -1856,6 +1911,10 @@ rl::run(
     object help ( Help )
 
     print <<<'EOS'
+point
+-
+カーソル位置を出力する
+-
 point_move (number)
 -
 コンプレッション時のカーソル移動
@@ -1864,13 +1923,21 @@ clear_screen
 -
 コンプレッション時のスクリーンクリア
 -
+replace_line (text) (cursor point)
+-
+コンプレッション時のテキストの置き換え
+-
 delete_text (start index) (end index)
 -
 コンプレッション時のテキスト削除
 -
-insert_text
+insert_text (text)
 -
-コンプレッション時のテキスト挿入。テキストはパイプから得られる
+コンプレッション時のテキスト挿入。
+-
+forced_update_display
+-
+テキスト削除やテキスト挿入をした後に呼び出すと画面が更新される。
 -
 write_history (file name)
 -
@@ -1879,9 +1946,17 @@ write_history (file name)
 read_history (file name)
 -
 ヒストリをファイルから読み出す
+-
+line_buffer
+-
+現在編集中の行を出力する。
 EOS | help::set_helps_ja
 
     print <<<'EOS'
+point
+-
+output cursor position.
+-
 point_move (number)
 -
 cursor move on completion.
@@ -1894,9 +1969,17 @@ delete_text (start index) (end index)
 -
 delete editing line on completion.
 -
-insert_text
+replace_line (text) (cursor point)
 -
-add string which is getting pipe data to editing line on completion.
+replace editing line on completion.
+-
+insert_text (text)
+-
+add string to editing line on completion.
+-
+forced_update_display
+-
+call this after "insert_text" or "delete_text" to update command line.
 -
 write_history (file name)
 -
@@ -1905,6 +1988,10 @@ write readline cmdline history to a file
 read_history (file name)
 -
 read readline cmdline history to the memory
+-
+line_buffer
+-
+Output editing line.
 EOS | help::set_helps
 )
 

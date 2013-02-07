@@ -1,6 +1,8 @@
 #include "config.h"
 #include "xyzsh/xyzsh.h"
 
+#include <term.h>
+#include <termios.h>
 #include <string.h>
 #include <strings.h>
 #include <stdlib.h>
@@ -86,13 +88,16 @@ static char* message_completion(const char* text, int stat)
                     string_push_back(candidate, key);
 
                     if(TYPE(item) == T_UOBJECT) {
-                        vector_add(gCompletionArray, string_c_str(candidate));
+                        if(uobject_item(item, "main")) {
+                            vector_add(gCompletionArray, string_c_str(candidate));
+                        }
+                        else {
+                            sObject* candidate2 = STRING_NEW_STACK(string_c_str(messages));
+                            string_push_back(candidate2, key);
+                            string_push_back(candidate2, "::");
 
-                        sObject* candidate2 = STRING_NEW_STACK(string_c_str(messages));
-                        string_push_back(candidate2, key);
-                        string_push_back(candidate2, "::");
-
-                        vector_add(gCompletionArray, string_c_str(candidate2));
+                            vector_add(gCompletionArray, string_c_str(candidate2));
+                        }
                     }
                     else {
                         vector_add(gCompletionArray, string_c_str(candidate));
@@ -282,7 +287,9 @@ static char* user_completion(const char* text, int stat)
 
         if(!strncmp(text, candidate, wordlen)) {
             int l = strlen(candidate);
-            if(l > 2 && candidate[l-2] == ':' && candidate[l-1] == ':') {
+            if((l > 2 && candidate[l-2] == ':' && candidate[l-1] == ':' )
+                || (l > 1 && candidate[l-1] == '/') )
+            {
                 rl_completion_append_character = 0;
             }
             else {
@@ -476,6 +483,10 @@ static sObject* access_object_compl(char* name, sObject** current)
     }
 }
 
+char* readline_filename_completion_null_generator(const char* a, int b)
+{
+    return NULL;
+}
 
 char** readline_on_complete(const char* text, int start, int end)
 {
@@ -524,17 +535,28 @@ char** readline_on_complete(const char* text, int start, int end)
         }
     }
 
+    sObject* readline = uobject_item(gRootObject, "rl");
+    if(readline && TYPE(readline) == T_UOBJECT) {
+        uobject_put(readline, "omit_head_of_completion_display_matches", STRING_NEW_GC("0", TRUE));
+    }
+
+    rl_completion_entry_function = readline_filename_completion_null_generator;
+
+/*
     if(SBLOCK(gReadlineBlock).mCompletionFlags & COMPLETION_FLAGS_TILDA) {
         char** result = rl_completion_matches(text, rl_username_completion_function);
         stack_end_stack();
         return result;
     }
-    else if(SBLOCK(gReadlineBlock).mStatmentsNum == 0) {
+    else 
+*/
+    if(SBLOCK(gReadlineBlock).mStatmentsNum == 0) {
         char** result = rl_completion_matches(text, all_program_completion);
         stack_end_stack();
         return result;
     }
-    else if(SBLOCK(gReadlineBlock).mCompletionFlags & COMPLETION_FLAGS_AFTER_REDIRECT) {
+    else if(SBLOCK(gReadlineBlock).mCompletionFlags & (COMPLETION_FLAGS_AFTER_REDIRECT|COMPLETION_FLAGS_AFTER_EQUAL)) {
+        rl_completion_entry_function = NULL;
         stack_end_stack();
         return NULL;
     }
@@ -547,6 +569,15 @@ char** readline_on_complete(const char* text, int start, int end)
             return result;
         }
         else {
+            if(statment->mCommandsNum == 1 && statment->mCommands[0].mArgsNum == 1) {
+                char* arg = statment->mCommands[0].mArgs[0];
+                if(strstr(arg, "/")) {
+                    rl_completion_entry_function = NULL;
+                    stack_end_stack();
+                    return NULL;
+                }
+            }
+
             sCommand* command = statment->mCommands + statment->mCommandsNum-1;
 
             /// get user completion ///
@@ -717,26 +748,55 @@ BOOL cmd_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         /// output ///
         else if(runinfo->mBlocksNum == 0) {
-            int i;
-            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                sObject* compl;
-                if(!get_object_from_str(&compl, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                    return FALSE;
-                }
+            if(sRunInfo_option(runinfo, "-source")) {
+                int i;
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* compl;
+                    if(!get_object_from_str(&compl, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
 
-                if(compl && TYPE(compl) == T_COMPLETION) {
-                    if(!run_object(compl, nextin, nextout, runinfo)) {
+                    if(compl && TYPE(compl) == T_COMPLETION) {
+                        sObject* block = SCOMPLETION(compl).mBlock;
+                        if(!fd_write(nextout, SBLOCK(block).mSource, strlen(SBLOCK(block).mSource))) 
+                        {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        
+                    }
+                    else {
+                        err_msg("There is no object", runinfo->mSName, runinfo->mSLine, runinfo->mArgsRuntime[i]);
+
                         return FALSE;
                     }
                 }
-                else {
-                    err_msg("There is no object", runinfo->mSName, runinfo->mSLine, runinfo->mArgsRuntime[i]);
 
-                    return FALSE;
-                }
+                runinfo->mRCode = 0;
             }
+            else {
+                int i;
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* compl;
+                    if(!get_object_from_str(&compl, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
 
-            runinfo->mRCode = 0;
+                    if(compl && TYPE(compl) == T_COMPLETION) {
+                        if(!run_object(compl, nextin, nextout, runinfo)) {
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        err_msg("There is no object", runinfo->mSName, runinfo->mSLine, runinfo->mArgsRuntime[i]);
+
+                        return FALSE;
+                    }
+                }
+
+                runinfo->mRCode = 0;
+            }
         }
     }
 
@@ -749,6 +809,44 @@ BOOL cmd_readline_clear_screen(sObject* nextin, sObject* nextout, sRunInfo* runi
     rl_forced_update_display();
 
     runinfo->mRCode = 0;
+
+    return TRUE;
+}
+
+BOOL cmd_readline_line_buffer(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(!runinfo->mFilter) {
+        if(!fd_write(nextout, rl_line_buffer, strlen(rl_line_buffer))) {
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+        if(!fd_write(nextout, "\n", 1)) {
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_readline_point(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(!runinfo->mFilter) {
+        char buf[BUFSIZ];
+        int n = snprintf(buf, BUFSIZ, "%d\n", rl_point);
+        if(!fd_write(nextout, buf, n)) {
+            sCommand* command = runinfo->mCommand;
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+
+        runinfo->mRCode = 0;
+    }
 
     return TRUE;
 }
@@ -770,12 +868,19 @@ BOOL cmd_readline_point_move(sObject* nextin, sObject* nextout, sRunInfo* runinf
     return TRUE;
 }
 
+BOOL cmd_readline_forced_update_display(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    puts("");
+    rl_forced_update_display();
+    runinfo->mRCode = 0;
+
+    return TRUE;
+}
+
 BOOL cmd_readline_insert_text(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    if(runinfo->mFilter) {
-        (void)rl_insert_text(SFD(nextin).mBuf);
-        puts("");
-        rl_forced_update_display();
+    if(runinfo->mArgsNumRuntime == 2) {
+        (void)rl_insert_text(runinfo->mArgsRuntime[1]);
 
         runinfo->mRCode = 0;
     }
@@ -796,9 +901,25 @@ BOOL cmd_readline_delete_text(sObject* nextin, sObject* nextout, sRunInfo* runin
         if(rl_point < 0) {
             rl_point = 0;
         }
-        puts("");
-        rl_forced_update_display();
 
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_readline_replace_line(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mArgsNumRuntime == 3) {
+        (void)rl_replace_line(runinfo->mArgsRuntime[1], 0);
+
+        int n = atoi(runinfo->mArgsRuntime[2]);
+
+        if(n < 0) n += strlen(rl_line_buffer) + 1;
+        if(n < 0) n = 0;
+        if(n > strlen(rl_line_buffer)) n = strlen(rl_line_buffer);
+
+        rl_point = n;
         runinfo->mRCode = 0;
     }
 
@@ -853,7 +974,7 @@ static int readline_macro(int count, int key)
             if(rcode == RCODE_BREAK) {
                 fprintf(stderr, "invalid break. Not in a loop\n");
             }
-            else if(rcode == RCODE_RETURN) {
+            else if(rcode & RCODE_RETURN) {
                 fprintf(stderr, "invalid return. Not in a function\n");
             }
             else if(rcode == RCODE_EXIT) {
@@ -880,53 +1001,6 @@ static int readline_macro(int count, int key)
     return 0;
 }
 
-static int skip_quoted(const char *s, int i, char q)
-{
-   while(s[i] && s[i]!=q) 
-   {
-      if(s[i]=='\\' && s[i+1]) i++;
-      i++;
-   }
-   if(s[i]) i++;
-   return i;
-}
-
-static int lftp_char_is_quoted(const char *string, int eindex)
-{
-  int i, pass_next;
-
-  for (i = pass_next = 0; i <= eindex; i++)
-    {
-      if (pass_next)
-        {
-          pass_next = 0;
-          if (i >= eindex)
-            return 1;
-          continue;
-        }
-      else if (string[i] == '"' || string[i] == '\'')
-        {
-          char quote = string[i];
-          i = skip_quoted (string, ++i, quote);
-          if (i > eindex)
-            return 1;
-          i--;
-        }
-      else if (string[i] == '\\')
-        {
-          pass_next = 1;
-          continue;
-        }
-    }
-  return (0);
-}
-
-char* readline_filename_completion_null_generator(const char* a, int b)
-{
-    return NULL;
-}
-
-
 enum { COMPLETE_DQUOTE,COMPLETE_SQUOTE,COMPLETE_BSQUOTE };
 #define completion_quoting_style COMPLETE_BSQUOTE
 
@@ -946,16 +1020,16 @@ double_quote (char *string)
     {
       switch (c)
         {
-	case '$':
-	case '`':
-	  if(!shell_cmd)
-	     goto def;
-	case '"':
-	case '\\':
-	  *r++ = '\\';
-	default: def:
-	  *r++ = c;
-	  break;
+ case '$':
+ case '`':
+   if(!shell_cmd)
+      goto def;
+ case '"':
+ case '\\':
+   *r++ = '\\';
+ default: def:
+   *r++ = c;
+   break;
         }
     }
 
@@ -980,11 +1054,11 @@ single_quote (char *string)
       *r++ = c;
 
       if (c == '\'')
-	{
-	  *r++ = '\\';	// insert escaped single quote
-	  *r++ = '\'';
-	  *r++ = '\'';	// start new quoted string
-	}
+ {
+   *r++ = '\\'; // insert escaped single quote
+   *r++ = '\'';
+   *r++ = '\''; // start new quoted string
+ }
     }
 
   *r++ = '\'';
@@ -994,7 +1068,7 @@ single_quote (char *string)
 }
 
 static BOOL quote_glob;
-static BOOL inhibit_tilde;
+//static BOOL inhibit_tilde = 0;
 
 static char *
 backslash_quote (char *string)
@@ -1007,36 +1081,43 @@ backslash_quote (char *string)
   for (r = result, s = string; s && (c = *s); s++)
     {
       switch (c)
-	{
- 	case '(': case ')':
- 	case '{': case '}':			// reserved words
- 	case '^':
- 	case '$': case '`':			// expansion chars
-	  if(!shell_cmd)
-	    goto def;
- 	case '*': case '[': case '?': case ']':	//globbing chars
-	  if(!shell_cmd && !quote_glob)
-	    goto def;
-	case ' ': case '\t': case '\n':		// IFS white space
-	case '"': case '\'': case '\\':		// quoting chars
-	case '|': case '&': case ';':		// shell metacharacters
-	case '<': case '>': case '!':
-	  *r++ = '\\';
-	  *r++ = c;
-	  break;
-	case '~':				// tilde expansion
-	  if (s == string && inhibit_tilde)
-	    *r++ = '.', *r++ = '/';
-	  goto def;
-	case '#':				// comment char
-	  if(!shell_cmd)
-	    goto def;
-	  if (s == string)
-	    *r++ = '\\';
-	default: def:
-	  *r++ = c;
-	  break;
-	}
+ {
+  case '(': case ')':
+  case '{': case '}':   // reserved words
+  case '^':
+  case '$': case '`':   // expansion chars
+  case '*': case '[': case '?': case ']': //globbing chars
+ case ' ': case '\t': case '\n':  // IFS white space
+ case '"': case '\'': case '\\':  // quoting chars
+ case '|': case '&': case ';':  // shell metacharacters
+ case '<': case '>': case '!':
+ case '%':
+ case '#':
+   *r++ = '\\';
+   *r++ = c;
+   break;
+ case '~':    // tilde expansion
+    //*r++ = '\\';
+    *r++ = c;
+    break;
+/*
+   if (s == string) {
+      goto def;
+
+   }
+*/
+   break;
+/*
+ case '#':    // comment char
+   if(!shell_cmd)
+     goto def;
+   if (s == string)
+     *r++ = '\\';
+*/
+ default: def:
+   *r++ = c;
+   break;
+ }
     }
 
   *r = '\0';
@@ -1054,13 +1135,13 @@ quote_word_break_chars (char *text)
   for (s = text, r = ret; *s; s++)
     {
       if (*s == '\\')
-	{
-	  *r++ = '\\';
-	  *r++ = *++s;
-	  if (*s == '\0')
-	    break;
-	  continue;
-	}
+ {
+   *r++ = '\\';
+   *r++ = *++s;
+   if (*s == '\0')
+     break;
+   continue;
+ }
       if (strchr (rl_completer_word_break_characters, *s))
         *r++ = '\\';
       *r++ = *s;
@@ -1069,37 +1150,90 @@ quote_word_break_chars (char *text)
   return ret;
 }
 
+static char*
+bash_tilde_expand(char *s)
+{
+//puts("bash_tilde_expand");
+//sleep(1);
+    char* mtext = malloc(1024);
+    char* p = mtext;
+
+    s++; // ~
+
+    if(*s == '/') {   // ~/
+        s++;
+
+        char* home = getenv("HOME");
+        while(*home) {
+            *p++ = *home++;
+        }
+        *p++ = '/';
+
+        while(*s) {
+            *p++ = *s++;
+        }
+        *p = 0;
+    }
+    else if(*s == 0) {  // this may be never runned, paranoia
+        *p++ = '~';
+        *p = 0;
+    }
+    /// ~user/
+    else {
+        char* point = strstr(s, "/");
+        if(point) {
+            char* user_name = malloc(point -s + 1);
+            memcpy(user_name, s, point -s);
+            user_name[point -s] = 0;
+    
+            struct passwd* pwd = getpwnam(user_name);
+
+            char* p2 = pwd->pw_dir;
+
+            while(*p2) {
+                *p++ = *p2++;
+            }
+            *p++ = '/';
+
+            s = point;
+            s++;
+            while(*s) {
+                *p++ = *s++;
+            }
+            *p = 0;
+
+            free(user_name);
+        }
+        else {
+           *p++ = '~';
+           while(*s) {
+            *p++ = *s++;
+           }
+           *p = 0;
+        }
+    }
+
+    return mtext;
+}
+
 static char *
 bash_quote_filename (char *s, int rtype, char *qcp)
 {
+//puts("bash_quote_filename");
   char *rtext, *mtext, *ret;
   int rlen, cs;
 
   rtext = (char *)NULL;
 
   mtext = s;
-#if 0
-  if (mtext[0] == '~' && rtype == SINGLE_MATCH)
+  if (mtext[0] == '~') // && rtype == SINGLE_MATCH)
     mtext = bash_tilde_expand (s);
-#endif
 
   cs = completion_quoting_style;
   if (*qcp == '"')
     cs = COMPLETE_DQUOTE;
   else if (*qcp == '\'')
     cs = COMPLETE_SQUOTE;
-#if defined (BANG_HISTORY)
-  else if (*qcp == '\0' && history_expansion && cs == COMPLETE_DQUOTE &&
-	   history_expansion_inhibited == 0 && strchr (mtext, '!'))
-    cs = COMPLETE_BSQUOTE;
-
-  if (*qcp == '"' && history_expansion && cs == COMPLETE_DQUOTE &&
-        history_expansion_inhibited == 0 && strchr (mtext, '!'))
-    {
-      cs = COMPLETE_BSQUOTE;
-      *qcp = '\0';
-    }
-#endif
 
   switch (cs)
     {
@@ -1147,12 +1281,12 @@ bash_dequote_filename (const char *text, int quote_char)
   for (quoted = quote_char, p = text, r = ret; p && *p; p++)
     {
       if (*p == '\\')
-	{
-	  *r++ = *++p;
-	  if (*p == '\0')
-	    break;
-	  continue;
-	}
+ {
+   *r++ = *++p;
+   if (*p == '\0')
+     break;
+   continue;
+ }
       if (quoted && *p == quoted)
         {
           quoted = 0;
@@ -1169,24 +1303,110 @@ bash_dequote_filename (const char *text, int quote_char)
   return ret;
 }
 
+static int skip_quoted(const char *s, int i, char q)
+{
+   while(s[i] && s[i]!=q) 
+   {
+      if(s[i]=='\\' && s[i+1]) i++;
+      i++;
+   }
+   if(s[i]) i++;
+   return i;
+}
+
+static int lftp_char_is_quoted(const char *string, int eindex)
+{
+  int i, pass_next;
+
+  for (i = pass_next = 0; i <= eindex; i++)
+    {
+      if (pass_next)
+        {
+          pass_next = 0;
+          if (i >= eindex) {
+            return 1;
+          }
+          continue;
+        }
+      else if (string[i] == '"' || string[i] == '\'')
+        {
+          char quote = string[i];
+          i = skip_quoted (string, ++i, quote);
+          if (i > eindex) {
+            return 1;
+          }
+          i--;
+        }
+      else if (string[i] == '\\')
+        {
+          pass_next = 1;
+          continue;
+        }
+    }
+  return (0);
+}
+void completion_display_matches_hook(char** matches, int num_matches, int max_length)
+{
+puts("");
+    int omit_head_of_string = 0;
+    sObject* readline = uobject_item(gRootObject, "rl");
+    if(readline && TYPE(readline) == T_UOBJECT) {
+        sObject* item = uobject_item(readline, "omit_head_of_completion_display_matches");
+        if(item && TYPE(item) == T_STRING) {
+            omit_head_of_string = atoi(string_c_str(item));
+        }
+    }
+
+    int my_max_length = 0;
+    int i;
+    for(i=1; i<=num_matches; i++) {
+        char* p = matches[i] + omit_head_of_string;
+        int length = str_termlen(kUtf8, p);
+        if(my_max_length < length) {
+            my_max_length = length;
+        }
+    }
+
+    my_max_length++;
+
+    const int maxx = mgetmaxx();
+    const int rows = maxx / my_max_length;
+
+    int x = 0;
+    for(i=1; i<=num_matches; i++) {
+        int x;
+        for(x=0; x<rows; x++) {
+            char* p = matches[i] + omit_head_of_string;
+            printf("%s", p);
+
+            int space_len = my_max_length - str_termlen(kUtf8, p);
+            int j;
+            for(j=0; j<space_len; j++) {
+                printf(" ");
+            }
+
+            i++;
+            if(i>num_matches) break;
+        }
+        puts("");
+    }
+    rl_forced_update_display();
+}
+
 void xyzsh_readline_init(BOOL runtime_script)
 {
     rl_attempted_completion_function = readline_on_complete;
-//    rl_completion_entry_function = readline_filename_completion_null_generator;
+    rl_completion_entry_function = readline_filename_completion_null_generator;
+
     rl_completer_quote_characters = "\"'";
-    rl_completer_word_break_characters = " \t\n\"'|!&;()$%<>=";
+    rl_completer_word_break_characters = " \t\n\"'|!&;()$<>=";
     rl_completion_append_character= ' ';
-    rl_filename_quote_characters = " \t\n\"'|!&;()$%<>:";
+    rl_filename_quote_characters = " \t\n\"'|!&;()$%<>[]~";
     rl_filename_quoting_function = bash_quote_filename;
     rl_filename_dequoting_function = (rl_dequote_func_t*)bash_dequote_filename;
-
     rl_char_is_quoted_p = (rl_linebuf_func_t*)lftp_char_is_quoted;
 
-/*
-    rl_comrl_filename_quote_characters = " \t\n\\'\"()$&|>";
-    rl_completer_quote_characters = " \t\n\\'\"()$&|>";
-    rl_basic_quote_characters = " \t\n\"'|!&;()$";
-*/
+    rl_completion_display_matches_hook = completion_display_matches_hook;
 
     rl_bind_key('x'-'a'+1, readline_macro);
 }
@@ -1194,3 +1414,22 @@ void xyzsh_readline_init(BOOL runtime_script)
 void xyzsh_readline_final()
 {
 }
+
+void readline_object_init(sObject* self)
+{
+    sObject* readline = UOBJECT_NEW_GC(8, self, "rl", TRUE);
+    uobject_init(readline);
+    uobject_put(self, "rl", readline);
+
+    uobject_put(readline, "forced_update_display", NFUN_NEW_GC(cmd_readline_forced_update_display, NULL, TRUE));
+    uobject_put(readline, "insert_text", NFUN_NEW_GC(cmd_readline_insert_text, NULL, TRUE));
+    uobject_put(readline, "delete_text", NFUN_NEW_GC(cmd_readline_delete_text, NULL, TRUE));
+    uobject_put(readline, "clear_screen", NFUN_NEW_GC(cmd_readline_clear_screen, NULL, TRUE));
+    uobject_put(readline, "point_move", NFUN_NEW_GC(cmd_readline_point_move, NULL, TRUE));
+    uobject_put(readline, "read_history", NFUN_NEW_GC(cmd_readline_read_history, NULL, TRUE));
+    uobject_put(readline, "write_history", NFUN_NEW_GC(cmd_readline_write_history, NULL, TRUE));
+    uobject_put(readline, "replace_line", NFUN_NEW_GC(cmd_readline_replace_line, NULL, TRUE));
+    uobject_put(readline, "point", NFUN_NEW_GC(cmd_readline_point, NULL, TRUE));
+    uobject_put(readline, "line_buffer", NFUN_NEW_GC(cmd_readline_line_buffer, NULL, TRUE));
+}
+

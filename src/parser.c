@@ -435,6 +435,13 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
 
             buf->mTilda = TRUE;
         }
+        /// equal for completion ///
+        else if(**p == '=') {
+            add_char_to_buf(buf, **p);
+            (*p)++;
+
+            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_AFTER_EQUAL;
+        }
         /// redirect out ///
         else if(**p == '>') {
             if(buf->mBuf[0] != 0) {
@@ -829,7 +836,7 @@ static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObje
         /// spaces ///
         else if(**p == ' ' || **p == '\t') {
             skip_spaces(p);
-            SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_INPUTING_COMMAND_NAME|COMPLETION_FLAGS_ENV|COMPLETION_FLAGS_TILDA|COMPLETION_FLAGS_AFTER_REDIRECT);
+            SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_INPUTING_COMMAND_NAME|COMPLETION_FLAGS_ENV|COMPLETION_FLAGS_TILDA|COMPLETION_FLAGS_AFTER_REDIRECT|COMPLETION_FLAGS_AFTER_EQUAL);
         }
         else {
             break;

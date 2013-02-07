@@ -124,7 +124,7 @@ How to compile
     --with-readline-dir --> indicate readline installed directory.
     --with-debug --> give -g option to CFLAGS and add a checking memory leak system to xyzsh.
     --with-gprof-debug --> give -pg option to CFLAGS
-    --with-static --> make saphrie without dynamic linked libraries.
+    --with-static --> make xyzsh without dynamic linked libraries.
 
     For Japanese options
 
@@ -151,15 +151,24 @@ with OS X
 
 Used files
     /usr/local/bin/xyzsh --> a program
+    /usr/local/share/doc/xyzsh/USAGE --> USAGE in English
+    /usr/local/share/doc/xyzsh/USAGE.ja --> USAGE in Japanese
+    /usr/local/share/doc/xyzsh/README --> README in English
+    /usr/local/share/doc/xyzsh/README.ja --> README in Japanese
+    /usr/local/share/doc/xyzsh/CHANGELOG --> CHANGELOG in English and Japanese
+    /usr/local/share/man/man1/xyzsh.1 --> manual file
     /usr/local/etc/xyzsh/xyzsh.xyzsh --> a source setting file
     /usr/local/etc/xyzsh/completion.xyzsh --> a source completion setting file
     /usr/local/etc/xyzsh/help.xyzsh --> a source help setting file
+    /usr/local/etc/xyzsh/read_history.xyzsh --> a source which reads command line history
+    /usr/local/lib/xyzsh/*.so --> xyzsh C extension library
     ~/.xyzsh/xyzsh.xyzsh --> a source user setting file. xyzsh read this after /usr/local/etc/xyzsh.xyzsh
     ~/.xyzsh/history --> a command line history file
     ~/.xyzsh/macro --> macro which is runned by typing C-x on command line uses this file
     ~/.xyzsh/jump --> jump inner command uses this file
     ~/.xyzsh/menu --> menu inner command uses this file
     ~/.xyzsh/program --> program list which is entried to root object
+    ~/.xyzsh/lib/*.so --> xyzsh C extension library for user
 
 Encoding and Line field
     xyzsh script source file must be written with UTF-8 encode and LF Linefield. But, xyzsh can treat UTF8, EUCJP, and SJIS encodings and can treat LF, CR, LFCR line fields. (EUCJP and SJIS are for Japanese)

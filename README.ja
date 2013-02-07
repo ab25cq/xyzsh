@@ -6,6 +6,65 @@ xyzsh シェルスクリプト言語
     Linux, OSX, cygwin, FreeBSDで動くインタラクティブシェルです。
     Perl/Rubyライクなテキスト処理コマンドを含み、オブジェクト指向も行えます。
     ガベージコレクションも装備しています。
+
+    サンプル
+
+    > ls -F
+    docs/ main.c samples/ sub.c
+        
+    > ls | each ( | chomp | -d && | print )
+    docs
+    samples
+
+    > ls -F | grep -v /
+    main.c sub.c
+
+    > ls | each ( ! | chomp | -d && | print )
+    main.c sub.c
+
+    > ls | each ( | printf "-+- %s -+-"\n ) | join " "
+    -+- docs -+- -+- main -+- -+- samples -+- -+- sub.c -+-
+
+    > ls | each ( | scan . | join " " )
+    d o c s
+    m a i n . c
+    s a m p l e s
+    s u b . c
+
+    > cat data
+    Gorou Yamanaka
+    Rei Tanaka
+    Yumiko Shiratori
+
+    > cat data | each ( | =~ Yamanaka && | print )
+    Gorou Yamanaka
+
+    > cat data | lines 0 1
+    Gorou Yamanaka
+    Rei Tanaka
+        
+    > cat data | each ( | split | lines 1 0 | join )
+    Yamanaka Gorou
+    Tanaka Rei
+    Shiratori Yumiko
+        
+    > vim student.xyzsh
+    class Student ( 
+        | var first_name second_name age country
+        
+        def show (
+            var first_name second_name age country | printf "name: %s %s?nage: %s?ncountry: %s?n"
+        )
+    )
+        
+    object student
+    student::run ( print "Yamanaka Gorou 23 Japan" | split | Student )
+        
+    > load student.xyzsh
+    > student::show
+    name: Yamanaka Gorou
+    age: 23
+    country: Japan
     
 コンパイルとテストを行ったOS
 
@@ -90,7 +149,7 @@ xyzsh シェルスクリプト言語
     日本人向けのオプション
     
     --with-migemo
-        migemo_match内部コマンドを作成します。
+        migemo::match内部コマンドをC拡張ライブラリとして作成します。
     --with-migemo-dir
         デフォルトでは/usr, /usr/localで検索されるmigemoのインストール先を指定します。
         これも管理者権限がない場合で自分のホームディレクトリにmigemoをインストールした場合には必要になるでしょう。
@@ -101,7 +160,7 @@ xyzsh シェルスクリプト言語
     
     xyzshはライブラリを作成するのでライブラリが作成されたディレクトリ(通常は/usr/local/lib)を/etc/ld.so.confに追加して
     以下を実行しないといけません。/usr/local/libは標準ではライブラリの検索パスに加えてられないことが多く
-    たいていの環境(Linux)ではこの作業が必要になります。
+    大抵の環境(Linux)ではこの作業が必要になります。
     
     sudo ldconfig
     
@@ -129,9 +188,17 @@ OSXでは
 xyzshが使用するファイル
 
     /usr/local/bin/xyzsh --> プログラム本体
+    /usr/local/share/doc/xyzsh/USAGE --> 使い方の英訳
+    /usr/local/share/doc/xyzsh/USAGE.ja --> 使い方
+    /usr/local/share/doc/xyzsh/README --> このファイルの英訳
+    /usr/local/share/doc/xyzsh/README.ja --> このファイル
+    /usr/local/share/doc/xyzsh/CHANGELOG --> 更新情報
+    /usr/local/share/man/man1/xyzsh.1 --> マニュアルファイル
     /usr/local/etc/xyzsh/xyzsh.xyzsh --> 設定ファイル
     /usr/local/etc/xyzsh/completion.xyzsh --> 補完関係の設定ファイル
     /usr/local/etc/xyzsh/help.xyzsh --> ヘルプ関連の設定ファイル
+    /usr/local/etc/xyzsh/read_history.xyzsh --> コマンドラインのヒストリを読み込む設定ファイル
+    /usr/local/lib/xyzsh/*.so --> xyzshのC拡張ライブラリ
     ~/.xyzsh/xyzsh.xyzsh --> /usr/local/etc/xyzsh.xyzshの後に呼ばれるユーザーの設定ファイル
     ~/.xyzsh/history --> コマンドライン履歴が保存されたファイル
     ~/.xyzsh/macro --> コマンドラインでControl-xを押した場合に表示されるワンライナーの一覧。
@@ -142,10 +209,11 @@ xyzshが使用するファイル
     ~/.xyzsh/menu --> menu内部コマンドを実行したときに表示されるワンライナーの一覧。
     ~/.xyzsh/program --> sys::を省略したい外部プログラムの一覧。このファイルに外部プログラム名を追加して
                          rehashコマンドを実行すれば、sys::を省略することができるようになる。
+    ~/.xyzsh/lib/*.so --> ユーザーがインストールしたxyzshのC拡張ライブラリ
     
 エンコードと改行コードについて
 
-    xyzshスクリプトはUTF-8エンコードとLF改行コードを使ってかかれなければなりません。
+    xyzshスクリプトはUTF-8エンコードとLF改行コードを使って書かれなければなりません。
     xyzshが扱うエンコードや改行コードにはUTF-8,EUCJP, SJIS, ByteやLF,CR,CRLFが使えます。(オプションで指定する)。
     端末のエンコードはByteかUTF-8でなければ、なりません。
     
@@ -180,6 +248,7 @@ xyzshが使用するファイル
     src/xyzsh/xyzsh.h --> xyzshヘッダーファイル。このファイルをインクルードして-lxyzshオプションをgccにつければ、xyzshを組み込んだプログラムも作成できます
     xyzsh.xyzsh --> xyzshランタイムスクリプト
     completion.xyzsh --> 補完関係のxyzshランタイムスクリプト
+    help.xyzsh --> xyzshのヘルプ用のスクリプト
     src/xyzsh --> ヘッダーが含まれるディレクトリ
     src/block.c --> コードを格納するblock_obj関連の実装
     src/class.c --> classオブジェクトの実装。

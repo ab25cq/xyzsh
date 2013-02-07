@@ -35,7 +35,7 @@ void xyzsh_read_rc_core(char* path)
                 fprintf(stderr, "invalid break. Not in a loop\n");
                 exit(1);
             }
-            else if(runinfo.mRCode == RCODE_RETURN) {
+            else if(runinfo.mRCode & RCODE_RETURN) {
                 fprintf(stderr, "invalid return. Not in a function\n");
                 exit(1);
             }
@@ -85,8 +85,11 @@ static void xyzsh_read_rc()
 
 void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 {
-    setenv("XYZSH_VERSION", "1.3.2", 1);
-    setenv("XYZSH_DATAROOTDIR", DATAROOTDIR, 1);
+    setenv("XYZSH_VERSION", "1.3.5", 1);
+    setenv("XYZSH_DOCDIR", DOCDIR, 1);
+    setenv("XYZSH_DATAROOTDIR", DOCDIR, 1);
+    setenv("XYZSH_EXT_PATH", EXTDIR, 1);
+    setenv("XYZSH_SYSCONFDIR", SYSCONFDIR, 1);
 
     setlocale(LC_ALL, "");
 
@@ -120,10 +123,6 @@ void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
         exit(1);
     }
 
-#if defined(HAVE_MIGEMO_H)
-    migemo_init();
-#endif
-
     if(!no_runtime_script) {
         xyzsh_read_rc();
         readline_read_history();
@@ -133,9 +132,6 @@ void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 void xyzsh_final()
 {
     readline_write_history();
-#if defined(HAVE_MIGEMO_H)
-    migemo_final();
-#endif
 
     mcurses_final();
     run_final();

@@ -1,6 +1,6 @@
 
 def xyzsh_quote (
-    | sub -global ' |\\|"|\$|\*|\?|\[|\]|\{|\}|\&|\;|\(|\)|-' ( | add -number 0 \\ )
+    | sub -global ' |\\|"|\$|\*|\?|\[|\]|\{|\}|\&|\;|\(|\)' ( | add -number 0 \\ )
 )
 
 def xyzsh_dequote (
@@ -23,22 +23,58 @@ def program_completion (
     )
 )
 
-compl::run( object rl )
+def expand_tilda (
+    ary ARGV -index 0 | var -local editing_line
+    ary ARGV -index 1 | var -local inputing
 
-completion rl::help (
-    rl::self | egrep native\ function\$ | root::scan '(^.+?):' | each ( | chomp | quote | pomch )
+    rl::delete_text $(editing_line | rindex $inputing) $(rl::point)
+    rl::insert_text $(eval "print $inputing"|chomp)
 )
 
-root | egrep ': native function$' | egrep -v '^run: native function$|^show: native function$' | scan '(^.+):' | add sub\nsplit\nscan\n | each (
-        | var -local command
+def file_completion (
+    | split '(?<!\\) +' | lines -1 | var -local inputing
+    | if(| rows -2..-1 | =~ '[^\\] ') ( print "" | var -local inputing)
 
-        help $command | lines 1..-1 | scan '^-[a-zA-Z0-9-]+' |chomp| add -number 0 $command\a | hash -append -La COMPLETION_OPTIONS
+    if(inputing | index -quiet /) (
+        if(inputing | rows 0 | = \~) (
+            | expand_tilda $(|print) $inputing
 
-        print <<<EOS
-    completion "$command" (
-        hash COMPLETION_OPTIONS -key "$command"
+            rl::line_buffer | split '(?<!\\) +' | lines -1 | var -local inputing
+            rl::line_buffer | rows -2..-1 | =~ '(?<!\\) ' && print "" | var -local inputing
+        )
+
+        sys::dirname $(inputing |chomp| if (|rows -1 | = /) ( |add aaa ) else ( | print ) )  | chomp | if(|rows -1 | = /) ( | print ) ( | add /) | var -local DIR
+
+        ls $(DIR|xyzsh_dequote|chomp) | each (
+            | if (|chomp | add -number 0 $(DIR|xyzsh_dequote|chomp)/ | -d) (
+                |chomp | xyzsh_quote | add -number 0 $DIR | add / | pomch
+            ) else (
+                |chomp | xyzsh_quote | add -number 0 $DIR | pomch
+            )
+        )
+
+        print $DIR | length -byte |  rl::run( | var omit_head_of_completion_display_matches )
+    ) else (
+        if(inputing | rows 0 | = \~) (
+            cat /etc/passwd | each ( 
+                | split : | ary -local Field
+
+                if(ary Field -size | -ge 7) (
+                    print \~
+                    ary Field -index 0 | chomp
+                    print /\n
+                )
+            )
+        ) else (
+            ls | each (
+                | if (|chomp| -d) (
+                    | chomp | xyzsh_quote | add / | pomch
+                ) else (
+                    |chomp| xyzsh_quote | pomch
+                )
+            ) 
+        )
     )
-EOS | eval
 )
 
 class object_completion (
@@ -66,6 +102,18 @@ class object_completion (
             current | strip | split :: | lines 0..-2| join :: | var -local current
         )
     )
+)
+
+root | egrep ': native function$' | egrep -v '^run: native function$|^show: native function$' | scan '(^.+):' | add sub\nsplit\nscan\n | each (
+        | var -local command
+
+        help $command | lines 1..-1 | scan '^-[a-zA-Z0-9-]+' |chomp| add -number 0 $command\a | hash -append -La COMPLETION_OPTIONS
+
+        print <<<EOS
+    completion "$command" (
+        hash COMPLETION_OPTIONS -key "$command"
+    )
+EOS | eval
 )
 
 completion var (
@@ -127,7 +175,6 @@ completion sweep (
     hash COMPLETION_OPTIONS -key sweep
 )
 
-
 completion help (
     root::self | egrep native\ function\$ | root::scan '(^.+?):' | add sub\nsplit\nscan\n | each ( | chomp | quote | pomch )
     hash COMPLETION_OPTIONS -key help
@@ -173,5 +220,73 @@ completion git (
 completion kill (
     ps | each ( | sub '^\s+' '' ) | selector | split | lines 0
     rl::clear_screen
+)
+
+completion load (
+    | if(| index -quiet "-dynamic-library" ) (
+        ls $XYZSH_EXT_PATH | (| print -read-from-error; | print)  | egrep '.so$|.dll$'
+        ls ~/.xyzsh/lib | ( | print -read-from-error; | print ) | egrep '.so$|.dll$' 
+    ) else (
+        | file_completion
+        hash COMPLETION_OPTIONS -key load
+    )
+)
+
+root::compl::run( root::object rl )
+
+completion rl::help (
+    rl::self | egrep native\ function\$ | egrep -v 'run|show' | root::scan '(^.+?):' | each ( | chomp | quote | pomch )
+)
+
+completion cd (
+    | file_completion | each ( | =~ '/$' && | print )
+    print ../\n
+    hash COMPLETION_OPTIONS -key cd
+)
+
+root::compl::run( root::object sys )
+
+completion sys::__all__ (
+    ARGV | var -local Program
+
+    | split '(?<!\\) +' | lines -1 | var -local inputing
+    | if(| rows -2..-1 | =~ '[^\\] ') ( print "" | var -local inputing)
+
+    | file_completion
+
+    ### option completion ###
+    if(inputing | rows 0 | = -) (
+        man $Program |> || raise "not found manual"
+        |> sys::col -b | selector | scan '-\S+|--\S+' | var -local Option
+
+        if(Option | chomp | -z) (
+            raise "Please select a line which contains a option name"
+        ) else (
+            rl::delete_text $(| rindex $inputing) $(rl::point)
+            rl::insert_text $Option" "
+        )
+    )
+)
+
+completion __all__ (
+    ARGV | var -local Program
+
+    | split '(?<!\\) +' | lines -1 | var -local inputing
+    | if(| rows -2..-1 | =~ '[^\\] ') ( print "" | var -local inputing)
+
+    | file_completion
+
+    ### option completion ###
+    if(inputing | rows 0 | = -) (
+        man $Program |> || raise "not found manual"
+        |> sys::col -b | selector | scan '-\S+|--\S+' | var -local Option
+
+        if(Option | chomp | -z) (
+            raise "Please select a line which contains a option name"
+        ) else (
+            rl::delete_text $(| rindex $inputing) $(rl::point)
+            rl::insert_text $Option" "
+        )
+    )
 )
 

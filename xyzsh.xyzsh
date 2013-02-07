@@ -64,11 +64,13 @@ EOS > ~/.xyzsh/menu
     eval $(cat ~/.xyzsh/menu | selector | chomp)
 )
 
+# when pressing CTRL-X on cmdline, this is called
 def macro (
     if(! print ~/.xyzsh/macro | -e) (
         print <<<EOS
 whoami | chomp
 pwd | chomp
+fselector -multiple | each ( | chomp | quote | pomch ) | join | chomp
 EOS > ~/.xyzsh/macro
     )
 
@@ -86,6 +88,28 @@ def times -copy-stackframe (
        | eval $(block)
        ++ _i
     )
+)
+
+def max (
+    | var -local max_value
+    | each ( 
+        if(| -gt $max_value) (
+            | var -local max_value
+        )
+    )
+
+    max_value
+)
+
+def min (
+    | var -local min_value
+    | each ( 
+        if(| -lt $min_value ) (
+            | var -local min_value
+        )
+    )
+
+    min_value
 )
 
 # for calling function with the caller-function arguments, options and blocks

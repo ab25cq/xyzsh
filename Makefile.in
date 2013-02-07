@@ -21,6 +21,7 @@ INSTALL=@INSTALL@
 CFLAGS=@CFLAGS@
 LIBS=@LIBS@
 OBJ=@OBJ@
+EXTOBJ=@EXTOBJ@
 LIBXYZSHSO=@LIBXYZSHSO@
 LIBXYZSHSO1=@LIBXYZSHSO1@
 LIBXYZSHA=@LIBXYZSHA@
@@ -28,10 +29,16 @@ LIBXYZSHASTRIP=@LIBXYZSHASTRIP@
 DESTDIR=
 SYSTEM_MIGEMODIR=@SYSTEM_MIGEMODIR@
 SO_VERSION=@SO_VERSION@
+EXTDIR=@EXTDIR@
 
 ##########################################################
-all: lib xyzsh
+# main
+##########################################################
+all: lib xyzsh extension
 	rm -f install
+
+xyzsh: config.h src/main.c $(LIBXYZSHSO) $(LIBXYZSHA)
+	$(CC) -o xyzsh src/main.c $(CFLAGS:-static=) -lxyzsh $(LIBS)
 
 lib: $(LIBXYZSHSO1) $(LIBXYZSHA)
 	rm -f install
@@ -52,15 +59,6 @@ lib-dest-install:
 	if [ "$(LIBXYZSHSO)" = libxyzsh.so ]; then if echo $(CFLAGS) | grep -q MDEBUG; then $(INSTALL) -m 755 libxyzsh.so.$(SO_VERSION) "$(DESTDIR)/$(libdir)"; else $(INSTALL) -s -m 755 libxyzsh.so.$(SO_VERSION) "$(DESTDIR)/$(libdir)"; fi; elif [ "$(LIBXYZSHSO)" = libxyzsh.dylib ]; then $(INSTALL) -m 755 libxyzsh.$(SO_VERSION).dylib "$(DESTDIR)/$(libdir)"; fi
 	if [ "$(LIBXYZSHSO)" = libxyzsh.so ]; then ln -s -f libxyzsh.so.$(SO_VERSION) "$(DESTDIR)/$(libdir)"/libxyzsh.so.1; elif [ "$(LIBXYZSHSO)" = libxyzsh.dylib ]; then ln -s -f libxyzsh.$(SO_VERSION).dylib "$(DESTDIR)/$(libdir)"/libxyzsh.1.dylib; fi
 	if [ "$(LIBXYZSHSO)" = libxyzsh.so ]; then ln -s -f libxyzsh.so.$(SO_VERSION) "$(DESTDIR)/$(libdir)"/libxyzsh.so; elif [ "$(LIBXYZSHSO)" = libxyzsh.dylib ]; then ln -s -f libxyzsh.$(SO_VERSION).dylib "$(DESTDIR)/$(libdir)"/libxyzsh.dylib; fi
-
-clean:
-	rm -fR xyzsh xyzsh.dSYM src/*.o libxyzsh* xyzsh.exe* config.log config.status *.stackdump autom4te.cache
-
-distclean:
-	rm -fR xyzsh xyzsh.dSYM src/*.o libxyzsh* config.h Makefile xyzsh.exe* config.log config.status *.stackdump autom4te.cache
-
-xyzsh: config.h src/main.c $(LIBXYZSHSO) $(LIBXYZSHA)
-	$(CC) -o xyzsh src/main.c $(CFLAGS:-static=) -lxyzsh $(LIBS)
 
 ########################################################
 # xyzsh libraries
@@ -87,16 +85,21 @@ libxyzsh.dylib: libxyzsh.$(SO_VERSION).dylib
 	cp libxyzsh.$(SO_VERSION).dylib libxyzsh.1.dylib
 	cp libxyzsh.$(SO_VERSION).dylib libxyzsh.dylib
 
-permission:
-	chmod 644 *
-	chmod 755 .git man src configure
-	chmod 644 src/*.c
-	chmod 644 src/xyzsh/*.h
-
 #########################################################
-# install
+# Object files
 #########################################################
 $(OBJ): src/xyzsh/xyzsh.h src/xyzsh/block.h src/xyzsh/curses.h src/xyzsh/debug.h src/xyzsh/hash.h src/xyzsh/kanji.h src/xyzsh/list.h src/xyzsh/string.h src/xyzsh/vector.h Makefile configure
+
+#########################################################
+# Extension
+#########################################################
+extension: $(EXTOBJ)
+
+src/ext/migemo.so: src/ext/migemo.c
+	gcc -shared src/ext/migemo.c -o src/ext/migemo.so $(CFLAGS) -lmigemo -lxyzsh $(LIBS)
+
+src/ext/migemo.dll: src/ext/migemo.c
+	gcc -shared src/ext/migemo.c -o src/ext/migemo.dll $(CFLAGS) -lmigemo -lxyzsh $(LIBS)
 
 #########################################################
 # install
@@ -123,6 +126,7 @@ normal-install:
 	$(INSTALL) -m 644 USAGE "$(docdir)"
 	$(INSTALL) -m 644 USAGE.ja "$(docdir)"
 	$(INSTALL) -m 644 README "$(docdir)"
+	$(INSTALL) -m 644 README.ja "$(docdir)"
 	$(INSTALL) -m 644 CHANGELOG "$(docdir)"
 	rm -f $(bindir)/xyzsh
 	if echo $(CFLAGS) | grep -q MDEBUG; then $(INSTALL) -m 755 xyzsh "$(bindir)"; else $(INSTALL) -s -m 755 xyzsh "$(bindir)"; fi;
@@ -131,6 +135,11 @@ normal-install:
 	$(INSTALL) -m 644 completion.xyzsh "$(sysconfdir)"
 	$(INSTALL) -m 644 help.xyzsh "$(sysconfdir)"
 	$(INSTALL) -m 644 read_history.xyzsh "$(sysconfdir)"
+	mkdir -p "$(EXTDIR)"
+	if test -e src/ext/migemo.so; then $(INSTALL) -m 755 src/ext/migemo.so "$(EXTDIR)"; fi
+	if test -e src/ext/migemo.dll; then $(INSTALL) -m 755 src/ext/migemo.dll "$(EXTDIR)"; fi
+	if test -e src/ext/migemo.so; then $(INSTALL) -m 644 src/ext/migemo.so.xyzsh "$(EXTDIR)"; fi
+	if test -e src/ext/migemo.dll; then $(INSTALL) -m 644 src/ext/migemo.dll.xyzsh "$(EXTDIR)"; fi
 
 dest-install:
 	mkdir -p "$(DESTDIR)/$(bindir)";
@@ -159,4 +168,55 @@ dest-install:
 	$(INSTALL) -m 644 completion.xyzsh "$(DESTDIR)/$(sysconfdir)"
 	$(INSTALL) -m 644 help.xyzsh "$(DESTDIR)/$(sysconfdir)"
 	$(INSTALL) -m 644 read_history.xyzsh "$(DESTDIR)/$(sysconfdir)"
+	mkdir -p "$(DESTDIR)/$(EXTDIR)"
+	if test -e src/ext/migemo.so; then $(INSTALL) -m 755 src/ext/migemo.so "$(DESTDIR)/$(EXTDIR)"; fi
+	if test -e src/ext/migemo.dll; then $(INSTALL) -m 755 src/ext/migemo.dll "$(DESTDIR)/$(EXTDIR)"; fi
+	if test -e src/ext/migemo.so; then $(INSTALL) -m 644 src/ext/migemo.so.xyzsh "$(DESTDIR)/$(EXTDIR)"; fi
+	if test -e src/ext/migemo.dll; then $(INSTALL) -m 644 src/ext/migemo.dll.xyzsh "$(DESTDIR)/$(EXTDIR)"; fi
+
+#########################################################
+# uninstall
+#########################################################
+uninstall:
+	rm -f $(includedir)/block.h
+	rm -f $(includedir)/curses.h
+	rm -f $(includedir)/debug.h
+	rm -f $(includedir)/hash.h
+	rm -f $(includedir)/kanji.h
+	rm -f $(includedir)/list.h
+	rm -f $(includedir)/string.h
+	rm -f $(includedir)/vector.h
+	rm -f $(includedir)/xyzsh.h
+	rmdir $(includedir)
+	rm -f $(docdir)/USAGE
+	rm -f $(docdir)/USAGE.ja
+	rm -f $(docdir)/README
+	rm -f $(docdir)/README.ja
+	rm -f $(docdir)/CHANGELOG
+	rmdir $(docdir)
+	rm -f $(bindir)/xyzsh
+	rm -f $(mandir)/man1/xyzsh.1
+	rm -f $(sysconfdir)/xyzsh.xyzsh
+	rm -f $(sysconfdir)/completion.xyzsh
+	rm -f $(sysconfdir)/help.xyzsh
+	rm -f $(sysconfdir)/read_history.xyzsh
+	rmdir $(sysconfdir)
+
+#########################################################
+# permission
+#########################################################
+permission:
+	chmod 644 *
+	chmod 755 .git man src configure
+	chmod 644 src/*.c
+	chmod 644 src/xyzsh/*.h
+
+########################################################
+# clean
+########################################################
+clean:
+	rm -fR xyzsh xyzsh.dSYM src/*.o libxyzsh* xyzsh.exe* config.log config.status *.stackdump autom4te.cache .DS_Store src/ext/*.stackdump src/ext/*.dll src/ext/*.so src/ext/*.o src/ext/migemo.so.dSYM src/ext/*.a
+
+distclean:
+	rm -fR xyzsh xyzsh.dSYM src/*.o libxyzsh* config.h Makefile xyzsh.exe* config.log config.status *.stackdump src/ext/*.stackdump autom4te.cache .DS_Store src/ext/*.so src/ext/*.dll src/ext/*.o src/ext/migemo.so.dSYM src/ext/*.a
 

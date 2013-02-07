@@ -75,7 +75,7 @@ static char* prompt()
         if(rcode == RCODE_BREAK) {
             fprintf(stderr, "invalid break. Not in a loop\n");
         }
-        else if(rcode == RCODE_RETURN) {
+        else if(rcode & RCODE_RETURN) {
             fprintf(stderr, "invalid return. Not in a function\n");
         }
         else if(rcode == RCODE_EXIT) {
@@ -136,6 +136,63 @@ BOOL xyzsh_run(int* rcode, sObject* block, char* source_name, fXyzshJobDone xyzs
 
     (void)vector_pop_back(gStackFrames);
     stack_end_stack();
+
+    /// wait background job
+    xyzsh_wait_background_job();
+
+    return TRUE;
+}
+
+BOOL xyzsh_eval(int* rcode, char* cmd, char* source_name, fXyzshJobDone xyzsh_job_done_, sObject* nextin, sObject* nextout, int argc, char** argv, sObject* current_object)
+{
+    string_put(gErrMsg, "");
+
+    xyzsh_job_done = xyzsh_job_done_;
+
+    stack_start_stack();
+
+    sObject* block = BLOCK_NEW_STACK();
+    int sline = 1;
+    if(parse(cmd, source_name, &sline, block, NULL)) {
+        xyzsh_set_signal();
+
+        sObject* fun = FUN_NEW_STACK(NULL);
+        sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
+        vector_add(gStackFrames, stackframe);
+        //uobject_init(stackframe);
+        SFUN(fun).mLocalObjects = stackframe;
+
+        sObject* argv2 = VECTOR_NEW_GC(16, FALSE);
+        int i;
+        for(i=0; i<argc; i++) {
+            vector_add(argv2, STRING_NEW_GC(argv[i], FALSE));
+        }
+        uobject_put(SFUN(fun).mLocalObjects, "ARGV", argv2);
+
+        if(!run(block, nextin, nextout, rcode, current_object, fun)) {
+            xyzsh_restore_signal_default();
+            (void)vector_pop_back(gStackFrames);
+
+            stack_end_stack();
+
+            /// wait background job
+            xyzsh_wait_background_job();
+
+            return FALSE;
+        }
+        xyzsh_restore_signal_default();
+
+        (void)vector_pop_back(gStackFrames);
+        stack_end_stack();
+    }
+    else {
+        stack_end_stack();
+
+        /// wait background job
+        xyzsh_wait_background_job();
+
+        return FALSE;
+    }
 
     /// wait background job
     xyzsh_wait_background_job();
@@ -230,6 +287,8 @@ void readline_write_history()
     }
 }
 
+// EOF --> rcode == -2
+// errors --> rcode == -1
 BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_point, char* source_name, char** argv, int argc, fXyzshJobDone xyzsh_job_done_)
 {
     /// start interactive shell ///
@@ -258,6 +317,7 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
 
     /// run ///
     if(buf == NULL) {
+        *rcode = -2;
     }
     else if(*buf) {
         stack_start_stack();
@@ -285,7 +345,7 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
                 if(*rcode == RCODE_BREAK) {
                     fprintf(stderr, "invalid break. Not in a loop\n");
                 }
-                else if(*rcode == RCODE_RETURN) {
+                else if(*rcode & RCODE_RETURN) {
                     fprintf(stderr, "invalid return. Not in a function\n");
                 }
                 else if(*rcode == RCODE_EXIT) {
@@ -442,7 +502,7 @@ void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int 
                     if(rcode == RCODE_BREAK) {
                         fprintf(stderr, "invalid break. Not in a loop\n");
                     }
-                    else if(rcode == RCODE_RETURN) {
+                    else if(rcode & RCODE_RETURN) {
                         fprintf(stderr, "invalid return. Not in a function\n");
                     }
                     else if(rcode == RCODE_EXIT) {
@@ -497,7 +557,7 @@ BOOL xyzsh_load_file(char* fname, char** argv, int argc, sObject* current_object
             xyzsh_restore_signal_default();
             return FALSE;
         }
-        else if(runinfo.mRCode == RCODE_RETURN) {
+        else if(runinfo.mRCode & RCODE_RETURN) {
             fprintf(stderr, "invalid return. Not in a function\n");
             xyzsh_restore_signal_default();
             return FALSE;
@@ -549,7 +609,7 @@ void xyzsh_opt_c(char* cmd, char** argv, int argc)
             if(rcode == RCODE_BREAK) {
                 fprintf(stderr, "invalid break. Not in a loop\n");
             }
-            else if(rcode == RCODE_RETURN) {
+            else if(rcode & RCODE_RETURN) {
                 fprintf(stderr, "invalid return. Not in a function\n");
             }
             else if(rcode == RCODE_EXIT) {

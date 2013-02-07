@@ -767,7 +767,7 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 sObject* tmp = access_object3(runinfo->mArgsRuntime[i], &current);
 
                 if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
-                    err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("this name of local variable hides global variable name. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     return FALSE;
                 }
 
@@ -1115,7 +1115,7 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             sObject* tmp = access_object3(runinfo->mArgsRuntime[1], &current);
 
             if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
-                err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("this name of local variable hides global variable name. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
 
@@ -1374,7 +1374,7 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             sObject* tmp = access_object3(runinfo->mArgsRuntime[1], &current);
 
             if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
-                err_msg("can't overwrite other the same name variable. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("this name of local variable hides global variable name. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                 return FALSE;
             }
 

@@ -1,5 +1,6 @@
 #include "config.h"
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -30,6 +31,8 @@ static sObject* gObjectsInPipe;
 static sObject* gRunningObjects;
 
 sRunInfo* gRunInfoOfRunningObject;
+
+sObject* gDynamicLibraryFinals;
 
 BOOL contained_in_pipe(sObject* object)
 {
@@ -86,10 +89,22 @@ void run_init(enum eAppType app_type)
 
     gRunningObjects = VECTOR_NEW_GC(10, FALSE);
     uobject_put(gXyzshObject, "_running_block", gRunningObjects);
+
+    gDynamicLibraryFinals = HASH_NEW_MALLOC(10);
 }
 
 void run_final()
 {
+    hash_it* it = hash_loop_begin(gDynamicLibraryFinals);
+    while(it) {
+        int (*func)() = hash_loop_item(it);
+        if(func() != 0) {
+            fprintf(stderr, "false in finalize");
+        }
+
+        it = hash_loop_next(it);
+    }
+    hash_delete_on_malloc(gDynamicLibraryFinals);
 }
 
 sObject* job_new_on_gc(char* name, pid_t pgroup, struct termios tty)
@@ -194,30 +209,54 @@ static void nextin_writer(pid_t pid, sObject* nextin, int* pipeinfds, int* pipeo
     *nextin_reader_pid = pid2;
 }
 
-void make_job_title(sStatment* statment, sCommand* command_, char* title, int title_num)
+static void make_job_title(sRunInfo* runinfo, char* title, int title_num)
 {
     title[0] = 0;
+
+    sStatment* statment = runinfo->mStatment;
+    sCommand* command_ = runinfo->mCommand;
 
     int i;
     for(i=0; i<statment->mCommandsNum; i++) {
         sCommand* command = statment->mCommands + i;
 
-        int j;
-        for(j=0; j<command->mArgsNum; j++) {
-            char* arg = command->mArgs[j];
+        if(command == command_) {
+            int j;
+            for(j=0; j<runinfo->mArgsNumRuntime; j++) {
+                char* arg = runinfo->mArgsRuntime[j];
 
-            xstrncat(title, arg, BUFSIZ);
-            if(j+1 < command->mArgsNum) {
-                xstrncat(title, " ", BUFSIZ);
+                xstrncat(title, arg, title_num);
+                if(j+1 < runinfo->mArgsNumRuntime) {
+                    xstrncat(title, " ", title_num);
+                }
+            }
+            break;
+        }
+        else {
+            int j;
+            for(j=0; j<command->mArgsNum; j++) {
+                char* arg = command->mArgs[j];
+
+                char buf[16];
+                buf[0] = PARSER_MAGIC_NUMBER_ENV;
+                buf[1] = 0;
+
+                if(arg[0] == PARSER_MAGIC_NUMBER_OPTION || strstr(arg, buf)) {
+                    if(j+1 < command->mArgsNum) {
+                        xstrncat(title, " ", title_num);
+                    }
+                }
+                else {
+                    xstrncat(title, arg, title_num);
+                    if(j+1 < command->mArgsNum) {
+                        xstrncat(title, " ", title_num);
+                    }
+                }
             }
         }
 
-        if(command == command_) {
-            break;
-        }
-
         if(i+1 < statment->mCommandsNum) {
-            xstrncat(title, "|", BUFSIZ);
+            xstrncat(title, "|", title_num);
         }
     }
 }
@@ -292,6 +331,24 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
 
                 return FALSE;
             }
+            /// exited normally ///
+            else if(WIFEXITED(status)) {
+                /// command not found ///
+                if(WEXITSTATUS(status) == 127) {
+                    if(gAppType == kATConsoleApp) // && nextout2 == 1)
+                    {
+                        if(tcsetpgrp(0, getpgid(0)) < 0) {
+                            perror("tcsetpgrp(xyzsh)");
+                            exit(1);
+                        }
+                    }
+
+                    char buf[BUFSIZ];
+                    snprintf(buf, BUFSIZ, "command not found");
+                    err_msg(buf, runinfo->mSName, runinfo->mSLine, program);
+                    return FALSE;
+                }
+            }
             else if(WIFSIGNALED(status)) {  // a xyzsh external program which is not a last command can't be stopped by CTRL-Z
                 err_msg("signal interrupt8", runinfo->mSName, runinfo->mSLine, program);
 
@@ -316,7 +373,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
             tcgetattr(STDIN_FILENO, &tty);
 
             char title[BUFSIZ];
-            make_job_title(runinfo->mStatment, runinfo->mCommand, title, BUFSIZ);
+            make_job_title(runinfo, title, BUFSIZ);
 
             sObject* job = JOB_NEW_GC(title, pid, tty);
         }
@@ -375,7 +432,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
                     tcgetattr(STDIN_FILENO, &tty);
 
                     char title[BUFSIZ];
-                    make_job_title(runinfo->mStatment, runinfo->mCommand, title, BUFSIZ);
+                    make_job_title(runinfo, title, BUFSIZ);
 
                     sObject* job = JOB_NEW_GC(title, pid, tty);
                 }
@@ -654,7 +711,10 @@ BOOL run_function(sObject* fun, sObject* nextin, sObject* nextout, sRunInfo* run
     int rcode = 0;
 
     if(!run(SFUN(fun).mBlock, nextin, nextout, &rcode, runinfo->mCurrentObject, fun)) {
-        if(rcode != RCODE_RETURN) {
+        if(rcode & RCODE_RETURN) {
+            rcode = rcode & 0xff;
+        }
+        else {
             char buf[BUFSIZ];
             err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
             runinfo->mRCode = rcode;
@@ -704,7 +764,7 @@ static BOOL run_completion(sObject* compl, sObject* nextin, sObject* nextout, sR
     if(!run(SCOMPLETION(compl).mBlock, nextin, nextout, &rcode, gRootObject, fun)) {
         if(rcode == RCODE_BREAK) {
         }
-        else if(rcode == RCODE_RETURN) {
+        else if(rcode & RCODE_RETURN) {
         }
         else if(rcode == RCODE_EXIT) {
         }
@@ -1088,9 +1148,10 @@ static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout
     for(i=0; i<statment->mCommandsNum; i++) {
         sCommand* command = runinfo->mCommand = statment->mCommands + i;
 
-        runinfo->mCurrentObject = current_object;
         const BOOL last_program = runinfo->mLastProgram = i == statment->mCommandsNum-1;
         runinfo->mFilter = i != 0 || (statment->mFlags & (STATMENT_FLAGS_CONTEXT_PIPE|STATMENT_FLAGS_GLOBAL_PIPE_IN));
+
+        runinfo->mCurrentObject = current_object;
 
         sRunInfo_command_new(runinfo);
 
@@ -1658,7 +1719,6 @@ BOOL load_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runinfo
         sCommand* command = runinfo->mCommand;
         err_msg("signal interrupt16", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-        FREE(buf);
         close(fd);
         return FALSE;
     }
@@ -1710,3 +1770,86 @@ BOOL load_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runinfo
 
     return TRUE;
 }
+
+#if defined(__CYGWIN__)
+int migemo_dl_final();
+int migemo_dl_init();
+#endif
+
+BOOL load_so_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    sCommand* command = runinfo->mCommand;
+
+    char path[PATH_MAX];
+    snprintf(path, PATH_MAX, "%s%s", EXTDIR, fname);
+
+    if(access(path, X_OK) != 0) {
+        char* home = getenv("HOME");
+        if(home) {
+            snprintf(path, PATH_MAX, "%s/.xyzsh/lib/%s", home, fname);
+            if(access(path, X_OK) != 0) {
+                xstrncpy(path, fname, PATH_MAX);
+            }
+        }
+        else {
+            xstrncpy(path, fname, PATH_MAX);
+        }
+    }
+
+#if defined(__CYGWIN__)
+    if(hash_item(gDynamicLibraryFinals, path) == NULL) {
+        if(strstr(path, "migemo")) {
+            if(migemo_dl_init() != 0) {
+                err_msg("false in initialize the dynamic library", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+                return FALSE;
+            }
+            hash_put(gDynamicLibraryFinals, path, migemo_dl_final);
+        }
+
+        char path2[PATH_MAX];
+        snprintf(path2, PATH_MAX, "%s.xyzsh", path);
+        if(access(path2, F_OK) == 0) {
+            if(!load_file(path2, nextin, nextout, runinfo, NULL, 0)) {
+                return FALSE;
+            }
+        }
+    }
+#else
+    if(hash_item(gDynamicLibraryFinals, path) == NULL) {
+        void* handle = dlopen(path, RTLD_LAZY);
+        if(handle == NULL) {
+            err_msg(dlerror(), runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            return FALSE;
+        }
+
+        int (*init_func)() = dlsym(handle, "dl_init");
+        int (*final_func)() = dlsym(handle, "dl_final");
+        if(init_func == NULL || final_func == NULL) {
+            err_msg("not found dl_init or dl_final", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            dlclose(handle);
+            return FALSE;
+        }
+
+        if(init_func(NULL) != 0) {
+            err_msg("false in initialize the dynamic library", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            dlclose(handle);
+            return FALSE;
+        }
+
+        hash_put(gDynamicLibraryFinals, path, final_func);
+
+        //dlclose(handle);
+
+        char path2[PATH_MAX];
+        snprintf(path2, PATH_MAX, "%s.xyzsh", path);
+        if(access(path2, F_OK) == 0) {
+            if(!load_file(path2, nextin, nextout, runinfo, NULL, 0)) {
+                return FALSE;
+            }
+        }
+    }
+#endif
+
+    return TRUE;
+}
+

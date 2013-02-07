@@ -1,4 +1,59 @@
 
+2013 7th of Feburary version 1.3.5
+
+    1. Fixed migemo completion bug on mfiler4
+
+2013 7th of Feburary version 1.3.4
+
+    1. Added "-source" option to "completion" inner command.
+
+    2. Added file name completion to "cd" inner command.
+
+    3. Almost part of completion was written by xyzsh. You can castamize completion more easily.
+
+    4. Added option completion to external program. You can select option from man page when typing external command.
+
+    ex)
+    > ls -[TAB] --> viewing man page of ls to select line of it.
+
+2013 3rd Feburary version 1.3.3
+
+    1. Modified configure.in and Makfile.in especially for related with docdir and sysconfdir
+
+    2. Added XYZSH_DOCDIR for help.xyzsh. Remained XYZSH_DATAROOTDIR.
+
+    3. Fixed job title problem.
+
+    4. Added C extension mechanism which loads dynamic library from searched path. See USAGE or USAGE.ja. Cutted off migemo and made it as C extension.
+
+    5. Added migemo completion for Japanese.
+
+    6. Added "-regex" option to "index" and "rindex" command. Added "-no-regex" option to "sub" and "split" command.
+
+    7. Checked on Ubuntu 64 bit.
+
+    8. You can set return code of "return" command. 
+
+    > def fun ( return 1 )
+    > fun
+    return code is 1
+
+    9. Modified completion working especially tilde completion..
+
+    10. Fixed below bug.
+
+    > adfasfa | less
+    no an error occures
+
+    |
+    |
+    v
+
+    > adfastfa | less
+    adfastfa is not found
+
+    11. Fixed scan, split, sub, index, rindex with null string argument. There are some odd working.
+
 2013 20th January version 1.3.2
 
     1. Added "strip" and "objinfo" inner command

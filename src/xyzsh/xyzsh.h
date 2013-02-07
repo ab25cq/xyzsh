@@ -272,6 +272,7 @@ typedef struct {
 #define COMPLETION_FLAGS_STATMENT_END 0x8000
 #define COMPLETION_FLAGS_STATMENT_HEAD 0x10000
 #define COMPLETION_FLAGS_AFTER_REDIRECT 0x20000
+#define COMPLETION_FLAGS_AFTER_EQUAL 0x40000
 
 struct block_obj
 {
@@ -464,6 +465,7 @@ sObject* uobject_new_on_stack(int size, sObject* object, char* name);
 void uobject_put(sObject* self, char* key, void* item);
 void uobject_init(sObject* self);
 void uobject_root_init(sObject* self);
+void readline_object_init(sObject* self);
 void uobject_put(sObject* self, char* key, void* item);
 void* uobject_item(sObject* self, char* key);
 void uobject_clear(sObject* self);
@@ -563,16 +565,11 @@ typedef BOOL (*fInternalCommand)(sObject*, sObject*, sRunInfo*);
 extern fInternalCommand kInternalCommands[kInnerCommand];
 extern char * gCommandKindStrs[kCommandMax];
 
+BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_objinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_kanjicode(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_defined(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_funinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
-BOOL cmd_readline_read_history(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
-BOOL cmd_readline_write_history(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
-BOOL cmd_readline_point_move(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
-BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
-BOOL cmd_readline_clear_screen(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
-BOOL cmd_readline_insert_text(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_readline_delete_text(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_mshow(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
@@ -729,13 +726,13 @@ BOOL gc_valid_object(sObject* object);
 
 BOOL parse(char* p, char* sname, int* sline, sObject* block, sObject** current_object);
 
-#define RCODE_BREAK 256
-#define RCODE_RETURN 257
-#define RCODE_EXIT 258
-#define RCODE_SIGNAL_INTERRUPT 259
-#define RCODE_NFUN_FALSE 260
-#define RCODE_NFUN_INVALID_USSING 261
-#define RCODE_NFUN_NULL_INPUT 262
+#define RCODE_BREAK 0x100
+#define RCODE_RETURN 0x200
+#define RCODE_EXIT 0x400
+#define RCODE_SIGNAL_INTERRUPT 0x800
+#define RCODE_NFUN_FALSE 0x1000
+#define RCODE_NFUN_INVALID_USSING 0x2000
+#define RCODE_NFUN_NULL_INPUT 0x4000
 //#define RCODE_COMMAND_NOT_FOUND 262
 
 void xyzsh_kill_all_jobs();
@@ -753,6 +750,7 @@ extern sRunInfo* gRunInfoOfRunningObject;
 BOOL bufsiz_write(int fd, char* buf, int buf_len);
 
 BOOL load_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runinfo, char** argv, int argc);
+BOOL load_so_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 
 int object_gc_children_mark(sObject* self);
 
@@ -783,11 +781,6 @@ void xyzsh_read_rc_core(char* path);
 void run_init(enum eAppType app_type);
 void run_final();
 
-#if defined(HAVE_MIGEMO_H)
-void migemo_init();
-void migemo_final();
-#endif
-
 extern sObject* gPrompt;
 extern sObject* gDirStack;
 
@@ -815,6 +808,7 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
 char* xyzsh_job_title(int n);
 int xyzsh_job_num();
 BOOL xyzsh_run(int* rcode, sObject* block, char* source_name, fXyzshJobDone xyzsh_job_done_, sObject* nextin, sObject* nextout, int argc, char** argv, sObject* current_object);
+BOOL xyzsh_eval(int* rcode, char* cmd, char* source_name, fXyzshJobDone xyzsh_job_done_, sObject* nextin, sObject* nextout, int argc, char** argv, sObject* current_object);
 
 void err_msg(char* msg, char* sname, int line, char* command);
 void err_msg_adding(char* msg, char* sname, int line, char* command);

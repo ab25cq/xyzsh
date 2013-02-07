@@ -338,366 +338,6 @@ BOOL cmd_x(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
-BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    enum eKanjiCode code = gKanjiCode;
-    if(sRunInfo_option(runinfo, "-byte")) {
-        code = kByte;
-    }
-    else if(sRunInfo_option(runinfo, "-utf8")) {
-        code = kUtf8;
-    }
-    else if(sRunInfo_option(runinfo, "-sjis")) {
-        code = kSjis;
-    }
-    else if(sRunInfo_option(runinfo, "-eucjp")) {
-        code = kEucjp;
-    }
-
-    /// output
-    if(runinfo->mFilter) {
-        if(runinfo->mArgsNumRuntime == 2) {
-            char* target = SFD(nextin).mBuf;
-
-            char* word = runinfo->mArgsRuntime[1];
-
-            /// get starting point ///
-            int start;
-            char* number;
-            if(number = sRunInfo_option_with_argument(runinfo, "-number")) {
-                start = atoi(number);
-
-                int len = str_kanjilen(code, target);
-                if(len < 0) {
-                    err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    return FALSE;
-                }
-
-                if(start < 0) { 
-                    start += len; 
-                    if(start < 0) start = 0;
-                } 
-                if(start >= len) { 
-                    start = len -1; 
-                    if(start < 0) start = 0;
-                }
-            }
-            else {
-                start = 0;
-            }
-
-            /// get search count ///
-            int match_count;
-            char* count;
-            if(count = sRunInfo_option_with_argument(runinfo, "-count")) {
-                match_count = atoi(count);
-                if(match_count <= 0) { match_count = 1; }
-            }
-            else {
-                match_count = 1;
-            }
-
-            char* start_byte = str_kanjipos2pointer(code, target, start);
-            char* p = start_byte;
-            char* result = NULL;
-            if(sRunInfo_option(runinfo, "-ignore-case")) {
-                while(p < start_byte + strlen(start_byte)) {
-                    if(gXyzshSigInt) {
-                        gXyzshSigInt = FALSE;
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
-                    }
-
-                    result = strcasestr(p, word);
-                    if(result) {
-                        match_count--;
-                        if(match_count == 0) {
-                            break;
-                        }
-                        p = result+strlen(word);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            else {
-                while(p < start_byte + strlen(start_byte)) {
-                    if(gXyzshSigInt) {
-                        gXyzshSigInt = FALSE;
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
-                    }
-
-                    result = strstr(p, word);
-                    if(result) {
-                        match_count--;
-                        if(match_count == 0) {
-                            break;
-                        }
-                        p = result+strlen(word);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-
-            char msg[64];
-            int size;
-            if(result == NULL || match_count !=0) {
-                size = snprintf(msg, 64, "-1");
-                runinfo->mRCode = RCODE_NFUN_FALSE;
-            }
-            else {
-                int c = str_pointer2kanjipos(code, target, result);
-                size = snprintf(msg, 64, "%d", c);
-
-                if(SFD(nextin).mBufLen == 0) {
-                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-                }
-                else {
-                    runinfo->mRCode = 0;
-                }
-            }
-
-            /// Ω–Œœ ///
-            if(!sRunInfo_option(runinfo, "-quiet")) {
-                if(!fd_write(nextout, msg, size)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                    return FALSE;
-                }
-                if(!fd_write(nextout, "\n", 1)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                    return FALSE;
-                }
-            }
-        }
-    }
-
-    return TRUE;
-}
-
-static char* strstr_back(char* p, char* start, char* word, char* sname, int sline, char* command)
-{
-    int n = strlen(word);
-
-    while(p >= start) {
-        BOOL flg = TRUE;
-        int i;
-        for(i=-1; i>=-n; i--) {
-            if(p[i] != word[n+i]) {
-                flg = FALSE;
-                break;
-            }
-
-            if(gXyzshSigInt) {
-                err_msg("interrupt", sname, sline, command);
-                gXyzshSigInt = FALSE;
-                return NULL;
-            }
-        }
-
-        if(flg) {
-            return p -n;
-        }
-        else {
-            p--;
-        }
-    }
-
-    return NULL;
-}
-
-static char* strcasestr_back(char* p, char* start, char* word, char* sname, int sline, char* command)
-{
-    int n = strlen(word);
-
-    while(p >= start) {
-        BOOL flg = TRUE;
-        int i;
-        for(i=-1; i>=-n; i--) {
-            if(isascii(p[i]) && isascii(word[n+i])) {
-                if(tolower(p[i]) != tolower(word[n+i])) {
-                    flg = FALSE;
-                    break;
-                }
-            }
-            else {
-                if(p[i] != word[n+i]) {
-                    flg = FALSE;
-                    break;
-                }
-            }
-
-            if(gXyzshSigInt) {
-                gXyzshSigInt = FALSE;
-                err_msg("interrupt", sname, sline, command);
-                return NULL;
-            }
-        }
-
-        if(flg) {
-            return p -n;
-        }
-        else {
-            p--;
-        }
-    }
-
-    return NULL;
-}
-
-BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    enum eKanjiCode code = gKanjiCode;
-    if(sRunInfo_option(runinfo, "-byte")) {
-        code = kByte;
-    }
-    else if(sRunInfo_option(runinfo, "-utf8")) {
-        code = kUtf8;
-    }
-    else if(sRunInfo_option(runinfo, "-sjis")) {
-        code = kSjis;
-    }
-    else if(sRunInfo_option(runinfo, "-eucjp")) {
-        code = kEucjp;
-    }
-
-    /// output
-    if(runinfo->mFilter) {
-        if(runinfo->mArgsNumRuntime == 2) {
-            char* target = SFD(nextin).mBuf;
-            char* word = runinfo->mArgsRuntime[1];
-
-            /// get starting point ///
-            int len = str_kanjilen(code, target);
-            if(len < 0) {
-                err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                return FALSE;
-            }
-
-            int start;
-            char* number;
-            if(number = sRunInfo_option_with_argument(runinfo, "-number")) {
-                start = atoi(number);
-
-                if(start < 0) { 
-                    start += len;
-                    if(start < 0) start = 0;
-                }
-                if(start >= len) { 
-                    start = len -1 ; 
-                    if(start < 0) start = 0;
-                }
-            }
-            else {
-                start = len -1;
-                if(start < 0) start = 0;
-            }
-
-            /// get search count ///
-            int match_count;
-            char* count;
-            if(count = sRunInfo_option_with_argument(runinfo, "-count")) {
-                match_count = atoi(count);
-                if(match_count <= 0) { match_count = 1; }
-            }
-            else {
-                match_count = 1;
-            }
-
-            
-            char* start_byte = str_kanjipos2pointer(code, target, start+1);
-            char* p = start_byte;
-            char* result = NULL;
-            if(sRunInfo_option(runinfo, "-ignore-case")) {
-                while(p>=target) {
-                    result = strcasestr_back(p, target, word, runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-
-                    if(gXyzshSigInt) {
-                        gXyzshSigInt = FALSE;
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
-                    }
-
-                    if(result != NULL) {
-                        match_count--;
-                        if(match_count == 0) {
-                            break;
-                        }
-                        p = result - 1;
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            else {
-                while(p>=target) {
-                    result = strstr_back(p, target, word, runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-
-                    if(gXyzshSigInt) {
-                        gXyzshSigInt = FALSE;
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
-                    }
-
-                    if(result != NULL) {
-                        match_count--;
-                        if(match_count == 0) {
-                            break;
-                        }
-                        p = result - 1;
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-
-            char msg[64];
-            int size;
-            if(result == NULL || match_count !=0) {
-                size = snprintf(msg, 64, "-1");
-                runinfo->mRCode = RCODE_NFUN_FALSE;
-            }
-            else {
-                int c = str_pointer2kanjipos(code, target, result);
-                size = snprintf(msg, 64, "%d", c);
-
-                if(SFD(nextin).mBufLen == 0) {
-                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-                }
-                else {
-                    runinfo->mRCode = 0;
-                }
-            }
-
-            /// Ω–Œœ ///
-            if(!sRunInfo_option(runinfo, "-quiet")) {
-                if(!fd_write(nextout, msg, size)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                    return FALSE;
-                }
-                if(!fd_write(nextout, "\n", 1)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                    return FALSE;
-                }
-            }
-        }
-    }
-
-    return TRUE;
-}
 
 BOOL cmd_lc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -1132,743 +772,6 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
-BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    BOOL quiet = sRunInfo_option(runinfo, "-quiet");
-
-    if(runinfo->mFilter && (runinfo->mArgsNumRuntime == 3 || runinfo->mArgsNumRuntime == 2 && runinfo->mBlocksNum >= 1)) {
-        sObject* block;
-        sObject* nextin2;
-        sObject* nextout2;
-
-        if(runinfo->mBlocksNum >= 1) {
-            block = runinfo->mBlocks[0];
-            nextin2 = FD_NEW_STACK();
-            nextout2 = FD_NEW_STACK();
-        }
-        else {
-            block = NULL;
-        }
-
-        BOOL global = sRunInfo_option(runinfo, "-global");
-
-        char* regex = runinfo->mArgsRuntime[1];
-        char* destination = runinfo->mArgsRuntime[2];
-
-        int sub_count = 0;
-
-        regex_t* reg;
-        int r = get_onig_regex(&reg, runinfo, regex);
-
-        if(r == ONIG_NORMAL) {
-           char* p = SFD(nextin).mBuf;
-
-           sObject* sub_str = STRING_NEW_STACK("");
-
-            while(1) {
-                OnigRegion* region = onig_region_new();
-                OnigErrorInfo err_info;
-
-                char* target = SFD(nextin).mBuf;
-
-                const int point = p - target;
-                int r2 = onig_search(reg, target
-                   , target + strlen(target)
-                   , p
-                   , p + strlen(p)
-                   , region, ONIG_OPTION_NONE);
-
-                if(r2 == ONIG_MISMATCH) {
-                    onig_region_free(region, 1);
-
-                    if(!quiet) {
-                        if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            onig_free(reg);
-                            return FALSE;
-                        }
-                    }
-                    break;
-                }
-                else {
-                    /// make distination ///
-                    string_put(sub_str, "");
-
-                    if(block) {
-                        clear_matching_info_variable();
-
-                        const int size = region->beg[0] - (p - target);
-                        if(size > 0) {
-                            uobject_put(gRootObject, "PREMATCH", STRING_NEW_GC3(p, size, FALSE));
-                        }
-
-                        const int size2 = region->end[0] - region->beg[0];
-
-                        uobject_put(gRootObject, "MATCH", STRING_NEW_GC3(target + region->beg[0], size2, FALSE));
-                        uobject_put(gRootObject, "0", STRING_NEW_GC3(target + region->beg[0], size2, FALSE));
-
-                        const int n = strlen(target)-region->end[0];
-                        if(n > 0) {
-                            uobject_put(gRootObject, "POSTMATCH", STRING_NEW_GC3(target + region->end[0], n, FALSE));
-                        }
-
-                        int i;
-                        for (i=1; i<region->num_regs; i++) {
-                            const int size = region->end[i] - region->beg[i];
-
-                            char name[16];
-                            snprintf(name, 16, "%d", i);
-
-                            uobject_put(gRootObject, name, STRING_NEW_GC3(target + region->beg[i], size, FALSE));
-                        }
-
-                        if(region->num_regs > 0) {
-                            const int n = region->num_regs -1;
-
-                            const int size = region->end[n] - region->beg[n];
-
-                            uobject_put(gRootObject, "LAST_MATCH", STRING_NEW_GC3(target + region->beg[n], size, FALSE));
-                        }
-
-                        char buf[128];
-                        snprintf(buf, 128, "%d", region->num_regs);
-                        uobject_put(gRootObject, "MATCH_NUMBER", STRING_NEW_GC(buf, FALSE));
-
-                        fd_clear(nextin2);
-                        fd_clear(nextout2);
-
-                        if(!fd_write(nextin2, target + region->beg[0], region->end[0]-region->beg[0])) {
-                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            onig_region_free(region, 1);
-                            onig_free(reg);
-                            return FALSE;
-                        }
-
-                        int rcode = 0;
-                        if(!run(block, nextin2, nextout2, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                            runinfo->mRCode = rcode;
-                            onig_region_free(region, 1);
-                            onig_free(reg);
-                            return FALSE;
-                        }
-
-                        string_put(sub_str, SFD(nextout2).mBuf);
-                    }
-                    else {
-                        char* p2 = destination;
-
-                        while(*p2) {
-                            if(*p2 == '\\') {
-                                if(*(p2+1) == '\\') {
-                                    p2+=2;
-                                    string_push_back2(sub_str , '\\');
-                                }
-                                else if(*(p2+1) >= '0' && *(p2+1) <= '9') {
-                                    int n = *(p2+1) - '0';
-
-                                    if(n < region->num_regs) {
-                                        p2+=2;
-
-                                        const int size = region->end[n] - region->beg[n];
-
-                                        string_push_back3(sub_str, target + region->beg[n], size);
-                                    }
-                                    else {
-                                        string_push_back2(sub_str, *p2++);
-                                        string_push_back2(sub_str , *p2++);
-                                    }
-                                }
-                                else if(*(p2+1) == '&') {
-                                    p2 += 2;
-
-                                    const int size = region->end[0] - region->beg[0];
-
-                                    string_push_back3(sub_str, target + region->beg[0], size);
-                                }
-                                else if(*(p2+1) == '`') {
-                                    p2+=2;
-
-                                    string_push_back3(sub_str, target, region->beg[0]);
-                                }
-                                else if(*(p2+1) == '\'') {
-                                    p2+=2;
-
-                                    string_push_back(sub_str, target + region->end[0]);
-                                }
-                                else if(*(p2+1) == '+') {
-                                    p2+=2;
-
-                                    if(region->num_regs > 0) {
-                                        const int n = region->num_regs - 1;
-
-                                        const int size = region->end[n] - region->beg[n];
-
-                                        string_push_back3(sub_str, target + region->beg[n], size);
-                                    }
-                                }
-                                else {
-                                    string_push_back2(sub_str, *p2++);
-                                }
-                            }
-                            else { 
-                                string_push_back2(sub_str, *p2++);
-                            }
-                        }
-                    }
-
-                    if(!quiet) {
-                        if(!fd_write(nextout, p, region->beg[0]-point)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            onig_region_free(region, 1);
-                            onig_free(reg);
-                            return FALSE;
-                        }
-                        if(!fd_write(nextout, string_c_str(sub_str), string_length(sub_str))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            onig_region_free(region, 1);
-                            onig_free(reg);
-                            return FALSE;
-                        }
-                    }
-
-                    sub_count++;
-
-                    if(region->beg[0] == region->end[0]) {
-                        char buf[2];
-                        buf[0] = target[region->beg[0]];
-                        buf[1] = 0;
-
-                        if(!quiet) {
-                            if(!fd_write(nextout, buf, 1)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                onig_region_free(region, 1);
-                                onig_free(reg);
-                                return FALSE;
-                            }
-                        }
-
-                        p = target + region->end[0] + 1;
-
-                        if(p > target + strlen(target)) {
-                            break;
-                        }
-                    }
-                    else {
-                        p= target + region->end[0];
-                    }
-
-                    onig_region_free(region, 1);
-
-                    if(!global && !quiet) {
-                        if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            onig_free(reg);
-                            return FALSE;
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-        onig_free(reg);
-
-        char buf[128];
-        snprintf(buf, 128, "%d", sub_count);
-        uobject_put(gRootObject, "SUB_COUNT", STRING_NEW_GC(buf, FALSE));
-
-        if(sub_count > 0) {
-            if(SFD(nextin).mBufLen == 0) {
-                runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-            }
-            else {
-                runinfo->mRCode = 0;
-            }
-        }
-        else {
-            runinfo->mRCode = RCODE_NFUN_FALSE;
-        }
-    }
-
-    return TRUE;
-}
-
-BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    char* field = "\n";
-    if(sRunInfo_option(runinfo, "-Lw")) {
-        field = "\r\n";
-    }
-    else if(sRunInfo_option(runinfo, "-Lm")) {
-        field = "\r";
-    }
-    else if(sRunInfo_option(runinfo, "-Lu")) {
-        field = "\n";
-    }
-    else if(sRunInfo_option(runinfo, "-La")) {
-        field = "\a";
-    }
-    
-    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
-        sObject* block;
-        sObject* nextin2;
-
-        if(runinfo->mBlocksNum >= 1) {
-            block = runinfo->mBlocks[0];
-            nextin2 = FD_NEW_STACK();
-        }
-        else {
-            block = NULL;
-        }
-
-        int match_count = 0;
-        char* regex = runinfo->mArgsRuntime[1];
-
-        regex_t* reg;
-        int r = get_onig_regex(&reg, runinfo, regex);
-
-        if(r == ONIG_NORMAL) {
-            char* target = SFD(nextin).mBuf;
-            char* p = SFD(nextin).mBuf;
-            char* end = SFD(nextin).mBuf + strlen(SFD(nextin).mBuf);
-            while(p < end) {
-                OnigRegion* region = onig_region_new();
-                int r2 = onig_search(reg, target
-                   , target + strlen(target)
-                   , p
-                   , p + strlen(p)
-                   , region, ONIG_OPTION_NONE);
-
-                if(r2 >= 0) {
-                    match_count++;
-
-                    if(block) {
-                        fd_clear(nextin2);
-
-                        /// no group ///
-                        if(region->num_regs == 1) {
-                            const int n = region->end[0] - region->beg[0];
-
-                            if(!fd_write(nextin2, target + region->beg[0], n)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                onig_free(reg);
-                                onig_region_free(region, 1);
-                                return FALSE;
-                            }
-                            if(!fd_write(nextin2, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                onig_free(reg);
-                                onig_region_free(region, 1);
-                                return FALSE;
-                            }
-                        }
-                        /// group ///
-                        else {
-                            int i;
-                            for (i=1; i<region->num_regs; i++) {
-                                const int size = region->end[i] - region->beg[i];
-
-                                if(!fd_write(nextin2, target + region->beg[i], size)) {
-                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_free(reg);
-                                    onig_region_free(region, 1);
-                                    return FALSE;
-                                }
-
-                                if(i==region->num_regs-1) {
-                                    if(!fd_write(nextin2, field, strlen(field))) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                        onig_free(reg);
-                                        onig_region_free(region, 1);
-                                        return FALSE;
-                                    }
-                                }
-                                else {
-                                    if(!fd_write(nextin2, "\t", 1)) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                        onig_free(reg);
-                                        onig_region_free(region, 1);
-                                        return FALSE;
-                                    }
-                                }
-                            }
-                        }
-
-                        clear_matching_info_variable();
-
-                        const int size = region->beg[0] - (p - target);
-                        if(size > 0) {
-                            uobject_put(gRootObject, "PREMATCH", STRING_NEW_GC3(p, size, FALSE));
-                        }
-
-                        const int size2 = region->end[0] - region->beg[0];
-
-                        uobject_put(gRootObject, "MATCH", STRING_NEW_GC3(target + region->beg[0], size2, FALSE));
-                        uobject_put(gRootObject, "0", STRING_NEW_GC3(target + region->beg[0], size2, FALSE));
-
-                        const int n = strlen(target)-region->end[0];
-                        if(n > 0) {
-                            uobject_put(gRootObject, "POSTMATCH", STRING_NEW_GC3(target + region->end[0], n, FALSE));
-                        }
-
-                        int i;
-                        for (i=1; i<region->num_regs; i++) {
-                            const int size = region->end[i] - region->beg[i];
-
-                            char name[16];
-                            snprintf(name, 16, "%d", i);
-
-                            uobject_put(gRootObject, name, STRING_NEW_GC3(target + region->beg[i], size, FALSE));
-                        }
-
-                        if(region->num_regs > 0) {
-                            const int n = region->num_regs -1;
-
-                            const int size = region->end[n] - region->beg[n];
-
-                            uobject_put(gRootObject, "LAST_MATCH", STRING_NEW_GC3(target + region->beg[n], size, FALSE));
-                        }
-
-                        char buf[128];
-                        snprintf(buf, 128, "%d", region->num_regs);
-                        uobject_put(gRootObject, "MATCH_NUMBER", STRING_NEW_GC(buf, FALSE));
-
-                        int rcode = 0;
-                        if(!run(block, nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                            runinfo->mRCode = rcode;
-                            onig_region_free(region, 1);
-                            onig_free(reg);
-                            return FALSE;
-                        }
-                    }
-                    else {
-                        /// no group ///
-                        if(region->num_regs == 1) {
-                            const int n = region->end[0] - region->beg[0];
-
-                            if(!fd_write(nextout, target + region->beg[0], n)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                onig_free(reg);
-                                onig_region_free(region, 1);
-                                return FALSE;
-                            }
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                onig_free(reg);
-                                onig_region_free(region, 1);
-                                return FALSE;
-                            }
-                        }
-                        /// group ///
-                        else {
-                            int i;
-                            for (i=1; i<region->num_regs; i++) {
-                                const int size = region->end[i] - region->beg[i];
-
-                                if(!fd_write(nextout, target + region->beg[i], size)) {
-                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_free(reg);
-                                    onig_region_free(region, 1);
-                                    return FALSE;
-                                }
-
-                                if(i==region->num_regs-1) {
-                                    if(!fd_write(nextout, field, strlen(field))) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                        onig_free(reg);
-                                        onig_region_free(region, 1);
-                                        return FALSE;
-                                    }
-                                }
-                                else {
-                                    if(!fd_write(nextout, "\t", 1)) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                        onig_free(reg);
-                                        onig_region_free(region, 1);
-                                        return FALSE;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    p = SFD(nextin).mBuf + region->end[0];
-                }
-                else {
-                    p++;
-                }
-
-                onig_region_free(region, 1);
-            }
-
-            onig_free(reg);
-
-            char buf[128];
-            snprintf(buf, 128, "%d", match_count);
-            uobject_put(gRootObject, "MATCH_COUNT", STRING_NEW_GC(buf, FALSE));
-
-            if(match_count > 0) {
-                if(SFD(nextin).mBufLen == 0) {
-                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-                }
-                else {
-                    runinfo->mRCode = 0;
-                }
-            }
-            else {
-                runinfo->mRCode = RCODE_NFUN_FALSE;
-            }
-        }
-    }
-
-    return TRUE;
-}
-
-BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    char* field = "\n";
-    eLineField lf = gLineField;
-    if(sRunInfo_option(runinfo, "-Lw")) {
-        lf = kCRLF;
-        field = "\r\n";
-    }
-    else if(sRunInfo_option(runinfo, "-Lm")) {
-        lf = kCR;
-        field = "\r";
-    }
-    else if(sRunInfo_option(runinfo, "-Lu")) {
-        lf = kLF;
-        field = "\n";
-    }
-    else if(sRunInfo_option(runinfo, "-La")) {
-        lf = kBel;
-        field = "\a";
-    }
-
-    enum eKanjiCode code = gKanjiCode;
-    if(sRunInfo_option(runinfo, "-byte")) {
-        code = kByte;
-    }
-    else if(sRunInfo_option(runinfo, "-utf8")) {
-        code = kUtf8;
-    }
-    else if(sRunInfo_option(runinfo, "-sjis")) {
-        code = kSjis;
-    }
-    else if(sRunInfo_option(runinfo, "-eucjp")) {
-        code = kEucjp;
-    }
-
-    if(runinfo->mFilter) {
-        char* regex;
-
-        if(runinfo->mArgsNumRuntime == 1) {
-            regex = "\\s+";
-        }
-        else if(runinfo->mArgsNumRuntime >= 2) {
-            regex = runinfo->mArgsRuntime[1];
-        }
-
-        regex_t* reg;
-        int r = get_onig_regex(&reg, runinfo, regex);
-
-        if(r == ONIG_NORMAL) {
-            char* target;
-            char* p = target = SFD(nextin).mBuf;
-
-            int split_count = 0;
-
-            while(1) {
-                OnigRegion* region = onig_region_new();
-
-                int r2 = onig_search(reg, target
-                   , target + strlen(target)
-                   , p, p + strlen(p)
-                   , region, ONIG_OPTION_NONE);
-                   
-                if(r2 == ONIG_MISMATCH) {
-                    onig_region_free(region, 1);
-
-                    if(*p) {
-                        if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            onig_free(reg);
-                            return FALSE;
-                        }
-                    }
-
-                    if(!fd_write(nextout, field, strlen(field))) {
-                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        onig_free(reg);
-                        return FALSE;
-                    }
-                    break;
-                }
-                else {
-                    split_count++;
-
-                    if(region->beg[0] == region->end[0]) {
-                        if(target + region->beg[0] == p) {
-                            char* end_byte = str_kanjipos2pointer(code, p, 1);
-                            int size = end_byte - p;
-
-                            if(size > 0) {
-                                if(!fd_write(nextout, p, size)) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_region_free(region, 1);
-                                    onig_free(reg);
-                                    return FALSE;
-                                }
-
-                                if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_region_free(region, 1);
-                                    onig_free(reg);
-                                    return FALSE;
-                                }
-
-                                p += size;
-                            }
-                            else {
-                                onig_region_free(region, 1);
-
-                                break;
-                            }
-                        }
-                        else {
-                            int size = region->beg[0] - (p-target);
-
-                            if(size > 0) {
-                                if(!fd_write(nextout, p, size)) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_region_free(region, 1);
-                                    onig_free(reg);
-                                    return FALSE;
-                                }
-
-                                if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_region_free(region, 1);
-                                    onig_free(reg);
-                                    return FALSE;
-                                }
-                            }
-                            else if(size == 0) {
-                                if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_region_free(region, 1);
-                                    onig_free(reg);
-                                    return FALSE;
-                                }
-                            }
-
-                            p = target + region->end[0];
-                        }
-                    }
-                    else {
-                        int size = region->beg[0] - (p-target);
-
-                        if(size > 0) {
-                            if(!fd_write(nextout, p, size)) {
-                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                onig_region_free(region, 1);
-                                onig_free(reg);
-                                return FALSE;
-                            }
-
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                onig_region_free(region, 1);
-                                onig_free(reg);
-                                return FALSE;
-                            }
-                        }
-                        else if(size == 0) {
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                onig_region_free(region, 1);
-                                onig_free(reg);
-                                return FALSE;
-                            }
-                        }
-
-                        p = target + region->end[0];
-                    }
-
-                    if(region->num_regs > 1) {
-                        /// group strings ///
-                        int i;
-                        for(i=1; i<region->num_regs; i++) {
-                            const int size = region->end[i]-region->beg[i];
-                            if(size > 0) {
-                                if(!fd_write(nextout, target + region->beg[i], size)) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_region_free(region, 1);
-                                    onig_free(reg);
-                                    return FALSE;
-                                }
-
-                                if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                    onig_region_free(region, 1);
-                                    onig_free(reg);
-                                    return FALSE;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                onig_region_free(region, 1);
-            }
-
-            if(split_count > 0) {
-                if(SFD(nextin).mBufLen == 0) {
-                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-                }
-                else {
-                    runinfo->mRCode = 0;
-                }
-            }
-            else {
-                runinfo->mRCode = 1;
-            }
-        }
-
-        onig_free(reg);
-    }
-
-    return TRUE;
-}
-
 BOOL cmd_add(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     enum eKanjiCode code = gKanjiCode;
@@ -2243,4 +1146,1547 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     return TRUE;
 }
+
+BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    char* field = "\n";
+    if(sRunInfo_option(runinfo, "-Lw")) {
+        field = "\r\n";
+    }
+    else if(sRunInfo_option(runinfo, "-Lm")) {
+        field = "\r";
+    }
+    else if(sRunInfo_option(runinfo, "-Lu")) {
+        field = "\n";
+    }
+    else if(sRunInfo_option(runinfo, "-La")) {
+        field = "\a";
+    }
+    
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
+        sObject* block;
+        sObject* nextin2;
+
+        if(runinfo->mBlocksNum >= 1) {
+            block = runinfo->mBlocks[0];
+            nextin2 = FD_NEW_STACK();
+        }
+        else {
+            block = NULL;
+        }
+
+        int match_count = 0;
+        char* regex = runinfo->mArgsRuntime[1];
+
+        regex_t* reg;
+        int r = get_onig_regex(&reg, runinfo, regex);
+
+        if(r == ONIG_NORMAL) {
+            char* target = SFD(nextin).mBuf;
+            char* p = SFD(nextin).mBuf;
+            char* end = SFD(nextin).mBuf + strlen(SFD(nextin).mBuf);
+            while(p < end) {
+                OnigRegion* region = onig_region_new();
+                int r2 = onig_search(reg, target
+                   , target + strlen(target)
+                   , p
+                   , p + strlen(p)
+                   , region, ONIG_OPTION_NONE);
+
+                if(r2 >= 0) {
+                    match_count++;
+
+                    if(block) {
+                        fd_clear(nextin2);
+
+                        /// no group ///
+                        if(region->num_regs == 1) {
+                            const int n = region->end[0] - region->beg[0];
+
+                            if(!fd_write(nextin2, target + region->beg[0], n)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_free(reg);
+                                onig_region_free(region, 1);
+                                return FALSE;
+                            }
+                            if(!fd_write(nextin2, field, strlen(field))) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_free(reg);
+                                onig_region_free(region, 1);
+                                return FALSE;
+                            }
+                        }
+                        /// group ///
+                        else {
+                            int i;
+                            for (i=1; i<region->num_regs; i++) {
+                                const int size = region->end[i] - region->beg[i];
+
+                                if(!fd_write(nextin2, target + region->beg[i], size)) {
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    onig_free(reg);
+                                    onig_region_free(region, 1);
+                                    return FALSE;
+                                }
+
+                                if(i==region->num_regs-1) {
+                                    if(!fd_write(nextin2, field, strlen(field))) {
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_free(reg);
+                                        onig_region_free(region, 1);
+                                        return FALSE;
+                                    }
+                                }
+                                else {
+                                    if(!fd_write(nextin2, "\t", 1)) {
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_free(reg);
+                                        onig_region_free(region, 1);
+                                        return FALSE;
+                                    }
+                                }
+                            }
+                        }
+
+                        clear_matching_info_variable();
+
+                        const int size = region->beg[0] - (p - target);
+                        if(size > 0) {
+                            uobject_put(gRootObject, "PREMATCH", STRING_NEW_GC3(p, size, FALSE));
+                        }
+
+                        const int size2 = region->end[0] - region->beg[0];
+
+                        uobject_put(gRootObject, "MATCH", STRING_NEW_GC3(target + region->beg[0], size2, FALSE));
+                        uobject_put(gRootObject, "0", STRING_NEW_GC3(target + region->beg[0], size2, FALSE));
+
+                        const int n = strlen(target)-region->end[0];
+                        if(n > 0) {
+                            uobject_put(gRootObject, "POSTMATCH", STRING_NEW_GC3(target + region->end[0], n, FALSE));
+                        }
+
+                        int i;
+                        for (i=1; i<region->num_regs; i++) {
+                            const int size = region->end[i] - region->beg[i];
+
+                            char name[16];
+                            snprintf(name, 16, "%d", i);
+
+                            uobject_put(gRootObject, name, STRING_NEW_GC3(target + region->beg[i], size, FALSE));
+                        }
+
+                        if(region->num_regs > 0) {
+                            const int n = region->num_regs -1;
+
+                            const int size = region->end[n] - region->beg[n];
+
+                            uobject_put(gRootObject, "LAST_MATCH", STRING_NEW_GC3(target + region->beg[n], size, FALSE));
+                        }
+
+                        char buf[128];
+                        snprintf(buf, 128, "%d", region->num_regs);
+                        uobject_put(gRootObject, "MATCH_NUMBER", STRING_NEW_GC(buf, FALSE));
+
+                        int rcode = 0;
+                        if(!run(block, nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                            runinfo->mRCode = rcode;
+                            onig_region_free(region, 1);
+                            onig_free(reg);
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        /// no group ///
+                        if(region->num_regs == 1) {
+                            const int n = region->end[0] - region->beg[0];
+
+                            if(!fd_write(nextout, target + region->beg[0], n)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_free(reg);
+                                onig_region_free(region, 1);
+                                return FALSE;
+                            }
+                            if(!fd_write(nextout, field, strlen(field))) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_free(reg);
+                                onig_region_free(region, 1);
+                                return FALSE;
+                            }
+                        }
+                        /// group ///
+                        else {
+                            int i;
+                            for (i=1; i<region->num_regs; i++) {
+                                const int size = region->end[i] - region->beg[i];
+
+                                if(!fd_write(nextout, target + region->beg[i], size)) {
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    onig_free(reg);
+                                    onig_region_free(region, 1);
+                                    return FALSE;
+                                }
+
+                                if(i==region->num_regs-1) {
+                                    if(!fd_write(nextout, field, strlen(field))) {
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_free(reg);
+                                        onig_region_free(region, 1);
+                                        return FALSE;
+                                    }
+                                }
+                                else {
+                                    if(!fd_write(nextout, "\t", 1)) {
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_free(reg);
+                                        onig_region_free(region, 1);
+                                        return FALSE;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if(p == SFD(nextin).mBuf + region->end[0]) {
+                        p = SFD(nextin).mBuf + region->end[0] + 1;
+                    }
+                    else {
+                        p = SFD(nextin).mBuf + region->end[0];
+                    }
+                }
+                else {
+                    p++;
+                }
+
+                onig_region_free(region, 1);
+            }
+
+            onig_free(reg);
+
+            char buf[128];
+            snprintf(buf, 128, "%d", match_count);
+            uobject_put(gRootObject, "MATCH_COUNT", STRING_NEW_GC(buf, FALSE));
+
+            if(match_count > 0) {
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
+            }
+            else {
+                runinfo->mRCode = RCODE_NFUN_FALSE;
+            }
+        }
+        else {
+            err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(sRunInfo_option(runinfo, "-regex")) {
+        if(runinfo->mFilter) {
+            if(runinfo->mArgsNumRuntime == 2) {
+                char* target = SFD(nextin).mBuf;
+                char* regex = runinfo->mArgsRuntime[1];
+
+                regex_t* reg;
+                int r = get_onig_regex(&reg, runinfo, regex);
+
+                if(r == ONIG_NORMAL) {
+                    /// get starting point ///
+                    int start;
+                    char* number;
+                    if(number = sRunInfo_option_with_argument(runinfo, "-number")) {
+                        start = atoi(number);
+
+                        int len = str_kanjilen(code, target);
+                        if(len < 0) {
+                            err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            return FALSE;
+                        }
+
+                        if(start < 0) { 
+                            start += len; 
+                            if(start < 0) start = 0;
+                        } 
+                        if(start >= len) { 
+                            start = len -1; 
+                            if(start < 0) start = 0;
+                        }
+                    }
+                    else {
+                        start = 0;
+                    }
+
+                    /// get search count ///
+                    int match_count;
+                    char* count;
+                    if(count = sRunInfo_option_with_argument(runinfo, "-count")) {
+                        match_count = atoi(count);
+                        if(match_count <= 0) { match_count = 1; }
+                    }
+                    else {
+                        match_count = 1;
+                    }
+
+                    char* start_byte = str_kanjipos2pointer(code, target, start);
+                    char* p = start_byte;
+                    char* result = NULL;
+                    while(p < start_byte + strlen(start_byte)) {
+                        if(gXyzshSigInt) {
+                            gXyzshSigInt = FALSE;
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+
+                        OnigRegion* region = onig_region_new();
+                        OnigErrorInfo err_info;
+
+                        const int point = p - target;
+                        int r2 = onig_search(reg, target
+                           , target +  strlen(target)
+                           , p
+                           , p + strlen(p)
+                           , region, ONIG_OPTION_NONE);
+
+                        if(r2 == ONIG_MISMATCH) {
+                            onig_region_free(region, 1);
+                            break;
+                        }
+
+                        if(r2 >= 0) {
+                            result = target + region->beg[0];
+
+                            match_count--;
+                            if(match_count == 0) {
+                                break;
+                            }
+                            p = target + region->beg[0] + 1;
+
+                            onig_region_free(region, 1);
+                        }
+                        else {
+                            onig_region_free(region, 1);
+                            break;
+                        }
+                    }
+
+                    char msg[64];
+                    int size;
+                    if(result == NULL || match_count !=0) {
+                        size = snprintf(msg, 64, "-1");
+                        runinfo->mRCode = RCODE_NFUN_FALSE;
+                    }
+                    else {
+                        int c = str_pointer2kanjipos(code, target, result);
+                        size = snprintf(msg, 64, "%d", c);
+
+                        if(SFD(nextin).mBufLen == 0) {
+                            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                        }
+                        else {
+                            runinfo->mRCode = 0;
+                        }
+                    }
+
+                    if(!sRunInfo_option(runinfo, "-quiet")) {
+                        if(!fd_write(nextout, msg, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        if(!fd_write(nextout, "\n", 1)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+                }
+                else {
+                    err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
+                }
+
+                onig_free(reg);
+            }
+        }
+    }
+    else {
+        if(runinfo->mFilter) {
+            if(runinfo->mArgsNumRuntime == 2) {
+                char* target = SFD(nextin).mBuf;
+
+                char* word = runinfo->mArgsRuntime[1];
+
+                /// get starting point ///
+                int start;
+                char* number;
+                if(number = sRunInfo_option_with_argument(runinfo, "-number")) {
+                    start = atoi(number);
+
+                    int len = str_kanjilen(code, target);
+                    if(len < 0) {
+                        err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        return FALSE;
+                    }
+
+                    if(start < 0) { 
+                        start += len; 
+                        if(start < 0) start = 0;
+                    } 
+                    if(start >= len) { 
+                        start = len -1; 
+                        if(start < 0) start = 0;
+                    }
+                }
+                else {
+                    start = 0;
+                }
+
+                /// get search count ///
+                int match_count;
+                char* count;
+                if(count = sRunInfo_option_with_argument(runinfo, "-count")) {
+                    match_count = atoi(count);
+                    if(match_count <= 0) { match_count = 1; }
+                }
+                else {
+                    match_count = 1;
+                }
+
+                char* start_byte = str_kanjipos2pointer(code, target, start);
+                char* p = start_byte;
+                char* result = NULL;
+                if(sRunInfo_option(runinfo, "-ignore-case")) {
+                    while(p < start_byte + strlen(start_byte)) {
+                        if(gXyzshSigInt) {
+                            gXyzshSigInt = FALSE;
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+
+                        result = strcasestr(p, word);
+                        if(result) {
+                            match_count--;
+                            if(match_count == 0) {
+                                break;
+                            }
+                            p = result+strlen(word);
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
+                else {
+                    while(p < start_byte + strlen(start_byte)) {
+                        if(gXyzshSigInt) {
+                            gXyzshSigInt = FALSE;
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+
+                        result = strstr(p, word);
+                        if(result) {
+                            match_count--;
+                            if(match_count == 0) {
+                                break;
+                            }
+                            p = result+strlen(word);
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
+
+                char msg[64];
+                int size;
+                if(result == NULL || match_count !=0) {
+                    size = snprintf(msg, 64, "-1");
+                    runinfo->mRCode = RCODE_NFUN_FALSE;
+                }
+                else {
+                    int c = str_pointer2kanjipos(code, target, result);
+                    size = snprintf(msg, 64, "%d", c);
+
+                    if(SFD(nextin).mBufLen == 0) {
+                        runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                    }
+                    else {
+                        runinfo->mRCode = 0;
+                    }
+                }
+
+                if(!sRunInfo_option(runinfo, "-quiet")) {
+                    if(!fd_write(nextout, msg, size)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                    if(!fd_write(nextout, "\n", 1)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+static char* strstr_back(char* p, char* start, char* word, char* sname, int sline, char* command)
+{
+    int n = strlen(word);
+
+    if(word[0] == 0) {
+        return p -1;
+    }
+
+    while(p >= start) {
+        BOOL flg = TRUE;
+        int i;
+        for(i=-1; i>=-n; i--) {
+            if(p[i] != word[n+i]) {
+                flg = FALSE;
+                break;
+            }
+
+            if(gXyzshSigInt) {
+                err_msg("interrupt", sname, sline, command);
+                gXyzshSigInt = FALSE;
+                return NULL;
+            }
+        }
+
+        if(flg) {
+            return p -n;
+        }
+        else {
+            p--;
+        }
+    }
+
+    return NULL;
+}
+
+static char* strcasestr_back(char* p, char* start, char* word, char* sname, int sline, char* command)
+{
+    int n = strlen(word);
+
+    if(word[0] == 0) {
+        return p - 1;
+    }
+
+    while(p >= start) {
+        BOOL flg = TRUE;
+        int i;
+        for(i=-1; i>=-n; i--) {
+            if(isascii(p[i]) && isascii(word[n+i])) {
+                if(tolower(p[i]) != tolower(word[n+i])) {
+                    flg = FALSE;
+                    break;
+                }
+            }
+            else {
+                if(p[i] != word[n+i]) {
+                    flg = FALSE;
+                    break;
+                }
+            }
+
+            if(gXyzshSigInt) {
+                gXyzshSigInt = FALSE;
+                err_msg("interrupt", sname, sline, command);
+                return NULL;
+            }
+        }
+
+        if(flg) {
+            return p -n;
+        }
+        else {
+            p--;
+        }
+    }
+
+    return NULL;
+}
+
+BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(sRunInfo_option(runinfo, "-regex")) {
+        if(runinfo->mFilter) {
+            if(runinfo->mArgsNumRuntime == 2) {
+                char* target = SFD(nextin).mBuf;
+                char* regex = runinfo->mArgsRuntime[1];
+
+                regex_t* reg;
+                int r = get_onig_regex(&reg, runinfo, regex);
+
+                if(r == ONIG_NORMAL) {
+                    /// get starting point ///
+                    int len = str_kanjilen(code, target);
+                    if(len < 0) {
+                        err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        return FALSE;
+                    }
+
+                    int start;
+                    char* number;
+                    if(number = sRunInfo_option_with_argument(runinfo, "-number")) {
+                        start = atoi(number);
+
+                        if(start < 0) { 
+                            start += len;
+                            if(start < 0) start = 0;
+                        }
+                        if(start >= len) { 
+                            start = len -1 ; 
+                            if(start < 0) start = 0;
+                        }
+                    }
+                    else {
+                        start = len -1;
+                        if(start < 0) start = 0;
+                    }
+
+                    /// get search count ///
+                    int match_count;
+                    char* count;
+                    if(count = sRunInfo_option_with_argument(runinfo, "-count")) {
+                        match_count = atoi(count);
+                        if(match_count <= 0) { match_count = 1; }
+                    }
+                    else {
+                        match_count = 1;
+                    }
+                    
+                    char* start_byte = str_kanjipos2pointer(code, target, start);
+                    char* p = start_byte;
+                    char* result = NULL;
+                    while(p>=target) {
+                        if(gXyzshSigInt) {
+                            gXyzshSigInt = FALSE;
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+
+                        OnigRegion* region = onig_region_new();
+                        OnigErrorInfo err_info;
+
+                        int r2 = onig_search(reg, target
+                           , target +  strlen(target)
+                           , p
+                           , target
+                           , region, ONIG_OPTION_NONE);
+
+                        if(r2 == ONIG_MISMATCH) {
+                            onig_region_free(region, 1);
+                            break;
+                        }
+
+                        if(r2 >= 0) {
+                            result = target + region->beg[0];
+
+                            match_count--;
+                            if(match_count == 0) {
+                                break;
+                            }
+                            p = target + region->beg[0] - 1;
+
+                            onig_region_free(region, 1);
+                        }
+                        else {
+                            onig_region_free(region, 1);
+                            break;
+                        }
+                    }
+
+                    char msg[64];
+                    int size;
+                    if(result == NULL || match_count !=0) {
+                        size = snprintf(msg, 64, "-1");
+                        runinfo->mRCode = RCODE_NFUN_FALSE;
+                    }
+                    else {
+                        int c = str_pointer2kanjipos(code, target, result);
+                        size = snprintf(msg, 64, "%d", c);
+
+                        if(SFD(nextin).mBufLen == 0) {
+                            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                        }
+                        else {
+                            runinfo->mRCode = 0;
+                        }
+                    }
+
+                    if(!sRunInfo_option(runinfo, "-quiet")) {
+                        if(!fd_write(nextout, msg, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        if(!fd_write(nextout, "\n", 1)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+                }
+                else {
+                    err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
+                }
+            }
+        }
+    }
+    else {
+        if(runinfo->mFilter) {
+            if(runinfo->mArgsNumRuntime == 2) {
+                char* target = SFD(nextin).mBuf;
+                char* word = runinfo->mArgsRuntime[1];
+
+                /// get starting point ///
+                int len = str_kanjilen(code, target);
+                if(len < 0) {
+                    err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
+                }
+
+                int start;
+                char* number;
+                if(number = sRunInfo_option_with_argument(runinfo, "-number")) {
+                    start = atoi(number);
+
+                    if(start < 0) { 
+                        start += len;
+                        if(start < 0) start = 0;
+                    }
+                    if(start >= len) { 
+                        start = len -1 ; 
+                        if(start < 0) start = 0;
+                    }
+                }
+                else {
+                    start = len -1;
+                    if(start < 0) start = 0;
+                }
+
+                /// get search count ///
+                int match_count;
+                char* count;
+                if(count = sRunInfo_option_with_argument(runinfo, "-count")) {
+                    match_count = atoi(count);
+                    if(match_count <= 0) { match_count = 1; }
+                }
+                else {
+                    match_count = 1;
+                }
+
+                
+                char* start_byte = str_kanjipos2pointer(code, target, start+1);
+                char* p = start_byte;
+                char* result = NULL;
+                if(sRunInfo_option(runinfo, "-ignore-case")) {
+                    while(p>=target) {
+                        result = strcasestr_back(p, target, word, runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+
+                        if(gXyzshSigInt) {
+                            gXyzshSigInt = FALSE;
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+
+                        if(result != NULL) {
+                            match_count--;
+                            if(match_count == 0) {
+                                break;
+                            }
+                            p = result - 1;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
+                else {
+                    while(p>=target) {
+                        result = strstr_back(p, target, word, runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+
+                        if(gXyzshSigInt) {
+                            gXyzshSigInt = FALSE;
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+
+                        if(result != NULL) {
+                            match_count--;
+                            if(match_count == 0) {
+                                break;
+                            }
+                            p = result - 1;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
+
+                char msg[64];
+                int size;
+                if(result == NULL || match_count !=0) {
+                    size = snprintf(msg, 64, "-1");
+                    runinfo->mRCode = RCODE_NFUN_FALSE;
+                }
+                else {
+                    int c = str_pointer2kanjipos(code, target, result);
+                    size = snprintf(msg, 64, "%d", c);
+
+                    if(SFD(nextin).mBufLen == 0) {
+                        runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                    }
+                    else {
+                        runinfo->mRCode = 0;
+                    }
+                }
+
+                /// Ω–Œœ ///
+                if(!sRunInfo_option(runinfo, "-quiet")) {
+                    if(!fd_write(nextout, msg, size)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                    if(!fd_write(nextout, "\n", 1)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    BOOL quiet = sRunInfo_option(runinfo, "-quiet");
+    BOOL ignore = sRunInfo_option(runinfo, "-ignore-case");
+
+    if(sRunInfo_option(runinfo, "-no-regex")) {
+        if(runinfo->mFilter && runinfo->mArgsNumRuntime == 3) {
+            BOOL global = sRunInfo_option(runinfo, "-global");
+
+            char* word = runinfo->mArgsRuntime[1];
+            char* destination = runinfo->mArgsRuntime[2];
+            const int destination_len = strlen(destination);
+
+            int sub_count = 0;
+
+            char* target = SFD(nextin).mBuf;
+            char* p = target;
+
+            while(1) {
+                char* result = strstr(p, word);
+                if(ignore) {
+                    result = strcasestr(p, word);
+                }
+                else {
+                    result = strstr(p, word);
+                }
+
+                if(result == NULL) {
+                    if(!quiet) {
+                        if(!fd_write(nextout, p, strlen(p))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+                    break;
+                }
+
+                if(!quiet) {
+                    if(!fd_write(nextout, p, result - p)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                    if(!fd_write(nextout, destination, destination_len)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+
+                p = result + strlen(word);
+                sub_count++;
+
+                if(!global) {
+                    if(!quiet) {
+                        if(!fd_write(nextout, p, strlen(p))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            char buf[128];
+            snprintf(buf, 128, "%d", sub_count);
+            uobject_put(gRootObject, "SUB_COUNT", STRING_NEW_GC(buf, FALSE));
+
+            if(sub_count > 0) {
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
+            }
+            else {
+                runinfo->mRCode = RCODE_NFUN_FALSE;
+            }
+        }
+    }
+    else {
+        if(runinfo->mFilter && (runinfo->mArgsNumRuntime == 3 || runinfo->mArgsNumRuntime == 2 && runinfo->mBlocksNum >= 1)) {
+            sObject* block;
+            sObject* nextin2;
+            sObject* nextout2;
+
+            if(runinfo->mBlocksNum >= 1) {
+                block = runinfo->mBlocks[0];
+                nextin2 = FD_NEW_STACK();
+                nextout2 = FD_NEW_STACK();
+            }
+            else {
+                block = NULL;
+            }
+
+            BOOL global = sRunInfo_option(runinfo, "-global");
+
+            char* regex = runinfo->mArgsRuntime[1];
+            char* destination = runinfo->mArgsRuntime[2];
+
+            int sub_count = 0;
+
+            regex_t* reg;
+            int r = get_onig_regex(&reg, runinfo, regex);
+
+            if(r == ONIG_NORMAL) {
+               char* p = SFD(nextin).mBuf;
+
+               sObject* sub_str = STRING_NEW_STACK("");
+
+                while(1) {
+                    OnigRegion* region = onig_region_new();
+                    OnigErrorInfo err_info;
+
+                    char* target = SFD(nextin).mBuf;
+
+                    const int point = p - target;
+                    int r2 = onig_search(reg, target
+                       , target + strlen(target)
+                       , p
+                       , p + strlen(p)
+                       , region, ONIG_OPTION_NONE);
+
+                    if(r2 == ONIG_MISMATCH) {
+                        onig_region_free(region, 1);
+
+                        if(!quiet) {
+                            if(!fd_write(nextout, p, strlen(p))) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_free(reg);
+                                return FALSE;
+                            }
+                        }
+                        break;
+                    }
+                    else {
+                        /// make distination ///
+                        string_put(sub_str, "");
+
+                        if(block) {
+                            clear_matching_info_variable();
+
+                            const int size = region->beg[0] - (p - target);
+                            if(size > 0) {
+                                uobject_put(gRootObject, "PREMATCH", STRING_NEW_GC3(p, size, FALSE));
+                            }
+
+                            const int size2 = region->end[0] - region->beg[0];
+
+                            uobject_put(gRootObject, "MATCH", STRING_NEW_GC3(target + region->beg[0], size2, FALSE));
+                            uobject_put(gRootObject, "0", STRING_NEW_GC3(target + region->beg[0], size2, FALSE));
+
+                            const int n = strlen(target)-region->end[0];
+                            if(n > 0) {
+                                uobject_put(gRootObject, "POSTMATCH", STRING_NEW_GC3(target + region->end[0], n, FALSE));
+                            }
+
+                            int i;
+                            for (i=1; i<region->num_regs; i++) {
+                                const int size = region->end[i] - region->beg[i];
+
+                                char name[16];
+                                snprintf(name, 16, "%d", i);
+
+                                uobject_put(gRootObject, name, STRING_NEW_GC3(target + region->beg[i], size, FALSE));
+                            }
+
+                            if(region->num_regs > 0) {
+                                const int n = region->num_regs -1;
+
+                                const int size = region->end[n] - region->beg[n];
+
+                                uobject_put(gRootObject, "LAST_MATCH", STRING_NEW_GC3(target + region->beg[n], size, FALSE));
+                            }
+
+                            char buf[128];
+                            snprintf(buf, 128, "%d", region->num_regs);
+                            uobject_put(gRootObject, "MATCH_NUMBER", STRING_NEW_GC(buf, FALSE));
+
+                            fd_clear(nextin2);
+                            fd_clear(nextout2);
+
+                            if(!fd_write(nextin2, target + region->beg[0], region->end[0]-region->beg[0])) {
+                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_region_free(region, 1);
+                                onig_free(reg);
+                                return FALSE;
+                            }
+
+                            int rcode = 0;
+                            if(!run(block, nextin2, nextout2, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                                runinfo->mRCode = rcode;
+                                onig_region_free(region, 1);
+                                onig_free(reg);
+                                return FALSE;
+                            }
+
+                            string_put(sub_str, SFD(nextout2).mBuf);
+                        }
+                        else {
+                            char* p2 = destination;
+
+                            while(*p2) {
+                                if(*p2 == '\\') {
+                                    if(*(p2+1) == '\\') {
+                                        p2+=2;
+                                        string_push_back2(sub_str , '\\');
+                                    }
+                                    else if(*(p2+1) >= '0' && *(p2+1) <= '9') {
+                                        int n = *(p2+1) - '0';
+
+                                        if(n < region->num_regs) {
+                                            p2+=2;
+
+                                            const int size = region->end[n] - region->beg[n];
+
+                                            string_push_back3(sub_str, target + region->beg[n], size);
+                                        }
+                                        else {
+                                            string_push_back2(sub_str, *p2++);
+                                            string_push_back2(sub_str , *p2++);
+                                        }
+                                    }
+                                    else if(*(p2+1) == '&') {
+                                        p2 += 2;
+
+                                        const int size = region->end[0] - region->beg[0];
+
+                                        string_push_back3(sub_str, target + region->beg[0], size);
+                                    }
+                                    else if(*(p2+1) == '`') {
+                                        p2+=2;
+
+                                        string_push_back3(sub_str, target, region->beg[0]);
+                                    }
+                                    else if(*(p2+1) == '\'') {
+                                        p2+=2;
+
+                                        string_push_back(sub_str, target + region->end[0]);
+                                    }
+                                    else if(*(p2+1) == '+') {
+                                        p2+=2;
+
+                                        if(region->num_regs > 0) {
+                                            const int n = region->num_regs - 1;
+
+                                            const int size = region->end[n] - region->beg[n];
+
+                                            string_push_back3(sub_str, target + region->beg[n], size);
+                                        }
+                                    }
+                                    else {
+                                        string_push_back2(sub_str, *p2++);
+                                    }
+                                }
+                                else { 
+                                    string_push_back2(sub_str, *p2++);
+                                }
+                            }
+                        }
+
+                        if(!quiet) {
+                            if(!fd_write(nextout, p, region->beg[0]-point)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_region_free(region, 1);
+                                onig_free(reg);
+                                return FALSE;
+                            }
+                            if(!fd_write(nextout, string_c_str(sub_str), string_length(sub_str))) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_region_free(region, 1);
+                                onig_free(reg);
+                                return FALSE;
+                            }
+                        }
+
+                        sub_count++;
+
+                        if(region->beg[0] == region->end[0]) {
+                            char buf[2];
+                            buf[0] = target[region->beg[0]];
+                            buf[1] = 0;
+
+                            if(!quiet) {
+                                if(!fd_write(nextout, buf, 1)) {
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    onig_region_free(region, 1);
+                                    onig_free(reg);
+                                    return FALSE;
+                                }
+                            }
+
+                            p = target + region->end[0] + 1;
+
+                            if(p > target + strlen(target)) {
+                                break;
+                            }
+                        }
+                        else {
+                            p= target + region->end[0];
+                        }
+
+                        onig_region_free(region, 1);
+
+                        if(!global && !quiet) {
+                            if(!fd_write(nextout, p, strlen(p))) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_free(reg);
+                                return FALSE;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            else {
+                err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                return FALSE;
+            }
+
+            onig_free(reg);
+
+            char buf[128];
+            snprintf(buf, 128, "%d", sub_count);
+            uobject_put(gRootObject, "SUB_COUNT", STRING_NEW_GC(buf, FALSE));
+
+            if(sub_count > 0) {
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
+            }
+            else {
+                runinfo->mRCode = RCODE_NFUN_FALSE;
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    char* field = "\n";
+    eLineField lf = gLineField;
+    if(sRunInfo_option(runinfo, "-Lw")) {
+        lf = kCRLF;
+        field = "\r\n";
+    }
+    else if(sRunInfo_option(runinfo, "-Lm")) {
+        lf = kCR;
+        field = "\r";
+    }
+    else if(sRunInfo_option(runinfo, "-Lu")) {
+        lf = kLF;
+        field = "\n";
+    }
+    else if(sRunInfo_option(runinfo, "-La")) {
+        lf = kBel;
+        field = "\a";
+    }
+
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(runinfo->mFilter) {
+        if(sRunInfo_option(runinfo, "-no-regex")) {
+            BOOL ignore_case = sRunInfo_option(runinfo, "-ignore-case");
+            char* word;
+            int word_len;
+
+            if(runinfo->mArgsNumRuntime == 1) {
+                word = " ";
+                word_len = 1;
+            }
+            else if(runinfo->mArgsNumRuntime >= 2) {
+                word = runinfo->mArgsRuntime[1];
+                word_len = strlen(word);
+            }
+
+            char* target;
+            char* p = target = SFD(nextin).mBuf;
+            int target_len = SFD(nextin).mBufLen;
+
+            int split_count = 0;
+
+            while(p - target < target_len) {
+                char* result;
+                if(word[0] == 0) {
+                    result = p + 1;
+                }
+                else if(ignore_case) {
+                    result = strcasestr(p, word);
+                }
+                else {
+                    result = strstr(p, word);
+                }
+
+                if(result == NULL) {
+                    if(*p) {
+                        if(!fd_write(nextout, p, strlen(p))) {
+                            err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+
+                    if(!fd_write(nextout, field, strlen(field))) {
+                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                    break;
+                }
+                else {
+                    split_count++;
+
+                    if(!fd_write(nextout, p, result - p)) {
+                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+
+                    if(!fd_write(nextout, field, strlen(field))) {
+                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+
+                    p = result + word_len;
+                }
+            }
+
+            if(split_count > 0) {
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
+            }
+            else {
+                runinfo->mRCode = 1;
+            }
+        } else {
+            char* regex;
+
+            if(runinfo->mArgsNumRuntime == 1) {
+                regex = "\\s+";
+            }
+            else if(runinfo->mArgsNumRuntime >= 2) {
+                regex = runinfo->mArgsRuntime[1];
+            }
+
+            regex_t* reg;
+            int r = get_onig_regex(&reg, runinfo, regex);
+
+            if(r == ONIG_NORMAL) {
+                char* target;
+                char* p = target = SFD(nextin).mBuf;
+                int target_len = SFD(nextin).mBufLen;
+
+                int split_count = 0;
+
+                while(p - target < target_len) {
+                    OnigRegion* region = onig_region_new();
+
+                    int r2 = onig_search(reg, target
+                       , target + strlen(target)
+                       , p, p + strlen(p)
+                       , region, ONIG_OPTION_NONE);
+                       
+                    if(r2 == ONIG_MISMATCH) {
+                        onig_region_free(region, 1);
+
+                        if(*p) {
+                            if(!fd_write(nextout, p, strlen(p))) {
+                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                onig_free(reg);
+                                return FALSE;
+                            }
+                        }
+
+                        if(!fd_write(nextout, field, strlen(field))) {
+                            err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            onig_free(reg);
+                            return FALSE;
+                        }
+                        break;
+                    }
+                    else {
+                        split_count++;
+
+                        if(region->beg[0] == region->end[0]) {
+                            if(target + region->beg[0] == p) {
+                                char* end_byte = str_kanjipos2pointer(code, p, 1);
+                                int size = end_byte - p;
+
+                                if(size > 0) {
+                                    if(!fd_write(nextout, p, size)) {
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_region_free(region, 1);
+                                        onig_free(reg);
+                                        return FALSE;
+                                    }
+
+                                    if(!fd_write(nextout, field, strlen(field))) {
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_region_free(region, 1);
+                                        onig_free(reg);
+                                        return FALSE;
+                                    }
+
+                                    p += size;
+                                }
+                                else {
+                                    onig_region_free(region, 1);
+
+                                    break;
+                                }
+                            }
+                            else {
+                                int size = region->beg[0] - (p-target);
+
+                                if(size > 0) {
+                                    if(!fd_write(nextout, p, size)) {
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_region_free(region, 1);
+                                        onig_free(reg);
+                                        return FALSE;
+                                    }
+
+                                    if(!fd_write(nextout, field, strlen(field))) {
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_region_free(region, 1);
+                                        onig_free(reg);
+                                        return FALSE;
+                                    }
+                                }
+                                else if(size == 0) {
+                                    if(!fd_write(nextout, field, strlen(field))) {
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_region_free(region, 1);
+                                        onig_free(reg);
+                                        return FALSE;
+                                    }
+                                }
+
+                                p = target + region->end[0];
+                            }
+                        }
+                        else {
+                            int size = region->beg[0] - (p-target);
+
+                            if(size > 0) {
+                                if(!fd_write(nextout, p, size)) {
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    onig_region_free(region, 1);
+                                    onig_free(reg);
+                                    return FALSE;
+                                }
+
+                                if(!fd_write(nextout, field, strlen(field))) {
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    onig_region_free(region, 1);
+                                    onig_free(reg);
+                                    return FALSE;
+                                }
+                            }
+                            else if(size == 0) {
+                                if(!fd_write(nextout, field, strlen(field))) {
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    onig_region_free(region, 1);
+                                    onig_free(reg);
+                                    return FALSE;
+                                }
+                            }
+
+                            p = target + region->end[0];
+                        }
+
+                        if(region->num_regs > 1) {
+                            /// group strings ///
+                            int i;
+                            for(i=1; i<region->num_regs; i++) {
+                                const int size = region->end[i]-region->beg[i];
+                                if(size > 0) {
+                                    if(!fd_write(nextout, target + region->beg[i], size)) {
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_region_free(region, 1);
+                                        onig_free(reg);
+                                        return FALSE;
+                                    }
+
+                                    if(!fd_write(nextout, field, strlen(field))) {
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        onig_region_free(region, 1);
+                                        onig_free(reg);
+                                        return FALSE;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    onig_region_free(region, 1);
+                }
+
+                if(split_count > 0) {
+                    if(SFD(nextin).mBufLen == 0) {
+                        runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                    }
+                    else {
+                        runinfo->mRCode = 0;
+                    }
+                }
+                else {
+                    runinfo->mRCode = 1;
+                }
+            }
+            else {
+                err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                return FALSE;
+            }
+
+            onig_free(reg);
+        }
+    }
+
+    return TRUE;
+}
+
 

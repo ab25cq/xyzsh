@@ -111,16 +111,6 @@ void uobject_root_init(sObject* self)
     ASSERT(TYPE(self) == T_UOBJECT);
 
     uobject_put(self, "unset", NFUN_NEW_GC(cmd_unset, NULL, TRUE));
-    sObject* readline = UOBJECT_NEW_GC(8, self, "rl", TRUE);
-    uobject_init(readline);
-    uobject_put(self, "rl", readline);
-
-    uobject_put(readline, "insert_text", NFUN_NEW_GC(cmd_readline_insert_text, NULL, TRUE));
-    uobject_put(readline, "delete_text", NFUN_NEW_GC(cmd_readline_delete_text, NULL, TRUE));
-    uobject_put(readline, "clear_screen", NFUN_NEW_GC(cmd_readline_clear_screen, NULL, TRUE));
-    uobject_put(readline, "point_move", NFUN_NEW_GC(cmd_readline_point_move, NULL, TRUE));
-    uobject_put(readline, "read_history", NFUN_NEW_GC(cmd_readline_read_history, NULL, TRUE));
-    uobject_put(readline, "write_history", NFUN_NEW_GC(cmd_readline_write_history, NULL, TRUE));
     uobject_put(self, "completion", NFUN_NEW_GC(cmd_completion, NULL, TRUE));
     uobject_put(self, "p", NFUN_NEW_GC(cmd_p, NULL, TRUE));
     uobject_put(self, "jobs", NFUN_NEW_GC(cmd_jobs, NULL, TRUE));
@@ -229,9 +219,6 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "sort", NFUN_NEW_GC(cmd_sort, NULL, TRUE));
     uobject_put(self, "readline", NFUN_NEW_GC(cmd_readline, NULL, TRUE));
     uobject_put(self, "kanjicode", NFUN_NEW_GC(cmd_kanjicode, NULL, TRUE));
-#if defined(HAVE_MIGEMO_H)
-    uobject_put(self, "migemo_match", NFUN_NEW_GC(cmd_migemo_match, NULL, TRUE));
-#endif
 
     uobject_put(self, "sub", NFUN_NEW_GC(cmd_sub, NULL, TRUE));
     uobject_put(self, "time", NFUN_NEW_GC(cmd_time, NULL, TRUE));
@@ -279,6 +266,8 @@ void uobject_root_init(sObject* self)
     nfun = NFUN_NEW_GC(cmd_class, NULL, TRUE);
     (void)nfun_put_option_with_argument(nfun, STRDUP("-option-with-argument"));
     uobject_put(self, "class", nfun);
+
+    readline_object_init(self);
 
     clear_matching_info_variable();
 }
