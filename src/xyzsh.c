@@ -85,11 +85,46 @@ static void xyzsh_read_rc()
 
 void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 {
-    setenv("XYZSH_VERSION", "1.3.6", 1);
+    setenv("XYZSH_VERSION", "1.3.7", 1);
     setenv("XYZSH_DOCDIR", DOCDIR, 1);
     setenv("XYZSH_DATAROOTDIR", DOCDIR, 1);
     setenv("XYZSH_EXT_PATH", EXTDIR, 1);
     setenv("XYZSH_SYSCONFDIR", SYSCONFDIR, 1);
+
+    char* home = getenv("HOME");
+    if(home) {
+        char home_library[PATH_MAX];
+        snprintf(home_library, PATH_MAX, "%s/.xyzsh/lib/", home);
+
+        char* ld_library_path = getenv("LD_LIBRARY_PATH");
+        if(ld_library_path) {
+            char ld_library_path2[512];
+            snprintf(ld_library_path2, 512, "%s:%s:%s", ld_library_path, EXTDIR, home_library);
+
+            setenv("LD_LIBRARY_PATH", ld_library_path2, 1);
+        }
+        else {
+            char ld_library_path2[512];
+            snprintf(ld_library_path2, 512, "%s:%s", EXTDIR, home_library);
+
+            setenv("LD_LIBRARY_PATH", ld_library_path2, 1);
+        }
+    }
+    else {
+        char* ld_library_path = getenv("LD_LIBRARY_PATH");
+
+        if(ld_library_path) {
+            char ld_library_path2[512];
+            snprintf(ld_library_path2, 512, "%s:%s", ld_library_path, EXTDIR);
+
+            setenv("LD_LIBRARY_PATH", ld_library_path2, 1);
+        }
+        else {
+            char ld_library_path2[512];
+            snprintf(ld_library_path2, 512, "%s", EXTDIR);
+            setenv("LD_LIBRARY_PATH", ld_library_path2, 1);
+        }
+    }
 
     setlocale(LC_ALL, "");
 

@@ -136,7 +136,7 @@ root::run(
                         )
                     )
                 )
-            )  | (| common_head | var -local COMMON_HEAD; | length -line-num | var -local NUM; | print ) 
+            )  | (| common_head | var -local COMMON_HEAD; | length -line-num | var -local NUM; | print) 
 
             if(AllAsciiOnly | = 0\n && COMMON_HEAD | chomp | -n) (
                 rl::delete_text $(editing_line | rindex -byte $inputing) $(rl::point)
@@ -162,7 +162,7 @@ root::run(
 
                 sys::dirname $(inputing|chomp| if (|rows -1 | = /) ( |add aaa ) else ( | print ) ) | chomp | if(|rows -1 | = /) ( | print ) (| add /) | var -local DIR
 
-                ls -a $(DIR|xyzsh_dequote|chomp) | egrep -v '^.$|^..$' | each (
+                ls -a $(DIR|xyzsh_dequote|chomp) | egrep -v '^\.$|^\.\.$' | each (
                     | if (|chomp | add -number 0 $(DIR|xyzsh_dequote|chomp)/ | -d) (
                         |chomp | xyzsh_quote | add -number 0 $DIR | add / | pomch
                     ) else (
@@ -183,7 +183,7 @@ root::run(
                         )
                     )
                 ) else (
-                    ls -a | egrep -v '^.$|^..$' | each (
+                    ls -a | egrep -v '^\.$|^\.\.$' | each (
                         | if (|chomp| -d) (
                             | chomp | xyzsh_quote | add / | pomch
                         ) else (

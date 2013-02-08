@@ -1367,13 +1367,13 @@ puts("");
         }
     }
 
-    my_max_length++;
+    my_max_length+=2;
 
     const int maxx = mgetmaxx();
     const int rows = maxx / my_max_length;
 
     int x = 0;
-    for(i=1; i<=num_matches; i++) {
+    for(i=1; i<=num_matches; ) {
         int x;
         for(x=0; x<rows; x++) {
             char* p = matches[i] + omit_head_of_string;
