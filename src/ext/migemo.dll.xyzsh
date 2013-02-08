@@ -62,90 +62,178 @@ root::run(
             LEN | -eq $(| length -utf8)
         )
 
-        def migemo_file_completion (
-            print $ARGV[0] | var -local inputing
-            print $ARGV[1] | var -local editing_line
+        if(uname | = Darwin\n) (
+            def migemo_file_completion (
+                print $ARGV[0] | var -local inputing
+                print $ARGV[1] | var -local editing_line
 
-            print 1 | var -local AllAsciiOnly
-            | each (
-                if(|ascii_only) (
-                    | if(| index $inputing | = 0\n) (
-                        | print
-                    )
-                ) else (
-                    print 0 | var -local AllAsciiOnly
-                    print 0 | var -local AllFiles
-
-                    if(inputing | =~ '^.*\/$') (
-#print 0 | p > /dev/null
-                        inputing | var -local no_migemo_string
-                        print "" | var -local migemo_string
-
-                        print 1 | var -local AllFiles
-                    ) elif (inputing | =~ '^.*\/[a-zA-Z]+$') (
-#print a | p > /dev/null
-                        | if(|=~ '^.*\/[a-zA-Z]+[^a-zA-z/]+$') (
-                            (inputing; |print) | common_head | var -local same_head
-
-                            same_head | var -local no_migemo_string
-                            inputing | sub -no-regex $same_head '' | var -local migemo_string
-                        ) else (
-                            inputing | sub '^(.*\/)[a-zA-Z]+$' '\1' | var -local no_migemo_string
-                            inputing | sub '^.*\/([a-zA-Z]+)$' '\1' | var -local migemo_string
+                print 1 | var -local AllAsciiOnly
+                | each (
+                    if(|ascii_only) (
+                        | if(| index $inputing | = 0\n) (
+                            | print
                         )
-                    ) elif (inputing | =~ '^.*\/[^a-zA-Z]+[a-zA-Z]+$') (
-#print b | p > /dev/null
-                        inputing | sub '^(.*\/[^a-zA-Z]+)[a-zA-Z]+$' '\1' | var -local no_migemo_string
-                        inputing | sub '^.*\/[^a-zA-Z]+([a-zA-Z]+)$' '\1' | var -local migemo_string
-                    ) elif (inputing | =~ '^.*\/[^a-zA-Z]+$') (
-#print b2 | p > /dev/null
-                        inputing | var -local no_migemo_string
-                        print "" | var -local migemo_string
-                    ) elif (inputing | =~ '^[a-zA-Z]+$') (
-#print c | p > /dev/null
-                        | if(|=~ '^[a-zA-Z]+[^a-zA-z/]+$') (
-                            (inputing; |print) | common_head | var -local same_head
+                    ) else (
+                        print 0 | var -local AllAsciiOnly
+                        print 0 | var -local AllFiles
 
-                            same_head | var -local no_migemo_string
-                            inputing | sub -no-regex $same_head '' | var -local migemo_string
+                        if(inputing | =~ '^.*\/$') (
+    #print 0 | p > /dev/null
+                            inputing | var -local no_migemo_string
+                            print "" | var -local migemo_string
+
+                            print 1 | var -local AllFiles
+                        ) elif (inputing | =~ '^.*\/[a-zA-Z]+$') (
+    #print a | p > /dev/null
+                            | if(|=~ '^.*\/[a-zA-Z]+[^a-zA-z/]+$') (
+                                (inputing; |print) | common_head | var -local same_head
+
+                                same_head | var -local no_migemo_string
+                                inputing | sub -no-regex $same_head '' | var -local migemo_string
+                            ) else (
+                                inputing | sub '^(.*\/)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                                inputing | sub '^.*\/([a-zA-Z]+)$' '\1' | var -local migemo_string
+                            )
+                        ) elif (inputing | =~ '^.*\/[^a-zA-Z]+[a-zA-Z]+$') (
+    #print b | p > /dev/null
+                            inputing | sub '^(.*\/[^a-zA-Z]+)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                            inputing | sub '^.*\/[^a-zA-Z]+([a-zA-Z]+)$' '\1' | var -local migemo_string
+                        ) elif (inputing | =~ '^.*\/[^a-zA-Z]+$') (
+    #print b2 | p > /dev/null
+                            inputing | var -local no_migemo_string
+                            print "" | var -local migemo_string
+                        ) elif (inputing | =~ '^[a-zA-Z]+$') (
+    #print c | p > /dev/null
+                            | if(|=~ '^[a-zA-Z]+[^a-zA-z/]+$') (
+                                (inputing; |print) | common_head | var -local same_head
+
+                                same_head | var -local no_migemo_string
+                                inputing | sub -no-regex $same_head '' | var -local migemo_string
+                            ) else (
+                                print "" | var -local no_migemo_string
+                                inputing | var -local migemo_string
+                            )
+                        ) elif (inputing | =~ '^[^a-zA-Z]+[a-zA-Z]+$') (
+    #print d | p > /dev/null
+                            inputing | sub '(^[^a-zA-Z]+)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                            inputing | sub '^[^a-zA-Z]+([a-zA-Z]+)$' '\1' | var -local migemo_string
+                        ) elif (inputing | =~ '^[^a-zA-Z]+$') (
+                            inputing | var -local no_migemo_string
+                            print "" | var -local migemo_string
                         ) else (
-                            print "" | var -local no_migemo_string
-                            inputing | var -local migemo_string
+    #print e | p > /dev/null
+                            inputing | var -local no_migemo_string
+                            print "" | var -local migemo_string
                         )
-                    ) elif (inputing | =~ '^[^a-zA-Z]+[a-zA-Z]+$') (
-#print d | p > /dev/null
-                        inputing | sub '(^[^a-zA-Z]+)[a-zA-Z]+$' '\1' | var -local no_migemo_string
-                        inputing | sub '^[^a-zA-Z]+([a-zA-Z]+)$' '\1' | var -local migemo_string
-                    ) elif (inputing | =~ '^[^a-zA-Z]+$') (
-                        inputing | var -local no_migemo_string
-                        print "" | var -local migemo_string
-                    ) else (
-#print e | p > /dev/null
-                        inputing | var -local no_migemo_string
-                        print "" | var -local migemo_string
-                    )
 
-#| p > /dev/null
-                    if(AllFiles | = 1\n) (
-                        | print
-                    ) else (
-                        | if(| index $no_migemo_string | = 0\n) (
-                            | if(| sub -no-regex $no_migemo_string '' | chomp | migemo::match $migemo_string | lines 0 | = 0\n) (
-                                | print
+    #| p > /dev/null
+                        if(AllFiles | = 1\n) (
+                            | print
+                        ) else (
+                            | if(| index $no_migemo_string | = 0\n) (
+                                | if(| sub -no-regex $no_migemo_string '' | chomp | sys::iconv -f UTF-8-MAC -t UTF-8 | migemo::match $migemo_string | lines 0 | = 0\n) (
+                                    | print
+                                )
                             )
                         )
                     )
-                )
-            )  | (| common_head | var -local COMMON_HEAD; | length -line-num | var -local NUM; | print) 
+                )  | (| common_head | var -local COMMON_HEAD; | length -line-num | var -local NUM; | print) 
 
-            if(AllAsciiOnly | = 0\n && COMMON_HEAD | chomp | -n) (
-                rl::delete_text $(editing_line | rindex -byte $inputing) $(rl::point)
-                if(NUM | chomp | -eq 1 && COMMON_HEAD| chomp | rows -1 | != /) ( 
-                    rl::insert_text $COMMON_HEAD" " 
-                ) else (
-                    rl::insert_text $COMMON_HEAD 
-                )
-            ) 
+                if(AllAsciiOnly | = 0\n && COMMON_HEAD | chomp | -n) (
+                    rl::delete_text $(editing_line | rindex -byte $inputing) $(rl::point)
+                    if(NUM | chomp | -eq 1 && COMMON_HEAD| chomp | rows -1 | != /) ( 
+                        rl::insert_text $COMMON_HEAD" " 
+                    ) else (
+                        rl::insert_text $COMMON_HEAD 
+                    )
+                ) 
+            )
+        ) else (
+            def migemo_file_completion (
+                print $ARGV[0] | var -local inputing
+                print $ARGV[1] | var -local editing_line
+
+                print 1 | var -local AllAsciiOnly
+                | each (
+                    if(|ascii_only) (
+                        | if(| index $inputing | = 0\n) (
+                            | print
+                        )
+                    ) else (
+                        print 0 | var -local AllAsciiOnly
+                        print 0 | var -local AllFiles
+
+                        if(inputing | =~ '^.*\/$') (
+    #print 0 | p > /dev/null
+                            inputing | var -local no_migemo_string
+                            print "" | var -local migemo_string
+
+                            print 1 | var -local AllFiles
+                        ) elif (inputing | =~ '^.*\/[a-zA-Z]+$') (
+    #print a | p > /dev/null
+                            | if(|=~ '^.*\/[a-zA-Z]+[^a-zA-z/]+$') (
+                                (inputing; |print) | common_head | var -local same_head
+
+                                same_head | var -local no_migemo_string
+                                inputing | sub -no-regex $same_head '' | var -local migemo_string
+                            ) else (
+                                inputing | sub '^(.*\/)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                                inputing | sub '^.*\/([a-zA-Z]+)$' '\1' | var -local migemo_string
+                            )
+                        ) elif (inputing | =~ '^.*\/[^a-zA-Z]+[a-zA-Z]+$') (
+    #print b | p > /dev/null
+                            inputing | sub '^(.*\/[^a-zA-Z]+)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                            inputing | sub '^.*\/[^a-zA-Z]+([a-zA-Z]+)$' '\1' | var -local migemo_string
+                        ) elif (inputing | =~ '^.*\/[^a-zA-Z]+$') (
+    #print b2 | p > /dev/null
+                            inputing | var -local no_migemo_string
+                            print "" | var -local migemo_string
+                        ) elif (inputing | =~ '^[a-zA-Z]+$') (
+    #print c | p > /dev/null
+                            | if(|=~ '^[a-zA-Z]+[^a-zA-z/]+$') (
+                                (inputing; |print) | common_head | var -local same_head
+
+                                same_head | var -local no_migemo_string
+                                inputing | sub -no-regex $same_head '' | var -local migemo_string
+                            ) else (
+                                print "" | var -local no_migemo_string
+                                inputing | var -local migemo_string
+                            )
+                        ) elif (inputing | =~ '^[^a-zA-Z]+[a-zA-Z]+$') (
+    #print d | p > /dev/null
+                            inputing | sub '(^[^a-zA-Z]+)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                            inputing | sub '^[^a-zA-Z]+([a-zA-Z]+)$' '\1' | var -local migemo_string
+                        ) elif (inputing | =~ '^[^a-zA-Z]+$') (
+                            inputing | var -local no_migemo_string
+                            print "" | var -local migemo_string
+                        ) else (
+    #print e | p > /dev/null
+                            inputing | var -local no_migemo_string
+                            print "" | var -local migemo_string
+                        )
+
+    #| p > /dev/null
+                        if(AllFiles | = 1\n) (
+                            | print
+                        ) else (
+                            | if(| index $no_migemo_string | = 0\n) (
+                                | if(| sub -no-regex $no_migemo_string '' | chomp | migemo::match $migemo_string | lines 0 | = 0\n) (
+                                    | print
+                                )
+                            )
+                        )
+                    )
+                )  | (| common_head | var -local COMMON_HEAD; | length -line-num | var -local NUM; | print) 
+
+                if(AllAsciiOnly | = 0\n && COMMON_HEAD | chomp | -n) (
+                    rl::delete_text $(editing_line | rindex -byte $inputing) $(rl::point)
+                    if(NUM | chomp | -eq 1 && COMMON_HEAD| chomp | rows -1 | != /) ( 
+                        rl::insert_text $COMMON_HEAD" " 
+                    ) else (
+                        rl::insert_text $COMMON_HEAD 
+                    )
+                ) 
+            )
         )
 
         def file_completion (

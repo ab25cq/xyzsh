@@ -1,4 +1,12 @@
 
+2013 8th of Feburary version 1.3.8
+
+    1. Fixed a migemo completion bug on Darwin
+
+2013 2月8日 version 1.3.8
+
+    1. OSXでカタカナの補完ができないバグに対応しています。mfiler4も同様のバグを修正したバージョンを1.3.3としてアップロードしています。
+
 2013 8th of Feburary version 1.3.7
 
     1. Fixed a bug with output completion candidates.
