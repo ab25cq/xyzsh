@@ -112,16 +112,6 @@ def min (
     min_value
 )
 
-# for calling function with the caller-function arguments, options and blocks
-print <<<'EOS'
-| eval "| $FUNCTION $(ARGV|each(|chomp|quote|pomch)|join|chomp) $(OPTIONS | each -number 2 (|lines 0 ) | join|chomp) $(block -number | -gt 0 && seq $(block -number|chomp) | each (| - 1 |  var num; | block $num | add \a) |chomp | each -La ( | chomp | add -number 0 \( | add -number -1 \)) | join -La)"
-EOS | var CALL_WITH_CALLER_ARGUMENTS
-
-# USAGE
-# print inherit | var -local FUNCTION; $CALL_WITH_CALLER_ARGUMENTS
-
-#$CALL_WITH_CALLER_ARGUMENTS{inherit}
-
 if(export XYZSH_RUNNING_AS_INTRACTIVE_MODE | -n) (
     print "-+- Welcome to xyzsh $XYZSH_VERSION -+-\n"
     print "run \"help\" command to see usage\n"

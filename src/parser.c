@@ -125,10 +125,22 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
 
     eLineField lf = kLF;
 
-    BOOL double_dollar;
+    BOOL double_dollar = FALSE;
+    BOOL option = FALSE;
+
+    if(**p == '-') {
+        (*p)++;
+        option = TRUE;
+    }
+
     if(**p == '$') {
         (*p)++;
         double_dollar = TRUE;
+
+        if(**p == '-') {
+            (*p)++;
+            option = TRUE;
+        }
 
         if(*(*p+1) == '(') {
             if(**p == 'a') {
@@ -149,16 +161,13 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
             }
         }
     }
-    else {
-        double_dollar = FALSE;
-    }
 
     if(**p == '(') {
         (*p)++;
 
         sObject* block2 = BLOCK_NEW_STACK();
         if(!block_parse(p, sname, sline, block2, current_object)) {
-            (void)sCommand_add_env_block(command, block2, double_dollar, lf, sname, *sline);
+            (void)sCommand_add_env_block(command, block2, double_dollar, option, lf, sname, *sline);
             SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_ENV_BLOCK;
             SBLOCK(block).mCompletionFlags |= command->mEnvsNum & COMPLETION_FLAGS_BLOCK_OR_ENV_NUM;
             return FALSE;
@@ -172,7 +181,7 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
         add_str_to_buf(buf, buf2);
         add_char_to_buf(buf, PARSER_MAGIC_NUMBER_ENV);
 
-        if(!sCommand_add_env_block(command, block2, double_dollar, lf, sname, *sline)) {
+        if(!sCommand_add_env_block(command, block2, double_dollar, option, lf, sname, *sline)) {
             return FALSE;
         }
     }
@@ -252,7 +261,7 @@ static BOOL read_env(char** p, sBuf* buf, char* sname, int* sline, BOOL expand_q
         add_str_to_buf(buf, buf2);
         add_char_to_buf(buf, PARSER_MAGIC_NUMBER_ENV);
 
-        if(!sCommand_add_env(command, MANAGED name.mBuf, MANAGED key.mBuf, key.mEnv, double_dollar, sname, *sline)) {
+        if(!sCommand_add_env(command, MANAGED name.mBuf, MANAGED key.mBuf, key.mEnv, double_dollar, option, sname, *sline)) {
             return FALSE;
         }
     }
@@ -289,6 +298,58 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
                 dquote = !dquote;
             }
         }
+        else if(!dquote && !squote && **p == '%' && (*(*p+1) == 'q' || *(*p+1) == 'Q') && !isalnum(*(*p+2)) && *(*p+2) >= ' ' && *(*p+2) <= 126)
+        {
+            BOOL dquote2 = *(*p+1) == 'Q';
+            BOOL delimiter = *(*p+2);
+            (*p) += 3;
+
+            if(delimiter == '(') {
+                delimiter = ')';
+            } else if(delimiter == '<') {
+                delimiter = '>';
+            } else if(delimiter == '[') {
+                delimiter = ']';
+            } else if(delimiter == '{') {
+                delimiter = '}';
+            }
+
+            if(**p == delimiter) {
+                (*p)++;
+                buf->mNullString = TRUE;
+            }
+            else {
+                while(1) {
+                    if(**p == delimiter) {
+                        (*p)++;
+                        break;
+                    }
+                    else if(**p == 0) {
+                        err_msg("reqire to close %q quote",  sname, *sline, buf->mBuf);
+                        return FALSE;
+                    }
+                    else if(dquote2 && **p == '\\') {
+                        if(!read_quote(p, buf, sname, sline)) {
+                            return FALSE;
+                        }
+                    }
+                    else if(dquote2 && **p == '$') {
+                        if(!read_env(p, buf, sname,sline, expand_quote, command, block, current_object)) {
+                            return FALSE;
+                        }
+                    }
+                    else if(**p == '\n') {
+                        (*sline)++;
+                        add_char_to_buf(buf, **p);
+                        (*p)++;
+                    }
+                    else {
+                        add_char_to_buf(buf, **p);
+                        (*p)++;
+                    }
+                }
+            }
+        }
         /// env ///
         else if(!squote && **p == '$') {
             if(!read_env(p, buf, sname,sline, expand_quote, command, block, current_object)) {
@@ -321,7 +382,7 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
                 return FALSE;
             }
         }
-        /// here document ///
+        /// here document
         else if(**p == '<' && *(*p+1) == '<' && *(*p+2) == '<') {
             (*p)+=3;
 
@@ -349,6 +410,8 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
                     break;
                 }
             }
+
+            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_HERE_DOCUMENT;
 
             skip_spaces(p);
 
@@ -379,9 +442,13 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
             }
 
             sObject* line = STRING_NEW_STACK("");
-            while(**p) {
+            while(1) {
+                if(**p == 0) {
+                    err_msg("require to close Here Document", sname, *sline, "here document");
+                    return FALSE;
+                }
                 /// env ///
-                if(!squote && **p == '$') {
+                else if(!squote && **p == '$') {
                     if(!read_env(p, buf, sname,sline, expand_quote, command, block, current_object)) {
                         return FALSE;
                     }
@@ -419,6 +486,8 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, BOOL
                     (*p)++;
                 }
             }
+
+            SBLOCK(block).mCompletionFlags &= ~COMPLETION_FLAGS_HERE_DOCUMENT;
         }
         /// option ///
         else if(command->mArgsNum > 0 && buf->mLen == 0 && **p == '-' && (isalpha(*(*p+1)) || *(*p+1) == '-' || *(*p+1) == '_'))

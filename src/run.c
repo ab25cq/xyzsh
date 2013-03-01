@@ -749,42 +749,6 @@ static BOOL run_block(sObject* block, sObject* nextin, sObject* nextout, sRunInf
     return TRUE;
 }
 
-static BOOL run_completion(sObject* compl, sObject* nextin, sObject* nextout, sRunInfo* runinfo) 
-{
-    stack_start_stack();
-
-    sObject* fun = FUN_NEW_STACK(NULL);
-    sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
-    vector_add(gStackFrames, stackframe);
-    //uobject_init(stackframe);
-    SFUN(fun).mLocalObjects = stackframe;
-
-    xyzsh_set_signal();
-    int rcode = 0;
-    if(!run(SCOMPLETION(compl).mBlock, nextin, nextout, &rcode, gRootObject, fun)) {
-        if(rcode == RCODE_BREAK) {
-        }
-        else if(rcode & RCODE_RETURN) {
-        }
-        else if(rcode == RCODE_EXIT) {
-        }
-        else {
-            err_msg_adding("run time error\n", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-        }
-
-        (void)vector_pop_back(gStackFrames);
-        readline_signal();
-        stack_end_stack();
-
-        return FALSE;
-    }
-    (void)vector_pop_back(gStackFrames);
-    readline_signal();
-    stack_end_stack();
-
-    return TRUE;
-}
-
 BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     switch(TYPE(object)) {
@@ -1771,7 +1735,7 @@ BOOL load_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runinfo
     return TRUE;
 }
 
-#if defined(__CYGWIN__)
+#if defined(__CYGWIN__) && defined(HAVE_MIGEMO_H)
 int migemo_dl_final();
 int migemo_dl_init();
 #endif
@@ -1796,7 +1760,7 @@ BOOL load_so_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runi
         }
     }
 
-#if defined(__CYGWIN__)
+#if defined(__CYGWIN__) && defined(HAVE_MIGEMO_H)
     if(hash_item(gDynamicLibraryFinals, path) == NULL) {
         if(strstr(path, "migemo")) {
             if(migemo_dl_init() != 0) {

@@ -1,4 +1,76 @@
 
+2013 1st of March version 1.3.9
+
+    1. Changed working on "hash" inner command with "-append" option and "ary" inner command with "-append" option.
+
+    2. Added "curses" object to manipulating terminal.
+
+    3. Added "string_quote" function.
+
+    4. Added $-(option_variable) $-option_variable to expand variable for option.
+
+    > print "1234512345" | index -count 2 1
+    5
+    > print "-count" | var a
+    > print "1234512345" | index $a 2 1
+    invalid command using
+
+    > print "1234512345" | index $-a 2 1
+    5
+
+    > print "1234512345" | index -count 2 1
+    5
+    > print "1234512345" | index $(print "-count") 2 1
+    invalid command using
+    > print "1234512345" | index $-(print "-count") 2 1
+    5
+
+    5. Added "rl::history" innercommand.
+
+    6. Added "-no-completion" option to "readline" inner command.
+
+    7. Deleted "-index" option from "del" command.
+
+    8. Added multi line editing to readline interface when it's not closed on a block or here document.
+
+    9. Added "tr", "delete", "count", "squeeze", "succ" inner commands.
+
+2013 3月1日 version 1.3.9
+
+    1 hashとary内部コマンドで-appendの動きが変わっています。親オブジェクトの名前まで検索しないようになってます。意図しない結果が起こることがありました。
+
+    2. "curses"オブジェクトが追加されています。
+
+    3. string_objクラスにstring_quoteを追加
+
+    4. 変数展開時にオプションを展開するために$-(オプションを出力するコマンド) $-{オプションが入った変数}がはいっています。
+
+    > print "1234512345" | index -count 2 1
+    5
+    > print "-count" | var a
+    > print "1234512345" | index $a 2 1
+    invalid command using
+
+    > print "1234512345" | index $-a 2 1
+    5
+
+    > print "1234512345" | index -count 2 1
+    5
+    > print "1234512345" | index $(print "-count") 2 1
+    invalid command using
+    > print "1234512345" | index $-(print "-count") 2 1
+    5
+
+    5. "rl::history"内部コマンドを追加しています
+
+    6. "readline"内部コマンドに-no-completionオプションを追加しています。
+
+    7. "del"コマンドから"-index"オプションを消しています。用語がおかしかったので。
+
+    8. readlineで複数行の編集を入れました。ブロックが閉じられていない時に複数行の編集となります。ヘアドキュメントも同じような編集になります。
+    
+    9. "tr", "delete", "count", "squeeze", "succ" 内部コマンドを追加しました。
+
 2013 8th of Feburary version 1.3.8
 
     1. Fixed a migemo completion bug on Darwin

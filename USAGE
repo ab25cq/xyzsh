@@ -41,6 +41,7 @@
     1. use single quotes  (ex.) ';*?[]()'
     2. use double quotes (ex.) ";*?[]()"
     3. use a quote before a special character (ex.) \;
+    4. use %q() or %Q()
 
     An quote is no effect in another quote.
     
@@ -57,6 +58,22 @@
     Pay attension to be unable to use control characters in single quotes or double quoutes
 
     > print "Hello World\n"    # --> output "Hello World" and not linefield but "\" and "n" 
+
+    USAGE of %q(), %Q() is below
+
+    > sys::ruby -e %q<print "'Hello World'\n">
+    'Hello World'
+
+    > sys::ruby -e %q!print "'Hello World'\n"!
+    'Hello World'
+
+    > print %q(Hello World\n)
+    Hello World\n
+
+    > print %Q/Hello World\n/
+    Hello World
+
+    In the case %Q, expand escape sequences and variables.
 
 1.2 pipe and context pipe
     
@@ -280,6 +297,17 @@
 
     is outputted
 
+    The variable which containes option is quoted on normal way.
+    If you want to reffer option by variable, you use $-{var}.
+
+    > print "1234512345" | index -count 2 1
+    5
+    > print "-count" | var a
+    > print "1234512345" | index $a 2 1
+    invalid command using
+    > print "1234512345" | index $-a 2 1
+    5
+
 1.7 Object Oriented Programing
 
     Object Oriented Programing of xyzsh likes a file system.
@@ -433,6 +461,15 @@
 
     > fun $$w(print aaa bbb ccc | split -Lw)
     3
+
+    If you want to reffer option by command replacement, use $-() or $$-()
+
+    > print "1234512345" | index -count 2 1
+    5
+    > print "1234512345" | index $(print "-count") 2 1
+    invalid command using
+    > print "1234512345" | index $-(print "-count") 2 1
+    5
 
 2.1 Exception
 

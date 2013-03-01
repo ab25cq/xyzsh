@@ -1,5 +1,4 @@
 #include <termios.h>
-#include <term.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <termios.h>
@@ -13,6 +12,10 @@
 #include <wchar.h>
 #include <errno.h>
 #include <unistd.h>
+
+#if !defined(__CYGWIN__)
+#include <term.h>
+#endif
 
 #include "config.h"
 

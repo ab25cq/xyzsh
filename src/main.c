@@ -66,7 +66,7 @@ printf("external_obj %d\n", (int)sizeof(external_obj));
     else {
         setenv("XYZSH_RUNNING_AS_INTRACTIVE_MODE", "1", 1);
         xyzsh_init(kATConsoleApp, no_runtime_script);
-        xyzsh_readline_interface("", -1, argv, argc);
+        xyzsh_readline_interface("", -1, argv, argc, FALSE);
         xyzsh_kill_all_jobs();
     }
 

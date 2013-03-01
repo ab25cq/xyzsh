@@ -1063,8 +1063,7 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     else if(runinfo->mArgsNumRuntime == 2) {
         fd_split(nextin, lf);
 
-        sObject* reciever = runinfo->mCurrentObject;
-        sObject* ary = access_object(runinfo->mArgsRuntime[1], &reciever, runinfo->mRunningObject);
+        sObject* ary = uobject_item(runinfo->mCurrentObject, runinfo->mArgsRuntime[1]);
 
         /// number
         char* argument;
@@ -1325,8 +1324,7 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     else if(runinfo->mArgsNumRuntime == 2) {
         fd_split(nextin, lf);
 
-        sObject* reciever = runinfo->mCurrentObject;
-        sObject* hash = access_object(runinfo->mArgsRuntime[1], &reciever, runinfo->mRunningObject);
+        sObject* hash = uobject_item(runinfo->mCurrentObject, runinfo->mArgsRuntime[1]);
 
         /// number
         if(hash && sRunInfo_option(runinfo, "-append")) {

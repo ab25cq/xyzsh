@@ -287,6 +287,44 @@ void readline_write_history()
     }
 }
 
+void transform_cr_to_semicolon(char* buf, ALLOC char** result)
+{
+    *result = MALLOC(sizeof(char)*strlen(buf)+1);
+    char* p = buf;
+    char* p2 = *result;
+    while(*p) {
+        if(*p == '\n') {
+            *p2++ = ';';
+            p++;
+        }
+        else if(*p == '<' && *(p+1) == '<' && *(p+2) == '<') {
+            *p2++ = *p++;
+            *p2++ = *p++;
+            *p2++ = *p++;
+
+            while(*p == ' ' || *p == '\t') {
+                *p2++ = *p++;
+            }
+
+            while(*p) {
+                if(*p >='A' && * p <= 'Z' || *p >='a' && *p <='z' || *p == '_' || *p >= '0' && *p <= '9')
+                {
+                    *p2++ = *p++;
+                }
+                else {
+                    break;
+                }
+            }
+
+            break;
+        }
+        else {
+            *p2++ = *p++;
+        }
+    }
+    *p2 = 0;
+}
+
 // EOF --> rcode == -2
 // errors --> rcode == -1
 BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_point, char* source_name, char** argv, int argc, fXyzshJobDone xyzsh_job_done_)
@@ -356,7 +394,11 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
                 }
 
                 /// add history ///
-                add_history(buf);
+                char* buf2;
+                transform_cr_to_semicolon(buf, ALLOC &buf2);
+                add_history(buf2);
+                FREE(buf2);
+
                 history_num++;
                 if(history_num > gHistSize) {
                     HIST_ENTRY* history = remove_history(0);
@@ -386,7 +428,11 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
             fprintf(stderr, "%s", string_c_str(gErrMsg));
 
             /// add history ///
-            add_history(buf);
+            char* buf2;
+            transform_cr_to_semicolon(buf, ALLOC &buf2);
+            add_history(buf2);
+            FREE(buf2);
+
             history_num++;
             if(history_num > gHistSize) {
                 HIST_ENTRY* history = remove_history(0);
@@ -407,7 +453,10 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
         }
 
         /// add history ///
-        add_history(buf);
+        char* buf2;
+        transform_cr_to_semicolon(buf, ALLOC &buf2);
+        add_history(buf2);
+        FREE(buf2);
         history_num++;
         if(history_num > gHistSize) {
             HIST_ENTRY* history = remove_history(0);
@@ -428,7 +477,7 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
     return TRUE;
 }
 
-void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int argc)
+void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int argc, BOOL exit_in_spite_ofjob_exist)
 {
     /// start interactive shell ///
     mreset_tty();
@@ -469,11 +518,16 @@ void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int 
 
         /// run ///
         if(buf == NULL) {
-            if(vector_count(gJobs) > 0) {
-                fprintf(stderr,"\njobs exist\n");
+            if(exit_in_spite_ofjob_exist) {
+                break;
             }
             else {
-                break;
+                if(vector_count(gJobs) > 0) {
+                    fprintf(stderr,"\njobs exist\n");
+                }
+                else {
+                    break;
+                }
             }
         }
         else if(*buf) {
@@ -523,7 +577,10 @@ void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int 
             }
 
             /// add history ///
-            add_history(buf);
+            char* buf2;
+            transform_cr_to_semicolon(buf, ALLOC &buf2);
+            add_history(buf2);
+            FREE(buf2);
             history_num++;
             if(history_num > gHistSize) {
                 HIST_ENTRY* history = remove_history(0);

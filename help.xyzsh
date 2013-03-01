@@ -449,6 +449,13 @@ selector
 -
 パイプから入力を受け取り選択した行を出力する。
 
+キー操作:
+カーソルキー -> 移動
+CTRL-D, CTRL-U -> スクロール
+a -> マーク反転
+ENTER -> 決定
+q, CTRL-c -> キャンセル
+
 戻り値: 入力文字列が無ければ262
 
 -multiple スペースによる複数行選択を許す
@@ -873,12 +880,13 @@ b
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
 -
-scan 正規表現 (変換文字列|ブロック)
+scan 正規表現 (ブロック)
 -
 パイプから正規表現にマッチする文字列を何度も繰り返し探し、出力する。
+ブロックがあれば、正規表現にマッチするたびにブロックが実行される。
 ブロックのコンテキストパイプにはマッチした文字列が入っている。
 
-変換回数はグローバル変数変数MATCH_COUNTに代入される。
+マッチした回数はグローバル変数変数MATCH_COUNTに代入される。
 
 ブロックでは以下のグローバル変数に特定の文字列が代入されている。
 
@@ -903,6 +911,77 @@ scan 正規表現 (変換文字列|ブロック)
 strip
 -
 このフィルターはパイプのデータの前後のスペース、タブ、改行コードを取り除きます。
+-
+tr 変換する文字の集合 変換される文字の集合
+-
+文字を置き換えるフィルター。文字の集合の形式はtr(1)と同じです。
+
+abc --> abc
+a-c --> abc
+0-3 --> 0123
+^a --> a以外
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+delete 削除する文字の集合
+-
+文字を削除するフィルター。文字の集合の形式はtr(1)と同じです。
+
+abc --> abc
+a-c --> abc
+0-3 --> 0123
+^a --> a以外
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+squeeze まとめる文字の集合
+-
+連続する文字を一つにまとめるフィルター。文字の集合の形式はtr(1)と同じです。
+
+abc --> abc
+a-c --> abc
+0-3 --> 0123
+^a --> a以外
+
+引数が無い場合は全ての連続する文字を一つにまとめます。
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+count カウントする文字の集合
+-
+文字の個数を出力します。文字の集合の形式はtr(1)と同じです。
+
+abc --> abc
+a-c --> abc
+0-3 --> 0123
+^a --> a以外
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+-
+succ
+-
+次の文字列を返すフィルター
+
+> print abc | succ
+abd
+> print main001 | succ | succ
+main003
+> print main0.0.1 | succ | succ
+main0.0.3
+> print 0.9.9 | succ
+1.0.0
 -
 split 正規表現
 -
@@ -936,7 +1015,6 @@ del インデックス
 -
 パイプの中のインデックスの位置の文字を一文字削除して残りを出力するフィルター。
 
--index 文字数 文字数分削除する
 -number 文字数 文字数分削除する
 -byte バイトコードとして処理する
 -utf8 UTF8コードとして処理する
@@ -960,6 +1038,8 @@ rows インデックス (ブロック) インデックス (ブロック), ... , 
 readline プロンプト
 -
 readlineを使って1文をユーザーの入力から読み込み、読み込んだ文字列を出力する。
+
+-no-completion 補完を行わない
 -
 completion (オブジェクト::)コマンド名 (ブロック)
 -
@@ -1383,6 +1463,13 @@ selector
 -
 select line by user and output it.
 
+Key manipulation:
+cursor key -> moving cursor
+CTRL-D, CTRL-U -> scroll
+a -> reverse all marks
+ENTER -> select
+q, CTRL-c -> cansel
+
 -multiple Allow to select multi line with space-key
 -preserve-position no initialize cursor position and scroll top position
 -Lw Processing with CRLF line field
@@ -1774,9 +1861,10 @@ You can get the count of searching to use the local variable "SUB_COUNT"
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
 -
-scan (regex|block)
+scan (regex) (block)
 -
-It is a filter for scaning pipe data with regex.
+It is a filter for scanning pipe data with regex.
+If block exists, xyzsh run the block whenever data is matched.
 With block, context pipe has a maching string.
 
 You can get the count of matching to use the local variable "MATCH_COUNT".
@@ -1805,6 +1893,77 @@ strip
 -
 It is a filter for removing front and tail spaces, tabs, and line fields.
 
+-
+tr (characters) (characters2)
+-
+Filter which replace characters. Format of characters is the same as tr(1).
+
+abc --> abc
+a-c --> abc
+0-3 --> 0123
+^a --> except a
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+delete (characters)
+-
+Filter which deletes characters. Format of characters is the same as tr(1).
+
+abc --> abc
+a-c --> abc
+0-3 --> 0123
+^a --> except a
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+squeeze (characters)
+-
+Filter which put together successive characters. Format of characters is the same as tr(1).
+
+abc --> abc
+a-c --> abc
+0-3 --> 0123
+^a --> except a
+
+If there is no argument, put together all successive characters.
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+count (characters)
+-
+Output the number of characters. Format of characters is the same as tr(1).
+
+abc --> abc
+a-c --> abc
+0-3 --> 0123
+^a --> except a
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+-
+succ
+-
+Filter which output next string.
+
+> print abc | succ
+abd
+> print main001 | succ | succ
+main003
+> print main0.0.1 | succ | succ
+main0.0.3
+> print 0.9.9 | succ
+1.0.0
 -
 split (regex)
 -
@@ -1838,7 +1997,6 @@ del (index)
 -
 It is a filter for removing a character on pipe data.
 
--index (number) Number characters are removed.
 -number (number) Number characters are removed.
 -byte assume text encode as byte code.
 -utf8 assume text encode as utf-8 code.
@@ -1861,6 +2019,8 @@ A case of (character number1) > (character number2), reverse the order.
 readline (prompt string)
 -
 Using readline, get a line input by the user, and output it.
+
+-no-completion Using readline with no completion
 -
 completion (object name::)(command name) (block)
 -
@@ -1950,6 +2110,14 @@ read_history (file name)
 line_buffer
 -
 現在編集中の行を出力する。
+-
+inhibit_completion 数値
+-
+0以外の数値を設定すると補完を禁止します。
+-
+history
+-
+現在のヒストリを全部出力する。
 EOS | help::set_helps_ja
 
     print <<<'EOS'
@@ -1992,6 +2160,94 @@ read readline cmdline history to the memory
 line_buffer
 -
 Output editing line.
+-
+inhibit_completion (number)
+-
+If you set non zero number, inhibit completion.
+-
+history
+-
+Write all histories to stdout.
 EOS | help::set_helps
 )
 
+curses::run(
+    object help ( Help )
+
+    print <<<'EOS'
+initscr
+-
+カーシスを初期化します
+-
+endwin
+-
+カーシスを終了します
+-
+getch
+-
+キー入力を行います。入力されたキー番号を出力します
+-
+move Y座標 X座標
+-
+カーソル位置を移動します。
+-
+refresh
+-
+clear,printwした内容を画面に反映します。
+-
+clear
+-
+画面をクリアします。refreshされるまで画面には反映されません。
+-
+printw フォーマット文字列
+-
+画面に文字列を出力します。フォーマットの引数はパイプで受け取った文字列（改行区切り）が使われます。
+
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+-
+is_raw_mode
+-
+現在cursesのモードなら戻り値の真を返します。
+EOS | help::set_helps_ja
+
+    print <<<'EOS'
+initscr
+-
+Start to curses mode.
+-
+endwin
+-
+Finish to curses mode.
+-
+getch
+-
+Output inputed key number
+-
+move (Y Position) (X Position)
+-
+Move cursor position.
+-
+refresh
+-
+Write off-screen content to screen.
+-
+clear
+-
+Clear screen. Don't write to screen until "refresh" inner command.
+-
+printw (format string)
+-
+Write (format string) to off-screen. "printw" inner command uses pipe content to format argument.
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+-
+is_raw_mode
+-
+If curses mode is running, return the return code of true.
+EOS | help::set_helps
+)

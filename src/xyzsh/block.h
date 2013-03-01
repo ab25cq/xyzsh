@@ -22,8 +22,8 @@ void sCommand_delete(sCommand* self);
 BOOL sCommand_add_arg(sCommand* self, MANAGED char* buf, int env, int glob, char* sname, int sline);
 BOOL sCommand_add_block(sCommand* self, sObject* block, char* sname, int sline);
 BOOL sCommand_add_message(sCommand* self, MANAGED char* message, char* sname, int sline);
-BOOL sCommand_add_env(sCommand* self, MANAGED char* name, MANAGED char* key, BOOL key_env, BOOL double_dollar, char* sname, int sline);
-BOOL sCommand_add_env_block(sCommand* self, sObject* block, BOOL double_dollar, eLineField lf, char* sname, int sline);
+BOOL sCommand_add_env(sCommand* self, MANAGED char* name, MANAGED char* key, BOOL key_env, BOOL double_dollar, BOOL option, char* sname, int sline);
+BOOL sCommand_add_env_block(sCommand* self, sObject* block, BOOL double_dollar, BOOL option, eLineField lf, char* sname, int sline);
 BOOL sCommand_add_redirect(sCommand* self, MANAGED char* name, BOOL env, BOOL glob, int redirect, char* sname, int sline);
 
 BOOL sCommand_expand_env(sCommand* command, sObject* object, sObject* nextin, sObject* nextout, struct _sRunInfo* runinfo);

@@ -218,7 +218,12 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "selector", NFUN_NEW_GC(cmd_selector, NULL, TRUE));
     uobject_put(self, "sort", NFUN_NEW_GC(cmd_sort, NULL, TRUE));
     uobject_put(self, "readline", NFUN_NEW_GC(cmd_readline, NULL, TRUE));
+    uobject_put(self, "count", NFUN_NEW_GC(cmd_count, NULL, TRUE));
     uobject_put(self, "kanjicode", NFUN_NEW_GC(cmd_kanjicode, NULL, TRUE));
+    uobject_put(self, "delete", NFUN_NEW_GC(cmd_delete, NULL, TRUE));
+    uobject_put(self, "squeeze", NFUN_NEW_GC(cmd_squeeze, NULL, TRUE));
+    uobject_put(self, "tr", NFUN_NEW_GC(cmd_tr, NULL, TRUE));
+    uobject_put(self, "succ", NFUN_NEW_GC(cmd_succ, NULL, TRUE));
 
     uobject_put(self, "sub", NFUN_NEW_GC(cmd_sub, NULL, TRUE));
     uobject_put(self, "time", NFUN_NEW_GC(cmd_time, NULL, TRUE));
@@ -268,6 +273,7 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "class", nfun);
 
     readline_object_init(self);
+    curses_object_init(self);
 
     clear_matching_info_variable();
 }

@@ -35,6 +35,20 @@ def file_completion (
     | split '(?<!\\) +' | lines -1 | var -local inputing
     | if(| rows -2..-1 | =~ '[^\\] ') ( print "" | var -local inputing)
 
+    
+    if(inputing | rows 0 | = \') (
+        inputing | rows 1..-1 | var -local inputing
+        print 1 | var -local SQuote
+        print 0 | var -local DQuote
+    ) elif(inputing | rows 0 | = \") (
+        inputing | rows 1..-1 | var -local inputing
+        print 0 | var -local SQuote
+        print 1 | var -local DQuote
+    ) else (
+        print 0 | var -local SQuote
+        print 0 | var -local DQuote
+    )
+
     if(inputing | index -quiet /) (
         if(inputing | rows 0 | = \~) (
             | expand_tilda $(|print) $inputing
@@ -47,9 +61,19 @@ def file_completion (
 
         ls -a $(DIR|xyzsh_dequote|chomp) | egrep -v '^\.$|^\.\.$' | each (
             | if (|chomp | add -number 0 $(DIR|xyzsh_dequote|chomp)/ | -d) (
-                |chomp | xyzsh_quote | add -number 0 $DIR | add / | pomch
+                if(SQuote | = 1\n) (
+                    |chomp | add -number 0 $DIR | add / | pomch
+                ) else (
+                    |chomp | xyzsh_quote | add -number 0 $DIR | add / | pomch
+                )
             ) else (
-                |chomp | xyzsh_quote | add -number 0 $DIR | pomch
+                if(SQuote | = 1\n) (
+                    |chomp | add -number 0 $DIR | add \' | pomch
+                ) elif ( DQuote | = 1\n) (
+                    |chomp | xyzsh_quote | add -number 0 $DIR | add \" | pomch
+                ) else (
+                    |chomp | xyzsh_quote | add -number 0 $DIR | pomch
+                )
             )
         )
 
@@ -68,9 +92,19 @@ def file_completion (
         ) else (
             ls -a | egrep -v '^\.$|^\.\.$' | each (
                 | if (|chomp| -d) (
-                    | chomp | xyzsh_quote | add / | pomch
+                    if(SQuote | = 1\n) (
+                        | chomp | add / | pomch
+                    ) else (
+                        | chomp | xyzsh_quote | add / | pomch
+                    )
                 ) else (
-                    |chomp| xyzsh_quote | pomch
+                    if(SQuote | = 1\n) (
+                        |chomp| add \' | pomch
+                    ) elif (DQuote | = 1\n) (
+                        |chomp| xyzsh_quote | add \" | pomch
+                    ) else (
+                        |chomp| xyzsh_quote | pomch
+                    )
                 )
             ) 
         )
@@ -78,25 +112,27 @@ def file_completion (
 )
 
 class object_completion (
-    ary ARGV -index 0 | var -local KIND
+    ary ARGV -index 0 | var -local Kind
 
     | split '(?<!\\) +' | lines -1 | var -local inputing
+    | if(| rows -2..-1 | =~ '[^\\] ') ( print "" | var -local inputing)
+
     if(inputing | index -quiet ::) (
         inputing |chomp | split :: | lines 0..-2 | if( | -n) (
             | join ::| var -local PREFIX
-            if(KIND | = all\n) (
+            if(Kind | = all\n) (
                 eval "${PREFIX}::show" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::' ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
             ) else (
-                eval "${PREFIX}::show" | egrep ": $KIND\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::' ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
+                eval "${PREFIX}::show" | egrep ": $Kind\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::' ) else (|print) ) | scan '(.+?:?:?):' | each ( | add -number 0 ${PREFIX}:: )
             )
         )
     ) else (
         pwo  | var -local current
         while(true) (
-            if(KIND | = all\n) (
+            if(Kind | = all\n) (
                 eval "${current}::show" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::' ) else (|print) ) | root::scan '(^.+?:?:?):' 
             ) else (
-                eval "${current}::show" | egrep ": $KIND\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'  ) else (|print) ) | root::scan '(^.+?:?:?):' 
+                eval "${current}::show" | egrep ": $Kind\$|: object\$" | each ( | if(|=~ ': object$') (| sub '(.+):' '\1:::'  ) else (|print) ) | root::scan '(^.+?:?:?):' 
             )
             if(current | = root\n) ( break )
             current | strip | split :: | lines 0..-2| join :: | var -local current
@@ -150,7 +186,6 @@ completion co (
     | object_completion object
 )
 
-
 completion ref (
     | object_completion all
     hash COMPLETION_OPTIONS -key ref
@@ -184,42 +219,8 @@ completion write (
     hash COMPLETION_OPTIONS -key write
 )
 
-completion ./configure (
-    ./configure --help | scan '(--[a-zA-Z0-9-]+)'
-)
-
-completion man (
-    program_completion
-)
-
-completion sudo (
-    | scan 'sudo .*' | chomp | split '(?<!\\) +' | wc -l | var -local input_num
-    | scan 'sudo .*' | chomp | split '(?<!\\) +' | lines 1 | var -local program_name
-
-    if(input_num | -eq 2) (
-        program_completion
-    ) elif(input_num | -ge 3) (
-        try(
-            completion $program_name
-        ) catch ()
-    )
-)
-
-completion make (
-    print Makefile | -e && cat Makefile | scan '(.+?):'
-)
-
 completion unset (
     sys::env | scan '(.+?)='
-)
-
-completion git (
-    git | awk '/The most commonly used git commands are:/,p' | lines 1..-2 | scan '^\s+(.+?)\s+' 
-)
-
-completion kill (
-    ps | each ( | sub '^\s+' '' ) | selector | split | lines 0
-    rl::clear_screen
 )
 
 completion load (
@@ -232,19 +233,62 @@ completion load (
     )
 )
 
-root::compl::run( root::object rl )
-
-completion rl::help (
-    rl::self | egrep native\ function\$ | egrep -v 'run|show' | root::scan '(^.+?):' | each ( | chomp | quote | pomch )
-)
-
 completion cd (
     | file_completion | each ( | =~ '/$' && | print )
     print ../\n
     hash COMPLETION_OPTIONS -key cd
 )
 
+root::compl::run( root::object rl )
+
+completion rl::help (
+    rl::self | egrep native\ function\$ | egrep -v 'run|show' | root::scan '(^.+?):' | each ( | chomp | quote | pomch )
+)
+
+root::compl::run( root::object curses )
+
+completion curses::help (
+    curses::self | egrep native\ function\$ | egrep -v 'run|show' | root::scan '(^.+?):' | each ( | chomp | quote | pomch )
+)
+
+###################################################################################
+### external program completoins ##################################################
+###################################################################################
 root::compl::run( root::object sys )
+
+completion ./configure (
+    ./configure --help | scan '(--[a-zA-Z0-9-]+)'
+)
+
+completion man sys::man (
+    program_completion
+)
+
+completion sudo sys::sudo (
+    | scan 'sudo .*' | chomp | split '(?<!\\) +' | wc -l | var -local input_num
+    | scan 'sudo .*' | chomp | split '(?<!\\) +' | lines 1 | var -local program_name
+
+    | if(| rows -2..-1 | =~ '[^\\] ') ( ++ input_num )
+
+    if(input_num | -eq 2) (
+        program_completion
+    ) elif(input_num | -ge 3) (
+        completion sys::$program_name
+    )
+)
+
+completion make sys::make (
+    print Makefile | -e && cat Makefile | scan '(.+?):'
+)
+
+completion git sys::git (
+    git | awk '/The most commonly used git commands are:/,p' | lines 1..-2 | scan '^\s+(.+?)\s+' 
+)
+
+completion kill sys::kill (
+    ps | ( | print -read-from-error > /dev/null; | print) | each ( | sub '^\s+' '' ) | selector | split | lines 0
+    if(uname |= FreeBSD\n) (rl::clear_screen)
+)
 
 completion sys::__all__ (
     ARGV | var -local Program

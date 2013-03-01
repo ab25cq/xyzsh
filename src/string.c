@@ -386,3 +386,57 @@ BOOL string_chomp(sObject* str)
     return FALSE;
 }
 
+void string_quote(sObject* self, enum eKanjiCode code)
+{
+    int new_str_malloc_len = (sizeof(char)*SSTRING(self).mLen + 1) * 2;
+    char* new_str = MALLOC(new_str_malloc_len);
+    int new_str_len = 0;
+    char* p = SSTRING(self).mStr;
+    char* p2 = new_str;
+
+    if(code == kByte) {
+        while(*p) {
+            if(isalpha(*p)) {
+                *p2++ = *p++;
+                new_str_len++;
+            }
+            else {
+                *p2++ = '\\';
+                *p2++ = *p++;
+                new_str_len+=2;
+            }
+        }
+    } else if(code == kSjis || code == kEucjp) {
+        while(*p) {
+            if(is_kanji(code, *p)) {
+                *p2++ = *p++;
+                *p2++ = *p++;
+                new_str_len+=2;
+            }
+            else if(isalpha(*p)) {
+                *p2++ = *p++;
+                new_str_len++;
+            }
+            else {
+                *p2++ = '\\';
+                *p2++ = *p++;
+            }
+        }
+    } else if(code == kUtf8) {
+        while(*p) {
+            if(is_kanji(code, *p) || isalpha(*p)) {
+                *p2++ = *p++;
+            }
+            else {
+                *p2++ = '\\';
+                *p2++ = *p++;
+            }
+        }
+    }
+
+    FREE(SSTRING(self).mStr);
+
+    SSTRING(self).mStr = new_str;
+    SSTRING(self).mMallocLen = new_str_malloc_len;
+    SSTRING(self).mLen = new_str_len;
+}

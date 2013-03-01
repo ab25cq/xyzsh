@@ -240,6 +240,20 @@ root::run(
             | split '(?<!\\) +' | lines -1 | var -local inputing
             | if(| rows -2..-1 | =~ '[^\\] ') ( print "" | var -local inputing)
 
+            if(inputing | rows 0 | = \') (
+                inputing | rows 1..-1 | var -local inputing
+                print 1 | var -local SQuote
+                print 0 | var -local DQuote
+            ) elif(inputing | rows 0 | = \") (
+                inputing | rows 1..-1 | var -local inputing
+                print 0 | var -local SQuote
+                print 1 | var -local DQuote
+            ) else (
+                print 0 | var -local SQuote
+                print 0 | var -local DQuote
+            )
+
+
             if(inputing | index -quiet /) (
                 if(inputing | rows 0 | = \~) (
                     | expand_tilda $(|print) $inputing
@@ -252,9 +266,19 @@ root::run(
 
                 ls -a $(DIR|xyzsh_dequote|chomp) | egrep -v '^\.$|^\.\.$' | each (
                     | if (|chomp | add -number 0 $(DIR|xyzsh_dequote|chomp)/ | -d) (
-                        |chomp | xyzsh_quote | add -number 0 $DIR | add / | pomch
+                        if(SQuote | = 1\n) (
+                            |chomp | add -number 0 $DIR | add / | pomch
+                        ) else (
+                            |chomp | xyzsh_quote | add -number 0 $DIR | add / | pomch
+                        )
                     ) else (
-                        |chomp | xyzsh_quote | add -number 0 $DIR | pomch
+                        if(SQuote | = 1\n) (
+                            |chomp | add -number 0 $DIR | add \' | pomch
+                        ) elif ( DQuote | = 1\n) (
+                            |chomp | xyzsh_quote | add -number 0 $DIR | add \" | pomch
+                        ) else (
+                            |chomp | xyzsh_quote | add -number 0 $DIR | pomch
+                        )
                     )
                 ) | migemo_file_completion $inputing $(|print)
 
@@ -273,9 +297,19 @@ root::run(
                 ) else (
                     ls -a | egrep -v '^\.$|^\.\.$' | each (
                         | if (|chomp| -d) (
-                            | chomp | xyzsh_quote | add / | pomch
+                            if(SQuote | = 1\n) (
+                                | chomp | add / | pomch
+                            ) else (
+                                | chomp | xyzsh_quote | add / | pomch
+                            )
                         ) else (
-                            |chomp | xyzsh_quote| pomch
+                            if(SQuote | = 1\n) (
+                                |chomp| add \' | pomch
+                            ) elif (DQuote | = 1\n) (
+                                |chomp| xyzsh_quote | add \" | pomch
+                            ) else (
+                                |chomp| xyzsh_quote | pomch
+                            )
                         )
                     ) | migemo_file_completion $inputing $(|print) 
                 )
@@ -289,7 +323,7 @@ root::run(
             print "loaded migemo completion.\n"
         )
     ) else (
-        if(readline "Do you want to use migemo completion which is Japanese ROMAJI completion?(y/n)" | chomp |=~ -ignore-case ^y) (
+        if(readline -no-completion "Do you want to use migemo completion which is Japanese ROMAJI completion?(y/n)" | chomp |=~ -ignore-case ^y) (
             MigemoCompletion
             print "loaded migemo completion.\n"
         )

@@ -1,7 +1,10 @@
 #include "config.h"
 #include "xyzsh/xyzsh.h"
 
+#if !defined(__CYGWIN__)
 #include <term.h>
+#endif
+
 #include <termios.h>
 #include <string.h>
 #include <strings.h>
@@ -295,6 +298,7 @@ static char* user_completion(const char* text, int stat)
             else {
                 rl_completion_append_character = ' ';
             }
+            rl_completion_suppress_quote = 1;
             return strdup(candidate);
         }
     }
@@ -486,6 +490,36 @@ static sObject* access_object_compl(char* name, sObject** current)
 char* readline_filename_completion_null_generator(const char* a, int b)
 {
     return NULL;
+}
+
+static int readline_bind_cr(int count, int key) 
+{
+    stack_start_stack();
+
+    sObject* block = BLOCK_NEW_STACK();
+
+    sObject* cmdline = STRING_NEW_STACK("");
+    string_push_back3(cmdline, rl_line_buffer, rl_point);
+
+    int sline = 1;
+    sObject* current_object = gCurrentObject;
+    BOOL result = parse(string_c_str(cmdline), "readline", &sline, block, &current_object);
+
+    /// in the block? get the block
+    if(!result && (SBLOCK(block).mCompletionFlags & (COMPLETION_FLAGS_BLOCK|COMPLETION_FLAGS_ENV_BLOCK))) {
+        rl_done = 0;
+        rl_insert_text("\n");
+    }
+    else if(!result && (SBLOCK(block).mCompletionFlags & COMPLETION_FLAGS_HERE_DOCUMENT)) {
+        rl_done = 0;
+        rl_insert_text("\n");
+    }
+    else {
+        rl_done = 1;
+        printf("\n");
+    }
+
+    stack_end_stack();
 }
 
 char** readline_on_complete(const char* text, int start, int end)
@@ -748,15 +782,25 @@ BOOL cmd_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         /// output ///
         else if(runinfo->mBlocksNum == 0) {
-            if(sRunInfo_option(runinfo, "-source")) {
-                int i;
-                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                    sObject* compl;
-                    if(!get_object_from_str(&compl, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                        return FALSE;
-                    }
+            int i;
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* compl;
+                if(!get_object_from_str(&compl, runinfo->mArgsRuntime[i], gCompletionObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
+                }
 
-                    if(compl && TYPE(compl) == T_COMPLETION) {
+                if(compl == NULL || TYPE(compl) != T_COMPLETION) {
+                    sObject* object = gCompletionObject;
+                    sObject* prefix = STRING_NEW_STACK("");
+                    sObject* name = STRING_NEW_STACK("");
+
+                    split_prefix_of_object_and_name(&object, prefix, name, runinfo->mArgsRuntime[i]);
+
+                    compl = uobject_item(object, "__all__");;
+                }
+
+                if(compl && TYPE(compl) == T_COMPLETION) {
+                    if(sRunInfo_option(runinfo, "-source")) {
                         sObject* block = SCOMPLETION(compl).mBlock;
                         if(!fd_write(nextout, SBLOCK(block).mSource, strlen(SBLOCK(block).mSource))) 
                         {
@@ -764,39 +808,21 @@ BOOL cmd_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
-                        
                     }
                     else {
-                        err_msg("There is no object", runinfo->mSName, runinfo->mSLine, runinfo->mArgsRuntime[i]);
-
-                        return FALSE;
-                    }
-                }
-
-                runinfo->mRCode = 0;
-            }
-            else {
-                int i;
-                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                    sObject* compl;
-                    if(!get_object_from_str(&compl, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                        return FALSE;
-                    }
-
-                    if(compl && TYPE(compl) == T_COMPLETION) {
                         if(!run_object(compl, nextin, nextout, runinfo)) {
                             return FALSE;
                         }
                     }
-                    else {
-                        err_msg("There is no object", runinfo->mSName, runinfo->mSLine, runinfo->mArgsRuntime[i]);
-
-                        return FALSE;
-                    }
                 }
+                else {
+                    err_msg("There is no object", runinfo->mSName, runinfo->mSLine, runinfo->mArgsRuntime[i]);
 
-                runinfo->mRCode = 0;
+                    return FALSE;
+                }
             }
+
+            runinfo->mRCode = 0;
         }
     }
 
@@ -942,6 +968,44 @@ BOOL cmd_readline_write_history(sObject* nextin, sObject* nextout, sRunInfo* run
     if(runinfo->mArgsNumRuntime == 2) {
         char* fname = runinfo->mArgsRuntime[1];
         write_history(fname);
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_readline_history(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    HISTORY_STATE* history_state = history_get_history_state();
+
+    HIST_ENTRY** entries = history_list();
+    while(*entries) {
+        char* line = (*entries)->line;
+        if(!fd_write(nextout, line, strlen(line)))
+        {
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+        if(!fd_write(nextout, "\n", 1))
+        {
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+
+        entries++;
+    }
+
+    runinfo->mRCode = 0;
+
+    return TRUE;
+}
+
+BOOL cmd_readline_inhibit_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mArgsNumRuntime == 2) {
+        rl_inhibit_completion = atoi(runinfo->mArgsRuntime[1]);
         runinfo->mRCode = 0;
     }
 
@@ -1393,7 +1457,115 @@ puts("");
     rl_forced_update_display();
 }
 
-void xyzsh_readline_init(BOOL runtime_script)
+BOOL run_completion(sObject* compl, sObject* nextin, sObject* nextout, sRunInfo* runinfo) 
+{
+    stack_start_stack();
+
+    sObject* nextin2 = FD_NEW_STACK();
+    if(!fd_write(nextin2, rl_line_buffer, strlen(rl_line_buffer))) {
+        stack_end_stack();
+        return FALSE;
+    }
+
+    sObject* fun = FUN_NEW_STACK(NULL);
+    sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
+    vector_add(gStackFrames, stackframe);
+    //uobject_init(stackframe);
+    SFUN(fun).mLocalObjects = stackframe;
+
+    sObject* argv = VECTOR_NEW_GC(16, FALSE);
+    if(runinfo->mArgsNum == 1) {
+        vector_add(argv, STRING_NEW_GC(runinfo->mArgs[0], FALSE));
+        vector_add(argv, STRING_NEW_GC("", FALSE));
+    }
+    else if(runinfo->mArgsNum > 1) {
+        vector_add(argv, STRING_NEW_GC(runinfo->mArgs[0], FALSE));
+
+        /// if parser uses PARSER_MAGIC_NUMBER_OPTION, convert it
+        char* str = runinfo->mArgs[runinfo->mArgsNum-1];
+        char* new_str = MALLOC(strlen(str) + 1);
+        xstrncpy(new_str, str, strlen(str) + 1);
+        if(new_str[0] == PARSER_MAGIC_NUMBER_OPTION) {
+            new_str[0] = '-';
+        }
+        vector_add(argv, STRING_NEW_GC(new_str, FALSE));
+        FREE(new_str);
+    }
+    else {
+        vector_add(argv, STRING_NEW_GC("", FALSE));
+        vector_add(argv, STRING_NEW_GC("", FALSE));
+    }
+    uobject_put(SFUN(fun).mLocalObjects, "ARGV", argv);
+
+    xyzsh_set_signal();
+    int rcode = 0;
+    if(!run(SCOMPLETION(compl).mBlock, nextin2, nextout, &rcode, gRootObject, fun)) {
+        if(rcode == RCODE_BREAK) {
+        }
+        else if(rcode & RCODE_RETURN) {
+        }
+        else if(rcode == RCODE_EXIT) {
+        }
+        else {
+            err_msg_adding("run time error\n", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        }
+
+        (void)vector_pop_back(gStackFrames);
+        readline_signal();
+        stack_end_stack();
+
+        return FALSE;
+    }
+    (void)vector_pop_back(gStackFrames);
+    readline_signal();
+    stack_end_stack();
+
+    return TRUE;
+}
+
+static char *
+readline_quote_filename (char *s, int rtype, char *qcp)
+{
+  return strdup(s);
+}
+
+static char *
+readline_dequote_filename (const char *text, int quote_char)
+{
+  return strdup(text);
+}
+
+static int readline_char_is_quoted(const char *string, int eindex)
+{
+  return (0);
+}
+
+void completion_no_display_matches_hook(char** matches, int num_matches, int max_length)
+{
+}
+
+void readline_no_completion()
+{
+    rl_attempted_completion_function = 0;
+    rl_completion_entry_function = readline_filename_completion_null_generator;
+
+    rl_completer_quote_characters = "\"'";
+    rl_completer_word_break_characters = " \t\n\"'|!&;()$<>=";
+    rl_completion_append_character= ' ';
+    rl_filename_quote_characters = " \t\n\"'|!&;()$%<>[]~";
+    rl_filename_quoting_function = bash_quote_filename;
+    rl_filename_dequoting_function = (rl_dequote_func_t*)bash_dequote_filename;
+    rl_char_is_quoted_p = (rl_linebuf_func_t*)lftp_char_is_quoted;
+    rl_menu_completion_entry_function = 0;
+
+    rl_completion_suppress_quote = 1;
+
+    rl_completion_display_matches_hook = 0;
+
+    rl_bind_key('x'-'a'+1, readline_macro);
+}
+
+void readline_completion()
 {
     rl_attempted_completion_function = readline_on_complete;
     rl_completion_entry_function = readline_filename_completion_null_generator;
@@ -1405,10 +1577,20 @@ void xyzsh_readline_init(BOOL runtime_script)
     rl_filename_quoting_function = bash_quote_filename;
     rl_filename_dequoting_function = (rl_dequote_func_t*)bash_dequote_filename;
     rl_char_is_quoted_p = (rl_linebuf_func_t*)lftp_char_is_quoted;
+    rl_menu_completion_entry_function = rl_filename_completion_function;
+
+    rl_completion_suppress_quote = 1;
 
     rl_completion_display_matches_hook = completion_display_matches_hook;
 
     rl_bind_key('x'-'a'+1, readline_macro);
+    rl_bind_key('\n', readline_bind_cr);
+    rl_bind_key('\r', readline_bind_cr);
+}
+
+void xyzsh_readline_init(BOOL runtime_script)
+{
+    readline_completion();
 }
 
 void xyzsh_readline_final()
@@ -1431,5 +1613,7 @@ void readline_object_init(sObject* self)
     uobject_put(readline, "replace_line", NFUN_NEW_GC(cmd_readline_replace_line, NULL, TRUE));
     uobject_put(readline, "point", NFUN_NEW_GC(cmd_readline_point, NULL, TRUE));
     uobject_put(readline, "line_buffer", NFUN_NEW_GC(cmd_readline_line_buffer, NULL, TRUE));
+    uobject_put(readline, "inhibit_completion", NFUN_NEW_GC(cmd_readline_inhibit_completion, NULL, TRUE));
+    uobject_put(readline, "history", NFUN_NEW_GC(cmd_readline_history, NULL, TRUE));
 }
 

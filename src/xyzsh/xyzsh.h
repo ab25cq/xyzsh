@@ -175,6 +175,7 @@ typedef struct _option_hash_it {
 #define ENV_FLAGS_KIND_ENV 0x01
 #define ENV_FLAGS_KIND_BLOCK 0x02
 #define ENV_FLAGS_DOUBLE_DOLLAR 0x10
+#define ENV_FLAGS_OPTION 0x20
 
 typedef unsigned char eEnvKind;
 
@@ -273,6 +274,7 @@ typedef struct {
 #define COMPLETION_FLAGS_STATMENT_HEAD 0x10000
 #define COMPLETION_FLAGS_AFTER_REDIRECT 0x20000
 #define COMPLETION_FLAGS_AFTER_EQUAL 0x40000
+#define COMPLETION_FLAGS_HERE_DOCUMENT 0x80000
 
 struct block_obj
 {
@@ -466,6 +468,7 @@ void uobject_put(sObject* self, char* key, void* item);
 void uobject_init(sObject* self);
 void uobject_root_init(sObject* self);
 void readline_object_init(sObject* self);
+void curses_object_init(sObject* self);
 void uobject_put(sObject* self, char* key, void* item);
 void* uobject_item(sObject* self, char* key);
 void uobject_clear(sObject* self);
@@ -565,7 +568,12 @@ typedef BOOL (*fInternalCommand)(sObject*, sObject*, sRunInfo*);
 extern fInternalCommand kInternalCommands[kInnerCommand];
 extern char * gCommandKindStrs[kCommandMax];
 
+BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_delete(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_count(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_objinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_kanjicode(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_defined(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
@@ -764,6 +772,7 @@ void sCommand_sweep_runtime_info(sCommand* command);
 void sStatment_sweep_runtime_info(sStatment* self);
 
 BOOL run_function(sObject* fun, sObject* nextin, sObject* nextout, sRunInfo* runinfo, char** argv, int argc, sObject** blocks, int blocks_num);
+BOOL run_completion(sObject* compl, sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 
 #define PARSER_MAGIC_NUMBER_ENV 3
 #define PARSER_MAGIC_NUMBER_OPTION 5
@@ -786,6 +795,8 @@ extern sObject* gDirStack;
 
 void readline_write_history();
 void readline_read_history();
+void readline_no_completion();
+void readline_completion();
 
 char* xstrncpy(char* src, char* des, int size);
 char* xstrncat(char* src, char* des, int size);
@@ -800,7 +811,7 @@ void split_prefix_of_object_and_name2(sObject** object, sObject* prefix, sObject
 //////////////////////////////////////////////////////////////////////
 BOOL xyzsh_load_file(char* fname, char** argv, int argc, sObject* current_object);
 void xyzsh_opt_c(char* cmd, char** argv, int argc);
-void xyzsh_readline_interface(char* cmdline, int cursor, char** argv, int argc);
+void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int argc, BOOL exit_in_spite_ofjob_exist);
 
 void xyzsh_add_inner_command(sObject* object, char* name, fXyzshNativeFun command, int arg_num, ...);
 

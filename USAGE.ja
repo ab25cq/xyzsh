@@ -54,8 +54,9 @@
     1. シングルクォートで囲む  (例) 'string'
     2. ダブルクォートで囲む (例) "string"
     3. 特殊文字の前にクォートを付ける (例) \;
+    4. %q(), %Q()などのクォート
 
-    の三つがあります。
+    の４つがあります。
 
     クォートとクォートの関係は排他的で、あるクォートの中では他のクォートは意味を失います。 
     
@@ -68,7 +69,7 @@
     > print '\\'
     \\
 
-    ただしダブルクォートの中ではクォートは意味を持ちます。
+    ただしダブルクォートの中ではエスケープシーケンスやクォートは意味を持ちます。
 
     > print "\""
     "
@@ -76,7 +77,7 @@
     > print "\\"
     \
 
-    シングルクォートの中ではクォートは意味を持ちません。
+    シングルクォートの中ではエスケープシーケンスやクォートは意味を持ちません。
 
     > print '\''
     error
@@ -84,7 +85,7 @@
     > print '\\'
     \\
 
-    クォートの後に特定の英字を置くことでコントロールキャラクタがコマンドラインに埋め込まれます。
+    クォートの後に特定の英字を置くことでコントロールキャラクタがコマンドラインに埋め込まれます。(エスケープシーケンス)
 
     \n 改行
     \r キャリッジリターン
@@ -99,6 +100,22 @@
 
     > print 'Hello World\nHello World\nHello World\n'
     Hello World\nHello World\nHello World\n
+
+    %q(), %Q()によるクォートは以下のように使います。
+
+    > sys::ruby -e %q<print "'Hello World'\n">
+    'Hello World'
+
+    > sys::ruby -e %q!print "'Hello World'\n"!
+    'Hello World'
+
+    > print %q(Hello World\n)
+    Hello World\n
+
+    > print %Q/Hello World\n/
+    Hello World
+
+    %Qの場合はエスケープシーケンスや変数が展開されます。
 
 1.2 パイプとコンテキストパイプ
     
@@ -352,6 +369,18 @@
     > c
     Makefile.in
 
+    変数の展開時オプションはクォートされてしまいます。（オプションとして解釈されない）
+    解釈させるためには$-varなどと$-で変数を参照します。
+
+    > print "1234512345" | index -count 2 1
+    5
+    > print "-count" | var a
+    > print "1234512345" | index $a 2 1
+    invalid command using
+    > print "1234512345" | index $-a 2 1
+    5
+
+
 1.7 オブジェクト指向
 
     xyzshのオブジェクト指向はファイルシステムのようなものだと思ってください。
@@ -509,6 +538,15 @@
 
     > fun $$w(print aaa bbb ccc | split -Lw)
     3
+
+    オプションを展開したい場合は$-(), $$-()を使います。
+
+    > print "1234512345" | index -count 2 1
+    5
+    > print "1234512345" | index $(print "-count") 2 1
+    invalid command using
+    > print "1234512345" | index $-(print "-count") 2 1
+    5
 
 2.1 例外
 

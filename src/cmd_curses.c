@@ -593,16 +593,22 @@ BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         prompt = "> ";
     }
 
+    if(sRunInfo_option(runinfo, "-no-completion")) {
+        readline_no_completion();
+    }
+
     char* buf = readline(prompt);
 
     if(buf) {
         if(!fd_write(nextout, buf, strlen(buf))) {
             err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            readline_completion();
             return FALSE;
         }
     }
     
+    readline_completion();
     runinfo->mRCode = 0;
 
     return TRUE;
@@ -1248,3 +1254,236 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     return TRUE;
 }
+
+BOOL cmd_curses_initscr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    initscr();
+    raw();
+    keypad(stdscr, TRUE);
+    noecho();
+    runinfo->mRCode = 0;
+
+    return TRUE;
+}
+
+BOOL cmd_curses_endwin(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(mis_raw_mode()) {
+        endwin();
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_curses_getch(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(mis_raw_mode()) {
+        int key = getch();
+        char buf[BUFSIZ];
+        int n = snprintf(buf, BUFSIZ, "%d\n", key);
+        if(!fd_write(nextout, buf, n)) {
+            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_curses_move(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(mis_raw_mode()) {
+        if(runinfo->mArgsNumRuntime == 3) {
+            int y = atoi(runinfo->mArgsRuntime[1]);
+            int x = atoi(runinfo->mArgsRuntime[2]);
+            move(y, x);
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_curses_refresh(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(mis_raw_mode()) {
+        refresh();
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_curses_clear(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(mis_raw_mode()) {
+        clear();
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_curses_printw(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    eLineField lf = gLineField;
+    if(sRunInfo_option(runinfo, "-Lw")) {
+        lf = kCRLF;
+    }
+    else if(sRunInfo_option(runinfo, "-Lm")) {
+        lf = kCR;
+    }
+    else if(sRunInfo_option(runinfo, "-Lu")) {
+        lf = kLF;
+    }
+    else if(sRunInfo_option(runinfo, "-La")) {
+        lf = kBel;
+    }
+
+    if(mis_raw_mode() && runinfo->mArgsNumRuntime == 2) {
+        if(runinfo->mFilter) {
+            fd_split(nextin, lf);
+        }
+
+        /// go ///
+        char* p = runinfo->mArgsRuntime[1];
+
+        int strings_num = 0;
+        while(*p) {
+            if(*p == '%') {
+                p++;
+
+                if(*p == '%') {
+                    p++;
+                    printw("%%");
+                }
+                else {
+                    if(*p == 'd' || *p == 'i' || *p == 'o' || *p == 'u' || *p == 'x' || *p == 'X' || *p == 'c') 
+                    {
+                        char aformat[16];
+                        snprintf(aformat, 16, "%%%c", *p);
+                        p++;
+
+                        char* arg;
+                        if(runinfo->mFilter && strings_num < vector_count(SFD(nextin).mLines)) {
+                            arg = vector_item(SFD(nextin).mLines, strings_num);
+                        }
+                        else {
+                            arg = "0";
+                        }
+                        strings_num++;
+
+                        char* buf;
+                        int size = asprintf(&buf, aformat, atoi(arg));
+
+                        printw("%s", buf);
+                        free(buf);
+                    }
+                    else if(*p == 'e' || *p == 'E' || *p == 'f' || *p == 'F' || *p == 'g' || *p == 'G' || *p == 'a' || *p == 'A')
+                    {
+                        char aformat[16];
+                        snprintf(aformat, 16, "%%%c", *p);
+                        p++;
+
+                        char* arg;
+                        if(runinfo->mFilter && strings_num < vector_count(SFD(nextin).mLines)) {
+                            arg = vector_item(SFD(nextin).mLines, strings_num);
+                        }
+                        else {
+                            arg = "0";
+                        }
+                        strings_num++;
+
+                        char* buf;
+                        int size = asprintf(&buf, aformat, atof(arg));
+
+                        printw("%s", buf);
+                        free(buf);
+                    }
+                    else if(*p == 's') {
+                        char aformat[16];
+                        snprintf(aformat, 16, "%%%c", *p);
+                        p++;
+
+                        sObject* arg;
+                        if(runinfo->mFilter && strings_num < vector_count(SFD(nextin).mLines)) {
+                            arg = STRING_NEW_STACK(vector_item(SFD(nextin).mLines, strings_num));
+                        }
+                        else {
+                            arg = STRING_NEW_STACK("");
+                        }
+                        strings_num++;
+
+                        string_chomp(arg);
+
+                        char* buf;
+                        int size = asprintf(&buf, aformat, string_c_str(arg));
+
+                        printw("%s", buf);
+                        free(buf);
+                    }
+                    else {
+                        err_msg("invalid format at printf", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        return FALSE;
+                    }
+                }
+            }
+            else {
+                printw("%c", *p++);
+            }
+        }
+
+        if(runinfo->mFilter) {
+            if(strings_num > vector_count(SFD(nextin).mLines)) {
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 1;
+                }
+            }
+            else {
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
+            }
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_curses_is_raw_mode(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(mis_raw_mode()) {
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+void curses_object_init(sObject* self)
+{
+    sObject* curses = UOBJECT_NEW_GC(8, self, "curses", TRUE);
+    uobject_init(curses);
+    uobject_put(self, "curses", curses);
+
+    uobject_put(curses, "initscr", NFUN_NEW_GC(cmd_curses_initscr, NULL, TRUE));
+    uobject_put(curses, "endwin", NFUN_NEW_GC(cmd_curses_endwin, NULL, TRUE));
+    uobject_put(curses, "getch", NFUN_NEW_GC(cmd_curses_getch, NULL, TRUE));
+    uobject_put(curses, "move", NFUN_NEW_GC(cmd_curses_move, NULL, TRUE));
+    uobject_put(curses, "refresh", NFUN_NEW_GC(cmd_curses_refresh, NULL, TRUE));
+    uobject_put(curses, "clear", NFUN_NEW_GC(cmd_curses_clear, NULL, TRUE));
+    uobject_put(curses, "printw", NFUN_NEW_GC(cmd_curses_printw, NULL, TRUE));
+    uobject_put(curses, "is_raw_mode", NFUN_NEW_GC(cmd_curses_is_raw_mode, NULL, TRUE));
+}
+

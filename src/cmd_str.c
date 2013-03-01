@@ -640,8 +640,10 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         lf = kBel;
     }
 
-    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 2) {
-        fd_split(nextin, lf);
+    if(runinfo->mArgsNumRuntime == 2) {
+        if(runinfo->mFilter) {
+            fd_split(nextin, lf);
+        }
 
         /// go ///
         char* p = runinfo->mArgsRuntime[1];
@@ -667,7 +669,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         p++;
 
                         char* arg;
-                        if(strings_num < vector_count(SFD(nextin).mLines)) {
+                        if(runinfo->mFilter && strings_num < vector_count(SFD(nextin).mLines)) {
                             arg = vector_item(SFD(nextin).mLines, strings_num);
                         }
                         else {
@@ -692,7 +694,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         p++;
 
                         char* arg;
-                        if(strings_num < vector_count(SFD(nextin).mLines)) {
+                        if(runinfo->mFilter && strings_num < vector_count(SFD(nextin).mLines)) {
                             arg = vector_item(SFD(nextin).mLines, strings_num);
                         }
                         else {
@@ -716,7 +718,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         p++;
 
                         sObject* arg;
-                        if(strings_num < vector_count(SFD(nextin).mLines)) {
+                        if(runinfo->mFilter && strings_num < vector_count(SFD(nextin).mLines)) {
                             arg = STRING_NEW_STACK(vector_item(SFD(nextin).mLines, strings_num));
                         }
                         else {
@@ -751,21 +753,26 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
         }
 
-        if(strings_num > vector_count(SFD(nextin).mLines)) {
-            if(SFD(nextin).mBufLen == 0) {
-                runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        if(runinfo->mFilter) {
+            if(strings_num > vector_count(SFD(nextin).mLines)) {
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 1;
+                }
             }
             else {
-                runinfo->mRCode = 1;
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
             }
         }
         else {
-            if(SFD(nextin).mBufLen == 0) {
-                runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-            }
-            else {
-                runinfo->mRCode = 0;
-            }
+            runinfo->mRCode = 0;
         }
     }
 
@@ -875,9 +882,6 @@ BOOL cmd_del(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int number;
         char* argument;
         if(argument = sRunInfo_option_with_argument(runinfo, "-number")) {
-            number = atoi(argument);
-        }
-        else if(argument = sRunInfo_option_with_argument(runinfo, "-index")) {
             number = atoi(argument);
         }
         else {
@@ -1141,6 +1145,2476 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     runinfo->mRCode = 0;
                 }
             }
+        }
+    }
+
+    return TRUE;
+}
+
+void transform_argument_to_tr_style_chars_on_byte(sRunInfo* runinfo, int* chars_len, char** chars, int* chars_num, int* rchars_len, char** rchars, int* rchars_num)
+{
+    int i;
+    for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+        char* pattern = runinfo->mArgsRuntime[i];
+
+        /// split pattern ///
+        char* p = pattern;
+        if(*p == '^') {
+            p++;
+
+            while(*p) {
+                if(*(p+1) == '-' && *(p+2) != 0) {
+                    if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num >= *rchars_len) {
+                                (*rchars_len) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char)*(*rchars_len));
+                            }
+                            (*rchars)[(*rchars_num)++] = c++;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num >= *rchars_len) {
+                                (*rchars_len) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char)*(*rchars_len));
+                            }
+                            (*rchars)[(*rchars_num)++] = c++;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num >= *rchars_len) {
+                                (*rchars_len) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char)*(*rchars_len));
+                            }
+                            (*rchars)[(*rchars_num)++] = c++;
+                        }
+                        p+=3;
+                    }
+                    else {
+                        p+=3;
+                    }
+                }
+                else {
+                    if(*rchars_num >= *rchars_len) {
+                        (*rchars_len) *= 2;
+                        *rchars = REALLOC(*rchars, sizeof(char)*(*rchars_len));
+                    }
+                    (*rchars)[(*rchars_num)++] = *p++;
+                }
+            }
+            (*rchars)[*rchars_num] = 0;
+        }
+        else {
+            while(*p) {
+                if(*(p+1) == '-' && *(p+2) != 0) {
+                    if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num >= *chars_len) {
+                                (*chars_len) *= 2;
+                                *chars = REALLOC(chars, sizeof(char)*(*chars_len));
+                            }
+                            (*chars)[(*chars_num)++] = c++;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num >= *chars_len) {
+                                (*chars_len) *= 2;
+                                *chars = REALLOC(chars, sizeof(char)*(*chars_len));
+                            }
+                            (*chars)[(*chars_num)++] = c++;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num >= *chars_len) {
+                                (*chars_len) *= 2;
+                                *chars = REALLOC(*chars, sizeof(char)*(*chars_len));
+                            }
+                            (*chars)[(*chars_num)++] = c++;
+                        }
+                        p+=3;
+                    }
+                    else {
+                        p+=3;
+                    }
+                }
+                else {
+                    if(*chars_num >= *chars_len) {
+                        (*chars_len) *= 2;
+                        *chars = REALLOC(chars, sizeof(char)*(*chars_len));
+                    }
+                    (*chars)[(*chars_num)++] = *p++;
+                }
+            }
+            (*chars)[*chars_num] = 0;
+        }
+    }
+}
+
+void transform_argument_to_tr_style_chars_on_utf8(sRunInfo* runinfo, int* chars_num, int* chars_size, char*** chars, int* rchars_num, int* rchars_size, char*** rchars)
+{
+    int i;
+    for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+        char* pattern = runinfo->mArgsRuntime[i];
+
+        /// split pattern ///
+        if(*pattern == '^') {
+            char* p = pattern + 1;
+            while(*p) {
+                int size;
+                if(((unsigned char)*p) > 127) {
+                    size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                }
+                else {
+                    size = 1;
+                }
+
+                if(size == 1 && *(p+1) == '-' && *(p+2) != 0) {
+                    if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num > *rchars_size) {
+                                (*rchars_size) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char*)*(*rchars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*rchars)[(*rchars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num > *rchars_size) {
+                                (*rchars_size) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char*)*(*rchars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*rchars)[(*rchars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num > *rchars_size) {
+                                (*rchars_size) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char*)*(*rchars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*rchars)[(*rchars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else {
+                        p+=3;
+                    }
+                }
+                else {
+                    if(*rchars_num > *rchars_size) {
+                        (*rchars_size) *= 2;
+                        *rchars = REALLOC(*rchars, sizeof(char*)*(*rchars_size));
+                    }
+
+                    char* str = MALLOC(sizeof(char)*size + 1);
+                    memcpy(str, p, size);
+                    str[size] = 0;
+
+                    (*rchars)[(*rchars_num)++] = str;
+
+                    p+= size;
+                }
+            }
+        }
+        else {
+            char* p = pattern;
+            while(*p) {
+                int size;
+                if(((unsigned char)*p) > 127) {
+                    size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                }
+                else {
+                    size = 1;
+                }
+
+                if(size == 1 && *(p+1) == '-' && *(p+2) != 0) {
+                    if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num > *chars_size) {
+                                (*chars_size) *= 2;
+                                *chars = REALLOC(chars, sizeof(char*)*(*chars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*chars)[(*chars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num > *chars_size) {
+                                (*chars_size) *= 2;
+                                *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*chars)[(*chars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num > *chars_size) {
+                                (*chars_size) *= 2;
+                                *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*chars)[(*chars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else {
+                        p+=3;
+                    }
+                }
+                else {
+                    if(*chars_num > *chars_size) {
+                        (*chars_size) *= 2;
+                        *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                    }
+
+                    char* str = MALLOC(sizeof(char)*size + 1);
+                    memcpy(str, p, size);
+                    str[size] = 0;
+
+                    (*chars)[(*chars_num)++] = str;
+
+                    p+= size;
+                }
+            }
+        }
+    }
+}
+
+void transform_argument_to_tr_style_chars_on_sjis_or_eucjp(sRunInfo* runinfo, enum eKanjiCode code, int* chars_num, int* chars_size, char*** chars, int* rchars_num, int* rchars_size, char*** rchars)
+{
+    int i;
+    for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+        char* pattern = runinfo->mArgsRuntime[i];
+
+        /// split pattern ///
+        if(*pattern == '^') {
+            char* p = pattern + 1;
+            while(*p) {
+                int size;
+                if(is_kanji(code, *p)) {
+                    size = 2;
+                }
+                else {
+                    size = 1;
+                }
+
+                if(size == 1 && *(p+1) == '-' && *(p+2) != 0) {
+                    if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num > *rchars_size) {
+                                (*rchars_size) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char*)*(*rchars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*rchars)[(*rchars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num > *rchars_size) {
+                                (*rchars_size) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char*)*(*rchars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*rchars)[(*rchars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*rchars_num > *rchars_size) {
+                                (*rchars_size) *= 2;
+                                *rchars = REALLOC(*rchars, sizeof(char*)*(*rchars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*rchars)[(*rchars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else {
+                        p+=3;
+                    }
+                }
+                else {
+                    if(*rchars_num > *rchars_size) {
+                        (*rchars_size) *= 2;
+                        *rchars = REALLOC(*rchars, sizeof(char*)*(*rchars_size));
+                    }
+
+                    char* str = MALLOC(sizeof(char)*size + 1);
+                    memcpy(str, p, size);
+                    str[size] = 0;
+
+                    (*rchars)[(*rchars_num)++] = str;
+
+                    p+= size;
+                }
+            }
+        }
+        else {
+            char* p = pattern;
+            while(*p) {
+                int size;
+                if(is_kanji(code, *p)) {
+                    size = 2;
+                }
+                else {
+                    size = 1;
+                }
+
+                if(size == 1 && *(p+1) == '-' && *(p+2) != 0) {
+                    if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num > *chars_size) {
+                                (*chars_size) *= 2;
+                                *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*chars)[(*chars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num > *chars_size) {
+                                (*chars_size) *= 2;
+                                *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*chars)[(*chars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                        char c = *p;
+                        while(c <= *(p+2)) {
+                            if(*chars_num > *chars_size) {
+                                (*chars_size) *= 2;
+                                *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                            }
+
+                            char* str = MALLOC(2);
+                            *str = c++;
+                            *(str+1) = 0;
+
+                            (*chars)[(*chars_num)++] = str;
+                        }
+                        p+=3;
+                    }
+                    else {
+                        p+=3;
+                    }
+                }
+                else {
+                    if(*chars_num > *chars_size) {
+                        (*chars_size) *= 2;
+                        *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                    }
+
+                    char* str = MALLOC(sizeof(char)*size + 1);
+                    memcpy(str, p, size);
+                    str[size] = 0;
+
+                    (*chars)[(*chars_num)++] = str;
+
+                    p+= size;
+                }
+            }
+        }
+    }
+}
+
+BOOL cmd_count(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime >= 2) {
+        char* target = SFD(nextin).mBuf;
+
+        int ret = 0;
+        if(code == kByte) {
+            int chars_len = 128;
+            char* chars = MALLOC(sizeof(char)*chars_len);
+            int chars_num = 0;
+
+            int rchars_len = 128;
+            char* rchars = MALLOC(sizeof(char)*rchars_len);
+            int rchars_num = 0;
+            
+            transform_argument_to_tr_style_chars_on_byte(runinfo, &chars_len, &chars, &chars_num, &rchars_len, &rchars, &rchars_num);
+
+            /// go ///
+            char* p = target;
+            if(chars_num > 0) {
+                while(*p) {
+                    char* p2 = chars;
+
+                    while(*p2) {
+                        if(*p == *p2) {
+                            BOOL found = FALSE;
+                            char* p3 = rchars;
+                            while(*p3) {
+                                if(*p == *p3) {
+                                    found = TRUE;
+                                    break;
+                                }
+                                else {
+                                    *p3++;
+                                }
+                            }
+                            if(!found) {
+                                ret++;
+                            }
+                            break;
+                        }
+                        else {
+                            *p2++;
+                        }
+                    }
+                    p++;
+                }
+            }
+            else if(rchars_num > 0) {
+                while(*p) {
+                    BOOL found = FALSE;
+                    char* p3 = rchars;
+                    while(*p3) {
+                        if(*p == *p3) {
+                            found = TRUE;
+                            break;
+                        }
+                        else {
+                            *p3++;
+                        }
+                    }
+                    if(!found) {
+                        ret++;
+                    }
+                    p++;
+                }
+            }
+
+            FREE(chars);
+            FREE(rchars);
+        }
+        else if(code == kUtf8) {
+            int chars_num = 0;
+            int chars_size = 128;
+            char** chars = MALLOC(sizeof(char*)*chars_size);
+
+            int rchars_num = 0;
+            int rchars_size = 128;
+            char** rchars = MALLOC(sizeof(char*)*rchars_size);
+
+            transform_argument_to_tr_style_chars_on_utf8(runinfo, &chars_num, &chars_size, &chars, &rchars_num, &rchars_size, &rchars);
+
+            /// go ///
+            char* p = target;
+            if(chars_num > 0) {
+                while(*p) {
+                    int size;
+                    if(((unsigned char)*p) > 127) {
+                        size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL chars_true = FALSE;
+                    int i;
+                    for(i=0; i<chars_num; i++) {
+                        if(memcmp(p, chars[i], size) == 0) {
+                            chars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    BOOL rchars_true = FALSE;
+                    for(i=0; i<rchars_num; i++) {
+                        if(memcmp(p, rchars[i], size) == 0) {
+                            rchars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(chars_true && !rchars_true) {
+                        ret++;
+                    }
+
+                    p+=size;
+                }
+            }
+            else if(rchars_num > 0) {
+                while(*p) {
+                    int size;
+                    if(((unsigned char)*p) > 127) {
+                        size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL rchars_true = FALSE;
+                    int i;
+                    for(i=0; i<rchars_num; i++) {
+                        if(memcmp(p, rchars[i], size) == 0) {
+                            rchars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(!rchars_true) {
+                        ret++;
+                    }
+
+                    p+=size;
+                }
+            }
+
+            int i;
+            for(i=0; i<chars_num; i++) {
+                FREE(chars[i]);
+            }
+            FREE(chars);
+            for(i=0; i<rchars_num; i++) {
+                FREE(rchars[i]);
+            }
+            FREE(rchars);
+        }
+        else {
+            int chars_num = 0;
+            int chars_size = 128;
+            char** chars = MALLOC(sizeof(char*)*chars_size);
+
+            int rchars_num = 0;
+            int rchars_size = 128;
+            char** rchars = MALLOC(sizeof(char*)*rchars_size);
+            
+            transform_argument_to_tr_style_chars_on_sjis_or_eucjp(runinfo, code, &chars_num, &chars_size, &chars, &rchars_num, &rchars_size, &rchars);
+
+            /// go ///
+            char* p = target;
+            if(chars_num > 0) {
+                while(*p) {
+                    int size;
+                    if(is_kanji(code, *p)) {
+                        size = 2;
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL chars_true = FALSE;
+                    int i;
+                    for(i=0; i<chars_num; i++) {
+                        if(memcmp(p, chars[i], size) == 0) {
+                            chars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    BOOL rchars_true = FALSE;
+                    for(i=0; i<rchars_num; i++) {
+                        if(memcmp(p, rchars[i], size) == 0) {
+                            rchars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(chars_true && !rchars_true) {
+                        ret++;
+                    }
+
+                    p+=size;
+                }
+            }
+            else if(rchars_num > 0) {
+                while(*p) {
+                    int size;
+                    if(is_kanji(code, *p)) {
+                        size = 2;
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL rchars_true = FALSE;
+                    int i;
+                    for(i=0; i<rchars_num; i++) {
+                        if(memcmp(p, rchars[i], size) == 0) {
+                            rchars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(!rchars_true) {
+                        ret++;
+                    }
+
+                    p+=size;
+                }
+            }
+
+            int i;
+            for(i=0; i<chars_num; i++) {
+                FREE(chars[i]);
+            }
+            FREE(chars);
+            for(i=0; i<rchars_num; i++) {
+                FREE(rchars[i]);
+            }
+            FREE(rchars);
+        }
+
+        char buf[128];
+        int size = snprintf(buf, 128, "%d\n", ret);
+        if(!fd_write(nextout, buf, size)) {
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_delete(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime >= 2) {
+        char* target = SFD(nextin).mBuf;
+
+        if(code == kByte) {
+            int chars_len = 128;
+            char* chars = MALLOC(sizeof(char)*chars_len);
+            int chars_num = 0;
+
+            int rchars_len = 128;
+            char* rchars = MALLOC(sizeof(char)*rchars_len);
+            int rchars_num = 0;
+            
+            transform_argument_to_tr_style_chars_on_byte(runinfo, &chars_len, &chars, &chars_num, &rchars_len, &rchars, &rchars_num);
+
+            /// go ///
+            char* p = target;
+            if(chars_num > 0) {
+                while(*p) {
+                    BOOL delete_ = FALSE;
+
+                    char* p2 = chars;
+                    while(*p2) {
+                        if(*p == *p2) {
+                            BOOL found = FALSE;
+                            char* p3 = rchars;
+                            while(*p3) {
+                                if(*p == *p3) {
+                                    found = TRUE;
+                                    break;
+                                }
+                                else {
+                                    *p3++;
+                                }
+                            }
+                            if(!found) {
+                                delete_ = TRUE;
+                            }
+                            break;
+                        }
+                        else {
+                            *p2++;
+                        }
+                    }
+
+                    if(!delete_) {
+                        if(!fd_writec(nextout, *p)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            FREE(chars);
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p++;
+                }
+            }
+            else if(rchars_num > 0) {
+                while(*p) {
+                    BOOL found = FALSE;
+                    char* p3 = rchars;
+                    while(*p3) {
+                        if(*p == *p3) {
+                            found = TRUE;
+                            break;
+                        }
+                        else {
+                            *p3++;
+                        }
+                    }
+
+                    if(found) {
+                        if(!fd_writec(nextout, *p)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            FREE(chars);
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+                    p++;
+                }
+            }
+
+            FREE(chars);
+            FREE(rchars);
+        }
+        else if(code == kUtf8) {
+            int chars_num = 0;
+            int chars_size = 128;
+            char** chars = MALLOC(sizeof(char*)*chars_size);
+
+            int rchars_num = 0;
+            int rchars_size = 128;
+            char** rchars = MALLOC(sizeof(char*)*rchars_size);
+
+            transform_argument_to_tr_style_chars_on_utf8(runinfo, &chars_num, &chars_size, &chars, &rchars_num, &rchars_size, &rchars);
+
+            /// go ///
+            char* p = target;
+            if(chars_num > 0) {
+                while(*p) {
+                    int size;
+                    if(((unsigned char)*p) > 127) {
+                        size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL chars_true = FALSE;
+                    int i;
+                    for(i=0; i<chars_num; i++) {
+                        if(memcmp(p, chars[i], size) == 0) {
+                            chars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    BOOL rchars_true = FALSE;
+                    for(i=0; i<rchars_num; i++) {
+                        if(memcmp(p, rchars[i], size) == 0) {
+                            rchars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(!chars_true || rchars_true) {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p+=size;
+                }
+            }
+            else if(rchars_num > 0) {
+                while(*p) {
+                    int size;
+                    if(((unsigned char)*p) > 127) {
+                        size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL rchars_true = FALSE;
+                    int i;
+                    for(i=0; i<rchars_num; i++) {
+                        if(memcmp(p, rchars[i], size) == 0) {
+                            rchars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(rchars_true) {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p+=size;
+                }
+            }
+
+            int i;
+            for(i=0; i<chars_num; i++) {
+                FREE(chars[i]);
+            }
+            FREE(chars);
+            for(i=0; i<rchars_num; i++) {
+                FREE(rchars[i]);
+            }
+            FREE(rchars);
+        }
+        else {
+            int chars_num = 0;
+            int chars_size = 128;
+            char** chars = MALLOC(sizeof(char*)*chars_size);
+
+            int rchars_num = 0;
+            int rchars_size = 128;
+            char** rchars = MALLOC(sizeof(char*)*rchars_size);
+            
+            transform_argument_to_tr_style_chars_on_sjis_or_eucjp(runinfo, code, &chars_num, &chars_size, &chars, &rchars_num, &rchars_size, &rchars);
+
+            /// go ///
+            char* p = target;
+            if(chars_num > 0) {
+                while(*p) {
+                    int size;
+                    if(is_kanji(code, *p)) {
+                        size = 2;
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL chars_true = FALSE;
+                    int i;
+                    for(i=0; i<chars_num; i++) {
+                        if(memcmp(p, chars[i], size) == 0) {
+                            chars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    BOOL rchars_true = FALSE;
+                    for(i=0; i<rchars_num; i++) {
+                        if(memcmp(p, rchars[i], size) == 0) {
+                            rchars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(!chars_true || rchars_true) {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p+=size;
+                }
+            }
+            else if(rchars_num > 0) {
+                while(*p) {
+                    int size;
+                    if(is_kanji(code, *p)) {
+                        size = 2;
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL rchars_true = FALSE;
+                    int i;
+                    for(i=0; i<rchars_num; i++) {
+                        if(memcmp(p, rchars[i], size) == 0) {
+                            rchars_true = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(rchars_true) {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p+=size;
+                }
+            }
+
+
+            int i;
+            for(i=0; i<chars_num; i++) {
+                FREE(chars[i]);
+            }
+            FREE(chars);
+            for(i=0; i<rchars_num; i++) {
+                FREE(rchars[i]);
+            }
+            FREE(rchars);
+        }
+
+
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(runinfo->mFilter) {
+        char* target = SFD(nextin).mBuf;
+
+        if(code == kByte) {
+            if(runinfo->mArgsNumRuntime == 1) {
+                char* p = target;
+                char char_before = 0;
+                while(*p) {
+                    if(char_before != *p) {
+                        if(!fd_writec(nextout, *p)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+
+                    char_before = *p;
+                    p++;
+                }
+            }
+            else {
+                int chars_len = 128;
+                char* chars = MALLOC(sizeof(char)*chars_len);
+                int chars_num = 0;
+
+                int rchars_len = 128;
+                char* rchars = MALLOC(sizeof(char)*rchars_len);
+                int rchars_num = 0;
+
+                transform_argument_to_tr_style_chars_on_byte(runinfo, &chars_len, &chars, &chars_num, &rchars_len, &rchars, &rchars_num);
+
+                /// go ///
+                char* p = target;
+                char char_before = 0;
+                if(chars_num > 0) {
+                    while(*p) {
+                        BOOL squeeze_char = FALSE;
+
+                        char* p2 = chars;
+                        while(*p2) {
+                            if(*p == *p2) {
+                                BOOL found = FALSE;
+                                char* p3 = rchars;
+                                while(*p3) {
+                                    if(*p == *p3) {
+                                        found = TRUE;
+                                        break;
+                                    }
+                                    else {
+                                        *p3++;
+                                    }
+                                }
+                                if(!found) {
+                                    squeeze_char = TRUE;
+                                }
+                                break;
+                            }
+                            else {
+                                *p2++;
+                            }
+                        }
+
+                        if(!squeeze_char || char_before != *p) {
+                            if(!fd_writec(nextout, *p)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                FREE(chars);
+                                FREE(rchars);
+                                return FALSE;
+                            }
+                        }
+
+                        char_before = *p;
+                        p++;
+                    }
+                }
+                else if(rchars_num > 0) {
+                    while(*p) {
+                        BOOL squeeze_char = FALSE;
+                        char* p3 = rchars;
+                        while(*p3) {
+                            if(*p == *p3) {
+                                squeeze_char = TRUE;
+                                break;
+                            }
+                            else {
+                                *p3++;
+                            }
+                        }
+
+                        if(squeeze_char || char_before != *p) {
+                            if(!fd_writec(nextout, *p)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                FREE(chars);
+                                FREE(rchars);
+                                return FALSE;
+                            }
+                        }
+
+                        char_before = *p;
+                        p++;
+                    }
+                }
+
+                FREE(chars);
+                FREE(rchars);
+            }
+        }
+        else if(code == kUtf8) {
+            if(runinfo->mArgsNumRuntime == 1) {
+                char* p = target;
+                char string_before[32];
+                *string_before = 0;
+
+                while(*p) {
+                    int size;
+                    if(((unsigned char)*p) > 127) {
+                        size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    if(memcmp(string_before, p, size) != 0) {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+
+                    memcpy(string_before, p, size);
+                    string_before[size] = 0;
+                    p+=size;
+                }
+            }
+            else {
+                int chars_num = 0;
+                int chars_size = 128;
+                char** chars = MALLOC(sizeof(char*)*chars_size);
+
+                int rchars_num = 0;
+                int rchars_size = 128;
+                char** rchars = MALLOC(sizeof(char*)*rchars_size);
+
+                transform_argument_to_tr_style_chars_on_utf8(runinfo, &chars_num, &chars_size, &chars, &rchars_num, &rchars_size, &rchars);
+
+                /// go ///
+                char* p = target;
+                if(chars_num > 0) {
+                    char string_before[32];
+                    *string_before = 0;
+                    while(*p) {
+                        int size;
+                        if(((unsigned char)*p) > 127) {
+                            size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                        }
+                        else {
+                            size = 1;
+                        }
+
+                        BOOL chars_true = FALSE;
+                        int i;
+                        for(i=0; i<chars_num; i++) {
+                            if(memcmp(p, chars[i], size) == 0) {
+                                chars_true = TRUE;
+                                break;
+                            }
+                        }
+
+                        BOOL rchars_true = FALSE;
+                        for(i=0; i<rchars_num; i++) {
+                            if(memcmp(p, rchars[i], size) == 0) {
+                                rchars_true = TRUE;
+                                break;
+                            }
+                        }
+
+                        if(!chars_true || rchars_true || memcmp(string_before, p, size) != 0) {
+                            if(!fd_write(nextout, p, size)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                int i;
+                                for(i=0; i<chars_num; i++) {
+                                    FREE(chars[i]);
+                                }
+                                FREE(chars);
+                                for(i=0; i<rchars_num; i++) {
+                                    FREE(rchars[i]);
+                                }
+                                FREE(rchars);
+                                return FALSE;
+                            }
+                        }
+
+                        memcpy(string_before, p, size);
+                        string_before[size] = 0;
+                        p+=size;
+                    }
+                }
+                else if(rchars_num > 0) {
+                    char string_before[32];
+                    *string_before = 0;
+                    while(*p) {
+                        int size;
+                        if(((unsigned char)*p) > 127) {
+                            size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                        }
+                        else {
+                            size = 1;
+                        }
+
+                        BOOL rchars_true = FALSE;
+                        int i;
+                        for(i=0; i<rchars_num; i++) {
+                            if(memcmp(p, rchars[i], size) == 0) {
+                                rchars_true = TRUE;
+                                break;
+                            }
+                        }
+
+                        if(rchars_true || memcmp(string_before, p, size) != 0) {
+                            if(!fd_write(nextout, p, size)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                int i;
+                                for(i=0; i<chars_num; i++) {
+                                    FREE(chars[i]);
+                                }
+                                FREE(chars);
+                                for(i=0; i<rchars_num; i++) {
+                                    FREE(rchars[i]);
+                                }
+                                FREE(rchars);
+                                return FALSE;
+                            }
+                        }
+
+                        memcpy(string_before, p, size);
+                        string_before[size] = 0;
+                        p+=size;
+                    }
+                }
+
+                int i;
+                for(i=0; i<chars_num; i++) {
+                    FREE(chars[i]);
+                }
+                FREE(chars);
+                for(i=0; i<rchars_num; i++) {
+                    FREE(rchars[i]);
+                }
+                FREE(rchars);
+            }
+        }
+        else {
+            if(runinfo->mArgsNumRuntime == 1) {
+                char* p = target;
+                char string_before[32];
+                *string_before = 0;
+
+                while(*p) {
+                    int size;
+                    if(is_kanji(code, *p)) {
+                        size = 2;
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    if(memcmp(string_before, p, size) != 0) {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+
+                    memcpy(string_before, p, size);
+                    string_before[size] = 0;
+                    p+=size;
+                }
+            }
+            else {
+                int chars_num = 0;
+                int chars_size = 128;
+                char** chars = MALLOC(sizeof(char*)*chars_size);
+
+                int rchars_num = 0;
+                int rchars_size = 128;
+                char** rchars = MALLOC(sizeof(char*)*rchars_size);
+                
+                transform_argument_to_tr_style_chars_on_sjis_or_eucjp(runinfo, code, &chars_num, &chars_size, &chars, &rchars_num, &rchars_size, &rchars);
+
+                /// go ///
+                char* p = target;
+                if(chars_num > 0) {
+                    char string_before[32];
+                    *string_before = 0;
+
+                    while(*p) {
+                        int size;
+                        if(is_kanji(code, *p)) {
+                            size = 2;
+                        }
+                        else {
+                            size = 1;
+                        }
+
+                        BOOL chars_true = FALSE;
+                        int i;
+                        for(i=0; i<chars_num; i++) {
+                            if(memcmp(p, chars[i], size) == 0) {
+                                chars_true = TRUE;
+                                break;
+                            }
+                        }
+
+                        BOOL rchars_true = FALSE;
+                        for(i=0; i<rchars_num; i++) {
+                            if(memcmp(p, rchars[i], size) == 0) {
+                                rchars_true = TRUE;
+                                break;
+                            }
+                        }
+
+                        if(!chars_true || rchars_true || memcmp(string_before, p, size) != 0) {
+                            if(!fd_write(nextout, p, size)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                int i;
+                                for(i=0; i<chars_num; i++) {
+                                    FREE(chars[i]);
+                                }
+                                FREE(chars);
+                                for(i=0; i<rchars_num; i++) {
+                                    FREE(rchars[i]);
+                                }
+                                FREE(rchars);
+                                return FALSE;
+                            }
+                        }
+
+                        memcpy(string_before, p, size);
+                        string_before[size] = 0;
+                        p+=size;
+                    }
+                }
+                else if(rchars_num > 0) {
+                    char string_before[32];
+                    *string_before = 0;
+
+                    while(*p) {
+                        int size;
+                        if(is_kanji(code, *p)) {
+                            size = 2;
+                        }
+                        else {
+                            size = 1;
+                        }
+
+                        BOOL rchars_true = FALSE;
+                        int i;
+                        for(i=0; i<rchars_num; i++) {
+                            if(memcmp(p, rchars[i], size) == 0) {
+                                rchars_true = TRUE;
+                                break;
+                            }
+                        }
+
+                        if(rchars_true || memcmp(string_before, p, size) != 0) {
+                            if(!fd_write(nextout, p, size)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                int i;
+                                for(i=0; i<chars_num; i++) {
+                                    FREE(chars[i]);
+                                }
+                                FREE(chars);
+                                for(i=0; i<rchars_num; i++) {
+                                    FREE(rchars[i]);
+                                }
+                                FREE(rchars);
+                                return FALSE;
+                            }
+                        }
+
+                        memcpy(string_before, p, size);
+                        string_before[size] = 0;
+                        p+=size;
+                    }
+                }
+
+                int i;
+                for(i=0; i<chars_num; i++) {
+                    FREE(chars[i]);
+                }
+                FREE(chars);
+                for(i=0; i<rchars_num; i++) {
+                    FREE(rchars[i]);
+                }
+                FREE(rchars);
+            }
+        }
+
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
+void tr_transform_pattern_to_chars_on_byte(char* pattern, int* chars_len, char** chars, int* chars_num)
+{
+    char* p = pattern;
+
+    while(*p) {
+        if(*(p+1) == '-' && *(p+2) != 0) {
+            if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num >= *chars_len) {
+                        (*chars_len) *= 2;
+                        *chars = REALLOC(chars, sizeof(char)*(*chars_len));
+                    }
+                    (*chars)[(*chars_num)++] = c++;
+                }
+                p+=3;
+            }
+            else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num >= *chars_len) {
+                        (*chars_len) *= 2;
+                        *chars = REALLOC(chars, sizeof(char)*(*chars_len));
+                    }
+                    (*chars)[(*chars_num)++] = c++;
+                }
+                p+=3;
+            }
+            else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num >= *chars_len) {
+                        (*chars_len) *= 2;
+                        *chars = REALLOC(*chars, sizeof(char)*(*chars_len));
+                    }
+                    (*chars)[(*chars_num)++] = c++;
+                }
+                p+=3;
+            }
+            else {
+                p+=3;
+            }
+        }
+        else {
+            if(*chars_num >= *chars_len) {
+                (*chars_len) *= 2;
+                *chars = REALLOC(chars, sizeof(char)*(*chars_len));
+            }
+            (*chars)[(*chars_num)++] = *p++;
+        }
+    }
+    (*chars)[*chars_num] = 0;
+}
+
+void tr_transform_pattern_to_chars_on_utf8(char* pattern, int* chars_size, char*** chars, int* chars_num)
+{
+    char* p = pattern;
+    while(*p) {
+        int size;
+        if(((unsigned char)*p) > 127) {
+            size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+        }
+        else {
+            size = 1;
+        }
+
+        if(size == 1 && *(p+1) == '-' && *(p+2) != 0) {
+            if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num > *chars_size) {
+                        (*chars_size) *= 2;
+                        *chars = REALLOC(chars, sizeof(char*)*(*chars_size));
+                    }
+
+                    char* str = MALLOC(2);
+                    *str = c++;
+                    *(str+1) = 0;
+
+                    (*chars)[(*chars_num)++] = str;
+                }
+                p+=3;
+            }
+            else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num > *chars_size) {
+                        (*chars_size) *= 2;
+                        *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                    }
+
+                    char* str = MALLOC(2);
+                    *str = c++;
+                    *(str+1) = 0;
+
+                    (*chars)[(*chars_num)++] = str;
+                }
+                p+=3;
+            }
+            else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num > *chars_size) {
+                        (*chars_size) *= 2;
+                        *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                    }
+
+                    char* str = MALLOC(2);
+                    *str = c++;
+                    *(str+1) = 0;
+
+                    (*chars)[(*chars_num)++] = str;
+                }
+                p+=3;
+            }
+            else {
+                p+=3;
+            }
+        }
+        else {
+            if(*chars_num > *chars_size) {
+                (*chars_size) *= 2;
+                *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+            }
+
+            char* str = MALLOC(sizeof(char)*size + 1);
+            memcpy(str, p, size);
+            str[size] = 0;
+
+            (*chars)[(*chars_num)++] = str;
+
+            p+= size;
+        }
+    }
+}
+
+void tr_transform_pattern_to_chars_on_sjis_or_eucjp(enum eKanjiCode code, char* pattern, int* chars_size, char*** chars, int* chars_num)
+{
+    /// split pattern ///
+    char* p = pattern;
+    while(*p) {
+        int size;
+        if(is_kanji(code, *p)) {
+            size = 2;
+        }
+        else {
+            size = 1;
+        }
+
+        if(size == 1 && *(p+1) == '-' && *(p+2) != 0) {
+            if(*p >= '0' && *p <= '9' && *(p+2) >= '0' && *(p+2) <= '9') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num > *chars_size) {
+                        (*chars_size) *= 2;
+                        *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                    }
+
+                    char* str = MALLOC(2);
+                    *str = c++;
+                    *(str+1) = 0;
+
+                    (*chars)[(*chars_num)++] = str;
+                }
+                p+=3;
+            }
+            else if(*p >= 'a' && *p <='z' && *(p+2) >= 'a' && *(p+2) <= 'z') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num > *chars_size) {
+                        (*chars_size) *= 2;
+                        *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                    }
+
+                    char* str = MALLOC(2);
+                    *str = c++;
+                    *(str+1) = 0;
+
+                    (*chars)[(*chars_num)++] = str;
+                }
+                p+=3;
+            }
+            else if(*p >= 'A' && *p <='Z' && *(p+2) >= 'A' && *(p+2) <= 'Z') {
+                char c = *p;
+                while(c <= *(p+2)) {
+                    if(*chars_num > *chars_size) {
+                        (*chars_size) *= 2;
+                        *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+                    }
+
+                    char* str = MALLOC(2);
+                    *str = c++;
+                    *(str+1) = 0;
+
+                    (*chars)[(*chars_num)++] = str;
+                }
+                p+=3;
+            }
+            else {
+                p+=3;
+            }
+        }
+        else {
+            if(*chars_num > *chars_size) {
+                (*chars_size) *= 2;
+                *chars = REALLOC(*chars, sizeof(char*)*(*chars_size));
+            }
+
+            char* str = MALLOC(sizeof(char)*size + 1);
+            memcpy(str, p, size);
+            str[size] = 0;
+
+            (*chars)[(*chars_num)++] = str;
+
+            p+= size;
+        }
+    }
+}
+
+BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(runinfo->mFilter && runinfo->mArgsNumRuntime == 3) {
+        char* target = SFD(nextin).mBuf;
+
+        if(code == kByte) {
+            char* pattern = runinfo->mArgsRuntime[1];
+
+            if(*pattern == '^') {
+                pattern++;
+
+                /// split pattern ///
+                int chars_len = 128;
+                char* chars = MALLOC(sizeof(char)*chars_len);
+                int chars_num = 0;
+
+                tr_transform_pattern_to_chars_on_byte(pattern, &chars_len, &chars, &chars_num);
+
+                char* replace = runinfo->mArgsRuntime[2];
+
+                int rchars_len = 128;
+                char* rchars = MALLOC(sizeof(char)*rchars_len);
+                int rchars_num = 0;
+
+                tr_transform_pattern_to_chars_on_byte(replace, &rchars_len, &rchars, &rchars_num);
+
+                /// go ///
+                char replace_char;
+                if(rchars_num == 0) {
+                    replace_char = -1;
+                }
+                else {
+                    replace_char = rchars[rchars_num-1];
+                }
+
+                char* p = target;
+                while(*p) {
+                    char* p2 = chars;
+
+                    BOOL found = FALSE;
+                    while(*p2) {
+                        if(*p == *p2) {
+                            found = TRUE;
+                            break;
+                        }
+                        else {
+                            *p2++;
+                        }
+                    }
+
+                    if(found) {
+                        if(!fd_writec(nextout, *p)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            FREE(chars);
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        if(replace_char != -1) {
+                            if(!fd_writec(nextout, replace_char)) {
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                FREE(chars);
+                                FREE(rchars);
+                                return FALSE;
+                            }
+                        }
+                    }
+                    p++;
+                }
+
+                FREE(chars);
+                FREE(rchars);
+            }
+            else {
+                /// split pattern ///
+                int chars_len = 128;
+                char* chars = MALLOC(sizeof(char)*chars_len);
+                int chars_num = 0;
+
+                tr_transform_pattern_to_chars_on_byte(pattern, &chars_len, &chars, &chars_num);
+
+                char* replace = runinfo->mArgsRuntime[2];
+
+                int rchars_len = 128;
+                char* rchars = MALLOC(sizeof(char)*rchars_len);
+                int rchars_num = 0;
+
+                tr_transform_pattern_to_chars_on_byte(replace, &rchars_len, &rchars, &rchars_num);
+
+                /// adjust values ///
+                if(rchars_num < chars_num) {
+                    char last_rchar;
+                    if(rchars_num == 0) {
+                        last_rchar = -1;
+                    }
+                    else {
+                        last_rchar = rchars[rchars_num-1];
+                    }
+
+                    int i;
+                    for(i=rchars_num; i<chars_num; i++) {
+                        if(rchars_num >= rchars_len) {
+                            rchars_len *= 2;
+                            rchars = REALLOC(rchars, sizeof(char)*rchars_len);
+                        }
+                        rchars[rchars_num++] = last_rchar;
+                    }
+                }
+
+                /// go ///
+                char* p = target;
+                while(*p) {
+                    char* p2 = chars;
+
+                    BOOL found = FALSE;
+                    while(*p2) {
+                        if(*p == *p2) {
+                            found = TRUE;
+                            char c = rchars[p2 - chars];
+                            if(c != -1) {
+                                if(!fd_writec(nextout, c)) {
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    FREE(chars);
+                                    FREE(rchars);
+                                    return FALSE;
+                                }
+                            }
+                            break;
+                        }
+                        else {
+                            *p2++;
+                        }
+                    }
+
+                    if(!found) {
+                        if(!fd_writec(nextout, *p)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            FREE(chars);
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+                    p++;
+                }
+
+                FREE(chars);
+                FREE(rchars);
+            }
+        }
+        else if(code == kUtf8) {
+            char* pattern = runinfo->mArgsRuntime[1];
+
+            if(*pattern == '^') {
+                pattern++;
+
+                /// split pattern ///
+                int chars_num = 0;
+                int chars_size = 128;
+                char** chars = MALLOC(sizeof(char*)*chars_size);
+
+                tr_transform_pattern_to_chars_on_utf8(pattern, &chars_size, &chars, &chars_num);
+
+                char* replace = runinfo->mArgsRuntime[2];
+
+                int rchars_num = 0;
+                int rchars_size = 128;
+                char** rchars = MALLOC(sizeof(char*)*rchars_size);
+
+                tr_transform_pattern_to_chars_on_utf8(replace, &rchars_size, &rchars, &rchars_num);
+
+                /// go ///
+                char* replace_char;
+                if(rchars_num == 0) {
+                    replace_char = "";
+                }
+                else {
+                    replace_char = rchars[rchars_num-1];
+                }
+
+                char* p = target;
+                while(*p) {
+                    int size;
+                    if(((unsigned char)*p) > 127) {
+                        size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL found = FALSE;
+                    int i;
+                    for(i=0; i<chars_num; i++) {
+                        if(memcmp(p, chars[i], size) == 0) {
+                            found = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(!found) {
+                        if(!fd_write(nextout, replace_char, strlen(replace_char))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p+=size;
+                }
+
+                int i;
+                for(i=0; i<chars_num; i++) {
+                    FREE(chars[i]);
+                }
+                FREE(chars);
+                for(i=0; i<rchars_num; i++) {
+                    FREE(rchars[i]);
+                }
+                FREE(rchars);
+            }
+            else {
+                /// split pattern ///
+                int chars_num = 0;
+                int chars_size = 128;
+                char** chars = MALLOC(sizeof(char*)*chars_size);
+
+                tr_transform_pattern_to_chars_on_utf8(pattern, &chars_size, &chars, &chars_num);
+
+                char* replace = runinfo->mArgsRuntime[2];
+
+                int rchars_num = 0;
+                int rchars_size = 128;
+                char** rchars = MALLOC(sizeof(char*)*rchars_size);
+
+                tr_transform_pattern_to_chars_on_utf8(replace, &rchars_size, &rchars, &rchars_num);
+
+                /// adjust values ///
+                if(rchars_num < chars_num) {
+                    char* last_rchar;
+                    if(rchars_num == 0) {
+                        last_rchar = "";
+                    }
+                    else {
+                        last_rchar = rchars[rchars_num-1];
+                    }
+                    int i;
+                    for(i=rchars_num; i<chars_num; i++) {
+                        if(rchars_num > rchars_size) {
+                            rchars_size *= 2;
+                            rchars = REALLOC(rchars, sizeof(char*)*rchars_size);
+                        }
+                        rchars[rchars_num++] = STRDUP(last_rchar);
+                    }
+                }
+
+                /// go ///
+                char* p = target;
+                while(*p) {
+                    int size;
+                    if(((unsigned char)*p) > 127) {
+                        size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    int matched_chars = -1;
+                    int i;
+                    for(i=0; i<chars_num; i++) {
+                        if(memcmp(p, chars[i], size) == 0) {
+                            matched_chars = i;
+                            break;
+                        }
+                    }
+
+                    if(matched_chars >= 0) {
+                        if(!fd_write(nextout, rchars[matched_chars], strlen(rchars[matched_chars]))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p+=size;
+                }
+
+                int i;
+                for(i=0; i<chars_num; i++) {
+                    FREE(chars[i]);
+                }
+                FREE(chars);
+                for(i=0; i<rchars_num; i++) {
+                    FREE(rchars[i]);
+                }
+                FREE(rchars);
+            }
+        }
+        else {
+            char* pattern = runinfo->mArgsRuntime[1];
+
+            if(*pattern == '^') {
+                pattern++;
+
+                /// split pattern ///
+                int chars_num = 0;
+                int chars_size = 128;
+                char** chars = MALLOC(sizeof(char*)*chars_size);
+
+                tr_transform_pattern_to_chars_on_utf8(pattern, &chars_size, &chars, &chars_num);
+
+                char* replace = runinfo->mArgsRuntime[2];
+
+                int rchars_num = 0;
+                int rchars_size = 128;
+                char** rchars = MALLOC(sizeof(char*)*rchars_size);
+
+                tr_transform_pattern_to_chars_on_utf8(replace, &rchars_size, &rchars, &rchars_num);
+
+                /// go ///
+                char* replace_char;
+                if(rchars_num == 0) {
+                    replace_char = "";
+                }
+                else {
+                    replace_char = rchars[rchars_num-1];
+                }
+
+                char* p = target;
+                while(*p) {
+                    int size;
+                    if(is_kanji(code, *p)) {
+                        size = 2;
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    BOOL found = FALSE;
+                    int i;
+                    for(i=0; i<chars_num; i++) {
+                        if(memcmp(p, chars[i], size) == 0) {
+                            found = TRUE;
+                            break;
+                        }
+                    }
+
+                    if(!found) {
+                        if(!fd_write(nextout, replace_char, strlen(replace_char))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p+=size;
+                }
+
+                int i;
+                for(i=0; i<chars_num; i++) {
+                    FREE(chars[i]);
+                }
+                FREE(chars);
+                for(i=0; i<rchars_num; i++) {
+                    FREE(rchars[i]);
+                }
+                FREE(rchars);
+            }
+            else {
+                /// split pattern ///
+                int chars_num = 0;
+                int chars_size = 128;
+                char** chars = MALLOC(sizeof(char*)*chars_size);
+
+                tr_transform_pattern_to_chars_on_sjis_or_eucjp(code, pattern, &chars_size, &chars, &chars_num);
+
+                char* replace = runinfo->mArgsRuntime[2];
+
+                int rchars_num = 0;
+                int rchars_size = 128;
+                char** rchars = MALLOC(sizeof(char*)*rchars_size);
+
+                tr_transform_pattern_to_chars_on_sjis_or_eucjp(code, replace, &rchars_size, &rchars, &rchars_num);
+
+                /// adjust values ///
+                if(rchars_num < chars_num) {
+                    char* last_rchar;
+                    if(rchars_num == 0) {
+                        last_rchar = "";
+                    }
+                    else {
+                        last_rchar = rchars[rchars_num-1];
+                    }
+                    int i;
+                    for(i=rchars_num; i<chars_num; i++) {
+                        if(rchars_num > rchars_size) {
+                            rchars_size *= 2;
+                            rchars = REALLOC(rchars, sizeof(char*)*rchars_size);
+                        }
+                        rchars[rchars_num++] = STRDUP(last_rchar);
+                    }
+                }
+
+                /// go ///
+                char* p = target;
+                while(*p) {
+                    int size;
+                    if(is_kanji(code, *p)) {
+                        size = 2;
+                    }
+                    else {
+                        size = 1;
+                    }
+
+                    int matched_chars = -1;
+                    int i;
+                    for(i=0; i<chars_num; i++) {
+                        if(memcmp(p, chars[i], size) == 0) {
+                            matched_chars = i;
+                            break;
+                        }
+                    }
+
+                    if(matched_chars >= 0) {
+                        if(!fd_write(nextout, rchars[matched_chars], strlen(rchars[matched_chars]))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        if(!fd_write(nextout, p, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            int i;
+                            for(i=0; i<chars_num; i++) {
+                                FREE(chars[i]);
+                            }
+                            FREE(chars);
+                            for(i=0; i<rchars_num; i++) {
+                                FREE(rchars[i]);
+                            }
+                            FREE(rchars);
+                            return FALSE;
+                        }
+                    }
+
+                    p+=size;
+                }
+
+                int i;
+                for(i=0; i<chars_num; i++) {
+                    FREE(chars[i]);
+                }
+                FREE(chars);
+                for(i=0; i<rchars_num; i++) {
+                    FREE(rchars[i]);
+                }
+                FREE(rchars);
+            }
+        }
+
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mFilter) {
+        char* target = SFD(nextin).mBuf;
+        int target_len = SFD(nextin).mBufLen;
+
+        if(target_len > 0) {
+            char* p = target + target_len - 1;
+
+            int ignore_num = 0;
+            while(p - target > 0) {
+                if(*p < ' ' || *p >= 127) {
+                    ignore_num++;
+                    p--;
+                }
+                else {
+                    break;
+                }
+            }
+
+            int increase_num = 1;
+            while(p - target > 0) {
+                if(*p >= '0' && *p <= '8') {
+                    break;
+                }
+                else if(*p  == '9') {
+                    increase_num++;
+                }
+                else if(*p >= 'a' && *p <= 'y') {
+                    break;
+                }
+                else if(*p == 'z') {
+                    increase_num++;
+                }
+                else if(*p >= 'A' && *p <= 'Y') {
+                    break;
+                }
+                else if(*p == 'Z') {
+                    increase_num++;
+                }
+                else {
+                    increase_num++;
+                }
+
+                p--;
+            }
+
+            /// write head of string ///
+            if(increase_num+ignore_num == target_len) {
+                int i;
+                for(i=0; i<target_len; i++) {
+                    char c = target[i];
+                    if(c >= 'a' && c <= 'y') {
+                        break;
+                    }
+                    else if(c == 'z') {
+                        if(!fd_writec(nextout, 'a')) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        break;
+                    }
+                    else if(c >= 'A' && c <= 'Y') {
+                        break;
+                    }
+                    else if(c == 'Z') {
+                        if(!fd_writec(nextout, 'A')) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        break;
+                    }
+                    else if(c >= '0' && c <= '8') {
+                        break;
+                    }
+                    else if(c == '9') {
+                        if(!fd_writec(nextout, '1')) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        break;
+                    }
+                    else {
+                    }
+                }
+            }
+            else {
+                if(!fd_write(nextout, target, target_len-increase_num-ignore_num)) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+            }
+
+            /// write increased string ///
+            int i;
+            for(i=0; i<increase_num; i++) {
+                char c = target[target_len -increase_num-ignore_num+i];
+                if(c >= 'a' && c <= 'y') {
+                    if(!fd_writec(nextout, ++c)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+                else if(c == 'z') {
+                    if(!fd_writec(nextout, 'a')) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+                else if(c >= 'A' && c <= 'Y') {
+                    if(!fd_writec(nextout, ++c)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+                else if(c == 'Z') {
+                    if(!fd_writec(nextout, 'A')) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+                else if(c >= '0' && c <= '8') {
+                    if(!fd_writec(nextout, ++c)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+                else if(c == '9') {
+                    if(!fd_writec(nextout, '0')) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+                else {
+                    if(increase_num == 1) {
+                        if(!fd_writec(nextout, ++c)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        if(!fd_writec(nextout, c)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+                }
+            }
+
+            /// write ignore string ///
+            for(i=0; i<ignore_num; i++) {
+                char c = target[target_len - ignore_num+i];
+                if(!fd_writec(nextout, c)) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+            }
+
+            runinfo->mRCode = 0;
+        }
+        else {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
         }
     }
 

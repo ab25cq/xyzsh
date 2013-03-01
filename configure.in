@@ -33,7 +33,7 @@ AC_SUBST(SYSTEM_MIGEMODIR)
 # check operating systems
 #####################################################################
 EXTDIR='$(libdir)/xyzsh/'
-SO_VERSION=1.7.0
+SO_VERSION=1.7.1
 AC_SUBST(SO_VERSION)
 AC_MSG_CHECKING(Operating System)
 

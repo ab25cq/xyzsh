@@ -5,8 +5,7 @@ What is this software?
 
     a shell script language under linux, OSX, cygwin, and FreeBSD.
 
-    > ls -F
-    docs/ main.c samples/ sub.c
+    > ls -F   docs/ main.c samples/ sub.c
         
     > ls | each ( | chomp | -d && | print )
     docs
@@ -61,6 +60,31 @@ What is this software?
     name: Yamanaka Gorou
     age: 23
     country: Japan
+
+    > print 1 | var -local i; ls | scan . | while(| eval "|$i print |>") (|> join ""; ++ i )
+    A
+    UT
+    HOR
+    SCHA
+    NGELO
+    GLICEN
+    SEMakef
+    ileMakef
+    ile.inREA
+    DMEREADME.
+    jaUSAGEUSAG
+    E.jacompleti
+    on.xyzshconfi
+    g.hconfig.h.in
+    config.logconfi
+    g.statusconfigur
+    econfigure.inhelp
+    .xyzshinstall.shli
+    bxyzsh.1.7.0.dylibl
+    ibxyzsh.1.dyliblibxy
+    zsh.dylibmanread_hist
+    ory.xyzshsrcxyzshxyzsh
+    .dSYMxyzsh.xyzsh
 
 Compiled and tested xyzsh below Operating systems
     OSX 10.8.0

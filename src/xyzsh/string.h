@@ -49,6 +49,7 @@ void string_tolower(sObject* self, enum eKanjiCode code);
 
 BOOL string_pomch(sObject* str, eLineField lf);
 BOOL string_chomp(sObject* str);
+void string_quote(sObject* self, enum eKanjiCode code);
 
 unsigned int string_size(sObject* self);
 
