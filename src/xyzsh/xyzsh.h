@@ -568,6 +568,7 @@ typedef BOOL (*fInternalCommand)(sObject*, sObject*, sRunInfo*);
 extern fInternalCommand kInternalCommands[kInnerCommand];
 extern char * gCommandKindStrs[kCommandMax];
 
+BOOL cmd_umask(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
@@ -615,6 +616,8 @@ BOOL cmd_if(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_for(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_break(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_while(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_times(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_combine(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_return(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_rehash(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_true(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
@@ -697,6 +700,10 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_time(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 BOOL cmd_strip(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_lstrip(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_rstrip(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_substr(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
+BOOL cmd_substr_replace(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
 
 #if defined(HAVE_MIGEMO_H)
 BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo);
@@ -797,6 +804,7 @@ void readline_write_history();
 void readline_read_history();
 void readline_no_completion();
 void readline_completion();
+void readline_completion_user_castamized(sObject* block);
 
 char* xstrncpy(char* src, char* des, int size);
 char* xstrncat(char* src, char* des, int size);

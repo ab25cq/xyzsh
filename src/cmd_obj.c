@@ -668,20 +668,6 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         field = "\a";
     }
 
-    enum eKanjiCode code = gKanjiCode;
-    if(sRunInfo_option(runinfo, "-byte")) {
-        code = kByte;
-    }
-    else if(sRunInfo_option(runinfo, "-utf8")) {
-        code = kUtf8;
-    }
-    else if(sRunInfo_option(runinfo, "-sjis")) {
-        code = kSjis;
-    }
-    else if(sRunInfo_option(runinfo, "-eucjp")) {
-        code = kEucjp;
-    }
-
     /// input
     if(runinfo->mFilter) {
         fd_split(nextin, lf);
@@ -806,75 +792,29 @@ BOOL cmd_var(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     /// output ///
     else {
         if(runinfo->mArgsNumRuntime > 1) {
-            char* argument;
-            if(argument = sRunInfo_option_with_argument(runinfo, "-index")) {
-                int i;
-                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                    sObject* var;
-                    if(!get_object_from_str(&var, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                        return FALSE;
-                    }
-
-                    if(var && TYPE(var) == T_STRING) {
-                        if(strlen(string_c_str(var)) > 0) {
-                            int len = str_kanjilen(code, string_c_str(var));
-                            int num = atoi(argument);
-                            if(num < 0) {
-                                num += len;
-                                if(num < 0) num = 0;
-                            }
-                            if(num >= len) {
-                                num = len -1;
-                                if(num < 0) num = 0;
-                            }
-
-                            char* pos = str_kanjipos2pointer(code, string_c_str(var), num);
-                            char* pos2 = str_kanjipos2pointer(code, pos, 1);
-                            if(!fd_write(nextout, pos, pos2-pos)) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-                        }
-
-                        runinfo->mRCode = 0;
-                    }
-                    else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        return FALSE;
-                    }
+            int i;
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* var;
+                if(!get_object_from_str(&var, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
                 }
-            }
-            else {
-                int i;
-                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                    sObject* var;
-                    if(!get_object_from_str(&var, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                        return FALSE;
-                    }
 
-                    if(var && TYPE(var) == T_STRING) {
-                        if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            return FALSE;
-                        }
-                        if(!fd_write(nextout, field, strlen(field))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            return FALSE;
-                        }
-                        runinfo->mRCode = 0;
-                    }
-                    else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                if(var && TYPE(var) == T_STRING) {
+                    if(!fd_write(nextout, string_c_str(var), string_length(var))) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
+                    if(!fd_write(nextout, field, strlen(field))) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                    runinfo->mRCode = 0;
+                }
+                else {
+                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
                 }
             }
         }
@@ -915,7 +855,6 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     return FALSE;
                 }
 
-
                 if(ary && TYPE(ary) == T_VECTOR) {
                     char buf[128];
                     int size = snprintf(buf, 128, "%d\n", vector_count(ary));
@@ -936,31 +875,26 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
     }
     /// output
-    else if(!runinfo->mFilter) {
-        if(runinfo->mArgsNumRuntime > 1) {
-            /// number
-            char* argument;
-            if(argument = sRunInfo_option_with_argument(runinfo, "-index")) {
-                sObject* object = runinfo->mCurrentObject;
-                int i;
-                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                    sObject* ary;
-                    if(!get_object_from_str(&ary, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                        return FALSE;
-                    }
+    else if(!runinfo->mFilter && runinfo->mArgsNumRuntime > 1) {
+        /// index
+        char* argument;
+        if(argument = sRunInfo_option_with_argument(runinfo, "-index")) {
+            sObject* object = runinfo->mCurrentObject;
+            int i;
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* ary;
+                if(!get_object_from_str(&ary, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
+                }
 
-                    if(ary && TYPE(ary) == T_VECTOR) {
-                        if(vector_count(ary) > 0) {
-                            int num = atoi(argument);
-                            if(num < 0) {
-                                num += vector_count(ary);
-                                if(num < 0) num = 0;
-                            }
-                            if(num >= vector_count(ary)) {
-                                num = vector_count(ary) -1;
-                                if(num < 0) num = 0;
-                            }
+                if(ary && TYPE(ary) == T_VECTOR) {
+                    if(vector_count(ary) > 0) {
+                        int num = atoi(argument);
+                        if(num < 0) {
+                            num += vector_count(ary);
+                        }
 
+                        if(num >= 0 && num < vector_count(ary)) {
                             sObject* var = vector_item(ary, num);
 
                             if(!fd_write(nextout, string_c_str(var), string_length(var))) {
@@ -968,157 +902,84 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 return FALSE;
                             }
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
                         }
+                        if(!fd_write(nextout, field, strlen(field))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
 
-                        runinfo->mRCode = 0;
-                    }
-                    else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        return FALSE;
-                    }
+                    runinfo->mRCode = 0;
+                }
+                else {
+                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
                 }
             }
-            else {
-                sObject* object = runinfo->mCurrentObject;
-                int i;
-                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                    sObject* ary;
-                    if(!get_object_from_str(&ary, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                        return FALSE;
-                    }
-
-                    if(ary && TYPE(ary) == T_VECTOR) {
-                        int j;
-                        for(j=0; j<vector_count(ary); j++) {
-                            sObject* var = vector_item(ary, j);
-
-                            if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-                        }
-                        runinfo->mRCode = 0;
-                    }
-                    else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        return FALSE;
-                    }
-                }
-            }
-        }
-    }
-    /// -new
-    else if(sRunInfo_option(runinfo, "-new"))
-    {
-        fd_split(nextin, lf);
-
-        int i;
-        int max = vector_count(SFD(nextin).mLines);
-        sObject* new_ary = VECTOR_NEW_GC(16, TRUE);
-
-        if(!add_object_to_objects_in_pipe(new_ary, runinfo, runinfo))
-        {
-            return FALSE;
-        }
-
-        char buf[128];
-        int size = snprintf(buf, 128, "%p", new_ary);
-        if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-            return FALSE;
-        }
-        if(!fd_write(nextout, "\n", 1)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-            return FALSE;
-        }
-
-        for(i=0; i<max; i++) {
-            sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
-            string_chomp(new_var);
-            vector_add(new_ary, new_var);
-        }
-        
-        if(SFD(nextin).mBufLen == 0) {
-            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
         }
         else {
-            runinfo->mRCode = 0;
+            sObject* object = runinfo->mCurrentObject;
+            int i;
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* ary;
+                if(!get_object_from_str(&ary, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
+                }
+
+                if(ary && TYPE(ary) == T_VECTOR) {
+                    int j;
+                    for(j=0; j<vector_count(ary); j++) {
+                        sObject* var = vector_item(ary, j);
+
+                        if(!fd_write(nextout, string_c_str(var), string_length(var))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+
+                        if(!fd_write(nextout, field, strlen(field))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+                    runinfo->mRCode = 0;
+                }
+                else {
+                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
+                }
+            }
         }
     }
     /// input
-    else if(runinfo->mArgsNumRuntime == 2) {
+    else if(runinfo->mFilter) {
         fd_split(nextin, lf);
 
-        sObject* ary = uobject_item(runinfo->mCurrentObject, runinfo->mArgsRuntime[1]);
-
-        /// number
-        char* argument;
-        if(ary && (argument = sRunInfo_option_with_argument(runinfo, "-append"))) {
-            if(TYPE(ary) != T_VECTOR) {
-                err_msg("different type of object", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                return FALSE;
-            }
-
-            int append = atoi(argument);
-
-            if(append < 0) append += vector_count(ary) + 1;
-            if(append < 0) append = 0;
-            if(append > vector_count(ary)) append = vector_count(ary);
-
-            int i;
-            int max = vector_count(SFD(nextin).mLines);
-            void** appended_ary = MALLOC(sizeof(sObject*)*max);
-            for(i=0; i<max; i++) {
-                sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
-                string_chomp(new_var);
-                appended_ary[i] = new_var;
-            }
-            vector_mass_insert(ary, append, appended_ary, max);
-            FREE(appended_ary);
-            
-            if(SFD(nextin).mBufLen == 0) {
-                runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-            }
-            else {
-                runinfo->mRCode = 0;
-            }
-        }
-        else {
-            sObject* object;
-            if(sRunInfo_option(runinfo, "-local")) {
-                object = SFUN(runinfo->mRunningObject).mLocalObjects;
-            }
-            else {
-                object = runinfo->mCurrentObject;
-            }
-
+        /// -new
+        if(sRunInfo_option(runinfo, "-new")) {
             int i;
             int max = vector_count(SFD(nextin).mLines);
             sObject* new_ary = VECTOR_NEW_GC(16, TRUE);
 
-            sObject* current = runinfo->mCurrentObject;
-            sObject* tmp = access_object3(runinfo->mArgsRuntime[1], &current);
-
-            if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
-                err_msg("this name of local variable hides global variable name. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            if(!add_object_to_objects_in_pipe(new_ary, runinfo, runinfo))
+            {
                 return FALSE;
             }
 
-            uobject_put(object, runinfo->mArgsRuntime[1], new_ary);
+            char buf[128];
+            int size = snprintf(buf, 128, "%p", new_ary);
+            if(!fd_write(nextout, buf, size)) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            if(!fd_write(nextout, "\n", 1)) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
 
             for(i=0; i<max; i++) {
                 sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
@@ -1131,6 +992,97 @@ BOOL cmd_ary(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else {
                 runinfo->mRCode = 0;
+            }
+        }
+        else if(runinfo->mArgsNumRuntime == 2) {
+            /// number
+            char* argument = sRunInfo_option_with_argument(runinfo, "-insert");
+            if(argument != NULL || sRunInfo_option(runinfo, "-append")) {
+                sObject* ary;
+                if(sRunInfo_option(runinfo, "-local")) {
+                    ary = uobject_item(SFUN(runinfo->mRunningObject).mLocalObjects, runinfo->mArgsRuntime[1]);
+                    if(ary == NULL || TYPE(ary) != T_VECTOR) {
+                        uobject_put(SFUN(runinfo->mRunningObject).mLocalObjects, runinfo->mArgsRuntime[1], ary = VECTOR_NEW_GC(16, TRUE));
+                    }
+                }
+                else {
+                    ary = uobject_item(runinfo->mCurrentObject, runinfo->mArgsRuntime[1]);
+                    if(ary == NULL || TYPE(ary) != T_VECTOR) {
+                        uobject_put(runinfo->mCurrentObject, runinfo->mArgsRuntime[1], ary = VECTOR_NEW_GC(16, TRUE));
+                    }
+                }
+
+                int append;
+                if(sRunInfo_option(runinfo, "-append")) {
+                    append = -1;
+                }
+                else {
+                    append = atoi(argument);
+                }
+
+                if(append < 0) append += vector_count(ary) + 1;
+                if(append < 0) append = 0;
+                if(append > vector_count(ary)) append = vector_count(ary);
+
+                int i;
+                int max = vector_count(SFD(nextin).mLines);
+                if(max == 0) {
+                    sObject* new_var = STRING_NEW_GC("", FALSE);
+                    vector_insert(ary, append, new_var);
+                }
+                else {
+                    void** appended_ary = MALLOC(sizeof(sObject*)*max);
+                    for(i=0; i<max; i++) {
+                        sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
+                        string_chomp(new_var);
+                        appended_ary[i] = new_var;
+                    }
+                    vector_mass_insert(ary, append, appended_ary, max);
+                    FREE(appended_ary);
+                }
+                
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
+            }
+            else {
+                sObject* object;
+                if(sRunInfo_option(runinfo, "-local")) {
+                    object = SFUN(runinfo->mRunningObject).mLocalObjects;
+                }
+                else {
+                    object = runinfo->mCurrentObject;
+                }
+
+                int i;
+                int max = vector_count(SFD(nextin).mLines);
+                sObject* new_ary = VECTOR_NEW_GC(16, TRUE);
+
+                sObject* current = runinfo->mCurrentObject;
+                sObject* tmp = access_object3(runinfo->mArgsRuntime[1], &current);
+
+                if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
+                    err_msg("this name of local variable hides global variable name. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
+                }
+
+                uobject_put(object, runinfo->mArgsRuntime[1], new_ary);
+
+                for(i=0; i<max; i++) {
+                    sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
+                    string_chomp(new_var);
+                    vector_add(new_ary, new_var);
+                }
+                
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
             }
         }
     }
@@ -1190,195 +1142,117 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
     }
     /// output
-    else if(!runinfo->mFilter) {
-         if(runinfo->mArgsNumRuntime > 1) {
-            /// key
-            char* argument;
-            if(argument = sRunInfo_option_with_argument(runinfo, "-key")) {
-                sObject* object = runinfo->mCurrentObject;
-                int i;
-                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                    sObject* hash;
-                    if(!get_object_from_str(&hash, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                        return FALSE;
-                    }
+    else if(!runinfo->mFilter && runinfo->mArgsNumRuntime > 1) {
+        /// key
+        char* argument;
+        if(argument = sRunInfo_option_with_argument(runinfo, "-key")) {
+            sObject* object = runinfo->mCurrentObject;
+            int i;
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* hash;
+                if(!get_object_from_str(&hash, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
+                }
 
-                    if(hash && TYPE(hash) == T_HASH) {
-                        sObject* var = hash_item(hash, argument);
+                if(hash && TYPE(hash) == T_HASH) {
+                    sObject* var = hash_item(hash, argument);
 
-                        if(var) {
-                            if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
+                    if(var) {
+                        if(!fd_write(nextout, string_c_str(var), string_length(var))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
                         }
-
-                        runinfo->mRCode = 0;
                     }
-                    else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+
+                    if(!fd_write(nextout, field, strlen(field))) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
+
+                    runinfo->mRCode = 0;
+                }
+                else {
+                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
                 }
             }
-            else {
-                sObject* object = runinfo->mCurrentObject;
-                int i;
-                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                    sObject* hash;
-                    if(!get_object_from_str(&hash, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                        return FALSE;
-                    }
-                    if(hash && TYPE(hash) == T_HASH) {
-                        hash_it* it = hash_loop_begin(hash);
-                        while(it) {
-                            char* key = hash_loop_key(it);
-                            sObject* var = hash_loop_item(it);
-
-                            if(!fd_write(nextout, key, strlen(key))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-                            if(!fd_write(nextout, string_c_str(var), string_length(var))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-                            if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-
-                            it = hash_loop_next(it);
-                        }
-                        runinfo->mRCode = 0;
-                    }
-                    else {
-                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        return FALSE;
-                    }
-                }
-            }
-        }
-    }
-    /// input
-    else if(sRunInfo_option(runinfo, "-new")) {
-        fd_split(nextin, lf);
-
-        int i;
-        int max = vector_count(SFD(nextin).mLines);
-        sObject* new_hash = HASH_NEW_GC(16, TRUE);
-
-        if(!add_object_to_objects_in_pipe(new_hash, runinfo, runinfo))
-        {
-            return FALSE;
-        }
-
-        char buf[128];
-        int size = snprintf(buf, 128, "%p", new_hash);
-        if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-            return FALSE;
-        }
-        if(!fd_write(nextout, "\n", 1)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-            return FALSE;
-        }
-
-        sObject* key = STRING_NEW_STACK("");
-        for(i=0; i<max; i++) {
-            if((i % 2) == 0) {
-                string_put(key, vector_item(SFD(nextin).mLines, i));
-                string_chomp(key);
-            }
-            else {
-                sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
-                string_chomp(new_var);
-                hash_put(new_hash, string_c_str(key), new_var);
-            }
-        }
-            
-        if(SFD(nextin).mBufLen == 0) {
-            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
         }
         else {
-            runinfo->mRCode = 0;
+            sObject* object = runinfo->mCurrentObject;
+            int i;
+            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                sObject* hash;
+                if(!get_object_from_str(&hash, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                    return FALSE;
+                }
+                if(hash && TYPE(hash) == T_HASH) {
+                    hash_it* it = hash_loop_begin(hash);
+                    while(it) {
+                        char* key = hash_loop_key(it);
+                        sObject* var = hash_loop_item(it);
+
+                        if(!fd_write(nextout, key, strlen(key))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        if(!fd_write(nextout, field, strlen(field))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        if(!fd_write(nextout, string_c_str(var), string_length(var))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        if(!fd_write(nextout, field, strlen(field))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+
+                        it = hash_loop_next(it);
+                    }
+                    runinfo->mRCode = 0;
+                }
+                else {
+                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
+                }
+            }
         }
     }
     /// input ///
-    else if(runinfo->mArgsNumRuntime == 2) {
+    else if(runinfo->mFilter) {
         fd_split(nextin, lf);
 
-        sObject* hash = uobject_item(runinfo->mCurrentObject, runinfo->mArgsRuntime[1]);
-
-        /// number
-        if(hash && sRunInfo_option(runinfo, "-append")) {
-            if(TYPE(hash) != T_HASH) {
-                err_msg("different type of object", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                return FALSE;
-            }
-
+        if(sRunInfo_option(runinfo, "-new")) {
             int i;
-            int max = vector_count(SFD(nextin).mLines);
-            sObject* key = STRING_NEW_STACK("");
-            for(i=0; i<max; i++) {
-                if((i % 2) == 0) {
-                    string_put(key, vector_item(SFD(nextin).mLines, i));
-                    string_chomp(key);
-                }
-                else {
-                    sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
-                    string_chomp(new_var);
-                    hash_put(hash, string_c_str(key), new_var);
-                }
-            }
-                
-            if(SFD(nextin).mBufLen == 0) {
-                runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-            }
-            else {
-                runinfo->mRCode = 0;
-            }
-        }
-        else {
-            sObject* object;
-            if(sRunInfo_option(runinfo, "-local")) {
-                object = SFUN(runinfo->mRunningObject).mLocalObjects;
-            }
-            else {
-                object = runinfo->mCurrentObject;
-            }
-
-            int i;
-            int max = vector_count(SFD(nextin).mLines);
             sObject* new_hash = HASH_NEW_GC(16, TRUE);
 
-            sObject* current = runinfo->mCurrentObject;
-            sObject* tmp = access_object3(runinfo->mArgsRuntime[1], &current);
-
-            if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
-                err_msg("this name of local variable hides global variable name. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            if(!add_object_to_objects_in_pipe(new_hash, runinfo, runinfo))
+            {
                 return FALSE;
             }
 
-            uobject_put(object, runinfo->mArgsRuntime[1], new_hash);
+            char buf[128];
+            int size = snprintf(buf, 128, "%p", new_hash);
+            if(!fd_write(nextout, buf, size)) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            if(!fd_write(nextout, "\n", 1)) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
 
             sObject* key = STRING_NEW_STACK("");
+            int max = vector_count(SFD(nextin).mLines);
             for(i=0; i<max; i++) {
                 if((i % 2) == 0) {
                     string_put(key, vector_item(SFD(nextin).mLines, i));
@@ -1390,12 +1264,106 @@ BOOL cmd_hash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     hash_put(new_hash, string_c_str(key), new_var);
                 }
             }
-                
+            if((i % 2) == 1) {
+                hash_put(new_hash, string_c_str(key), STRING_NEW_GC("", FALSE));
+            }
+
             if(SFD(nextin).mBufLen == 0) {
                 runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
             }
             else {
                 runinfo->mRCode = 0;
+            }
+        }
+        else if(runinfo->mArgsNumRuntime == 2) {
+            /// number
+            if(sRunInfo_option(runinfo, "-append")) {
+                sObject* hash;
+                if(sRunInfo_option(runinfo, "-local")) {
+                    hash = uobject_item(SFUN(runinfo->mRunningObject).mLocalObjects, runinfo->mArgsRuntime[1]);
+
+                    if(hash == NULL || TYPE(hash) != T_HASH) {
+                        uobject_put(SFUN(runinfo->mRunningObject).mLocalObjects, runinfo->mArgsRuntime[1], hash = HASH_NEW_GC(16, TRUE));
+                    }
+                }
+                else {
+                    hash = uobject_item(runinfo->mCurrentObject, runinfo->mArgsRuntime[1]);
+
+                    if(hash == NULL || TYPE(hash) != T_HASH) {
+                        uobject_put(runinfo->mCurrentObject, runinfo->mArgsRuntime[1], hash = HASH_NEW_GC(16, TRUE));
+                    }
+                }
+
+                int i;
+                int max = vector_count(SFD(nextin).mLines);
+                sObject* key = STRING_NEW_STACK("");
+                for(i=0; i<max; i++) {
+                    if((i % 2) == 0) {
+                        string_put(key, vector_item(SFD(nextin).mLines, i));
+                        string_chomp(key);
+                    }
+                    else {
+                        sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
+                        string_chomp(new_var);
+                        hash_put(hash, string_c_str(key), new_var);
+                    }
+                }
+                if((i % 2) == 1) {
+                    hash_put(hash, string_c_str(key), STRING_NEW_GC("", FALSE));
+                }
+                    
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
+            }
+            else {
+                sObject* object;
+                if(sRunInfo_option(runinfo, "-local")) {
+                    object = SFUN(runinfo->mRunningObject).mLocalObjects;
+                }
+                else {
+                    object = runinfo->mCurrentObject;
+                }
+
+                int i;
+                int max = vector_count(SFD(nextin).mLines);
+                sObject* new_hash = HASH_NEW_GC(16, TRUE);
+
+                sObject* current = runinfo->mCurrentObject;
+                sObject* tmp = access_object3(runinfo->mArgsRuntime[1], &current);
+
+                if(tmp && sRunInfo_option(runinfo, "-local") && !sRunInfo_option(runinfo, "-force")) {
+                    err_msg("this name of local variable hides global variable name. Use -force option", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    return FALSE;
+                }
+
+                uobject_put(object, runinfo->mArgsRuntime[1], new_hash);
+
+                sObject* key = STRING_NEW_STACK("");
+                for(i=0; i<max; i++) {
+                    if((i % 2) == 0) {
+                        string_put(key, vector_item(SFD(nextin).mLines, i));
+                        string_chomp(key);
+                    }
+                    else {
+                        sObject* new_var = STRING_NEW_GC(vector_item(SFD(nextin).mLines, i), FALSE);
+                        string_chomp(new_var);
+                        hash_put(new_hash, string_c_str(key), new_var);
+                    }
+                }
+                if((i % 2) == 1) {
+                    hash_put(new_hash, string_c_str(key), STRING_NEW_GC("", FALSE));
+                }
+                    
+                if(SFD(nextin).mBufLen == 0) {
+                    runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+                }
+                else {
+                    runinfo->mRCode = 0;
+                }
             }
         }
     }
@@ -1542,36 +1510,67 @@ BOOL cmd_ref(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     /// output
     if(!runinfo->mFilter) {
         if(runinfo->mArgsNumRuntime > 1) {
-            int i;
-            for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                sObject* item;
-                if(!get_object_from_str(&item, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                    return FALSE;
-                }
-
-                if(item) {
-                    if(!add_object_to_objects_in_pipe(item, runinfo, runinfo))
-                    {
+            /// type
+            if(sRunInfo_option(runinfo, "-type")) {
+                int i;
+                int max = runinfo->mArgsNumRuntime;
+                for(i=1; i<max; i++) {
+                    sObject* item;
+                    if(!get_object_from_str(&item, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
                         return FALSE;
                     }
 
-                    char buf[128];
-                    int size = snprintf(buf, 128, "%p", item);
-                    if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
+                    if(item) {
+                        int type = TYPE(item);
+
+                        char buf[128];
+                        char* obj_kind[T_TYPE_MAX] = {
+                            NULL, "var", "array", "hash", "list", "native function", "block", "file dicriptor", "file dicriptor", "job", "object", "function", "class", "external program", "completion", "external object"
+                        };
+                        int size = snprintf(buf, 128, "%s\n", obj_kind[type]);
+
+                        if(!fd_write(nextout, buf, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
                     }
-                    if(!fd_write(nextout, field, strlen(field))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
-                    }
-                    runinfo->mRCode = 0;
                 }
-                else {
-                    err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    return FALSE;
+
+                runinfo->mRCode = 0;
+            }
+            else {
+                int i;
+                for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+                    sObject* item;
+                    if(!get_object_from_str(&item, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                        return FALSE;
+                    }
+
+                    if(item) {
+                        if(!add_object_to_objects_in_pipe(item, runinfo, runinfo))
+                        {
+                            return FALSE;
+                        }
+
+                        char buf[128];
+                        int size = snprintf(buf, 128, "%p", item);
+                        if(!fd_write(nextout, buf, size)) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        if(!fd_write(nextout, field, strlen(field))) {
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        runinfo->mRCode = 0;
+                    }
+                    else {
+                        err_msg("not found variable", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        return FALSE;
+                    }
                 }
             }
         }

@@ -41,9 +41,19 @@ class Help (
                     print "-+- マニュアル -+-" \n \n
                     cat $XYZSH_DOCDIR/USAGE.ja
                     print "-+- コマンド -+-" \n \n
-                    hash -La HELPS.ja| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
+                    hash -La HELPS.ja | each -La -number 2 ( | lines -La 0 | chomp | pomch ) | sys::sort | each (
+                        | var -local COMMAND_NAME
+                        print "--------------------------------------------------------------------------------\n"
+                        hash HELPS.ja -key $COMMAND_NAME
+                        print "\n"
+                    )
                 ) else (
-                    hash -La HELPS.ja| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
+                    hash -La HELPS.ja | each -La -number 2 ( | lines -La 0 | chomp | pomch ) | sys::sort | each (
+                        | var -local COMMAND_NAME
+                        print "--------------------------------------------------------------------------------\n"
+                        hash HELPS.ja -key $COMMAND_NAME
+                        print "\n"
+                    )
                 )
             ) elif(hash HELPS.ja -key $ARGV[0] | -z) (
                 print "$ARGV[0] command doesn't exist"\n
@@ -54,11 +64,25 @@ class Help (
         ) else (
             ary -size ARGV | if(| = 0\n ) (
                 if(funinfo | egrep -q '^current object: help<-root$') (
+                    print "-+- manual -+-" \n \n
                     cat $XYZSH_DOCDIR/USAGE
-                    hash -La HELPS| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
+                    print "-+- command -+-" \n \n
+                    hash -La HELPS | each -La -number 2 ( | lines -La 0 | chomp | pomch ) | sys::sort | each (
+                        | var -local COMMAND_NAME
+                        print "--------------------------------------------------------------------------------\n"
+                        hash HELPS -key $COMMAND_NAME
+                        print "\n"
+                    )
                 ) else (
-                    hash -La HELPS| each -La -number 2 ( | lines -La 1 (|chomp|add \n\n) )
+                    hash -La HELPS | each -La -number 2 ( | lines -La 0 | chomp | pomch ) | sys::sort | each (
+                        | var -local COMMAND_NAME
+                        print "--------------------------------------------------------------------------------\n"
+                        hash HELPS -key $COMMAND_NAME
+                        print "\n"
+                    )
                 )
+
+
             ) elif(hash HELPS -key $ARGV[0] | -z) (
                 print "$ARGV[0] command doesn't exist"\n
             ) else (
@@ -74,10 +98,22 @@ print <<<'EOS'
 defined オブジェクト
 -
 オブジェクトが定義されていたら真を返す
+
+> ls | var A B C
+> if(defined A) ( print yes\n ) ( print no\n )
+yes
+> if(defined D) ( print yes\n ) ( print no\n )
+no
 -
 kanjicode
 -
 現在の漢字コードを表示する。
+
+> kanjicode   # default of xyzsh kanjicode is byte
+byte
+> kanjicode -utf8  # sett
+> kanjicode
+utf8
 
 -byte バイトに設定する
 -sjis sjisに設定する
@@ -87,12 +123,30 @@ kanjicode
 funinfo
 -
 実行中の関数もしくはクラスの情報を得る
+
+> funinfo
+run time error
+xyzsh 1: [funinfo] invalid command using
+return code is 8192
+> def fun ( funinfo )
+> fun
+source name: xyzsh
+source line: 1
+run nest level: 2
+current object: root
+reciever object: root
+command name: fun
 -
 jobs
 -
 サスペンドしたジョブの一覧を出力する
 
 戻り値: ジョブが無ければ1
+
+> vim help.xyzsh # will be pressed CTRL-Z
+> jobs
+[1] vim help.xyzsh (pgrp: 46302)
+> fg
 -
 fg ジョブ番号
 -
@@ -102,11 +156,28 @@ exit
 -
 xyzshを終了する
 
+> vim help.xyzsh # will be pressed CTRL-Z
+> jobs
+[1] vim help.xyzsh (pgrp: 46302)
+> exit
+run time error
+xyzsh 1: [exit] jobs exist
+return code is 8192
+> exit -force
+
 -force サスペンドされているジョブが残っていても強制的に終了する
 -
 while (ブロック1) (ブロック2)
 -
 ブロック1が真(戻り値が0)の間ブロック2を実行し続ける
+
+> print 0 | var -local I; while(I | -lt 5) ( print $I\n; ++ I )
+0
+1
+2
+3
+4
+5
 -
 for (変数名) in 引数の値1 引数の値2 ... (ブロック1)
 -
@@ -123,75 +194,222 @@ c
 -
 break
 -
-while, eachループを終了する
+while, each, for, timesループを終了する
+
+> split -target "aaa bbb ccc" | each ( | print; | if(| chomp | = bbb) ( break ))
+aaa
+bbb
 -
 true
 -
 戻り値、真を返す
+
+> if(true) ( print yes\n) else ( print no\n )
+yes
 -
 false
 -
 戻り値、偽を返す
+
+>if(false) ( print yes\n ) else ( print no\n)
+no
 -
 if (条件式1) (ブロック1) (条件式2) (ブロック2) ... (条件式x) (ブロックx) (ブロック)
 -
 条件式が真ならば対応するブロックを実行する。もし全部の条件式が偽なら最後のブロックを実行する
+
+> if(false) ( print 1\n ) elif(false) ( print 2\n ) else if (false ) ( print 3\n ) elsif (false) ( print 4\n) else ( print 5\n )
+5
+
+> ls | each ( | if(| chomp | -d) ( print found a directory\n ) )
+found a directory
+found a directory
+found a directory
+
+> split -target "aaaaa bbb cccccc ddd e" | each ( | if(|chomp|=~ ...) ( | print ))
+bbb
 -
 return (リターンコード)
 -
 関数かクラスを実行中なら、途中で抜ける
+
+> def fun ( print head\n; return 1; print tail)
+> fun
+head
+return code is 1
 -
 stackinfo
 -
 xyzshでメモリ管理に使われているスタックの使用状況を出力する
+
+> stackinfo
+slot size 32
+pool size 128
+all object number 4096
 -
 stackframe
 -
 ローカル変数の定義状況を出力する
+
+> stackframe
+ARGV: array
+
+> def fun ( ls | var -local A B C; stackframe )
+> fun
+C: var
+B: var
+A: var
+OPTIONS: hash
+ARGV: array
 -
 gcinfo
 -
 xyzshでメモリ管理に使われているガベージコレクションの使用状況を出力する
+
+> gcinfo
+free objects 3902
+used objects 4285
+all object number 8192
+slot size 64
+pool size 128
 -
 subshell (ブロック)
 -
 ブロックを実行する。コンテキストパイプにはその前のコマンドの出力結果か標準入力が入っている。
 subshellというコマンド名は無くても同じ。
+
+> subshell (print a\n; print b\n; print c\n ) | less
+a
+b
+c
+> (print a\n; print b\n; print c\n) | less
+a
+b
+c
+> print aaa\n | (| print; | print ; | print)
+aaa
+aaa
+aaa
 -
 sweep オブジェクト名1 オブジェクト名2 ... オブジェクト名x
 -
 カレントオブジェクトの属性のオブジェクトを削除する。引数が無ければ、ガベージコレクションを実行する
+
+> ls | var A B C
+> sweep A
+> print $A\n
+run time error
+xyzsh 1: [print] no such as object(A)
+> sweep          # run gabage collection
+47 objects deleted
 -
 print 文字列1 文字列2, ..., 文字列x
 -
 文字列を出力する
 フィルターとして使われた場合は入力をそのまま出力する
 
-戻り値: フィルターとして使われて入力文字列が無ければ262
+戻り値: フィルターとして使われて入力文字列が無ければ16384
 
 -error エラー出力に出力する
 -read-from-error フィルターとして使われた場合のみ有効。エラー出力から入力を得る
+
+> print "Hello World\n"
+Hello World
+
+> split -target "aaa bbb ccc" | each ( | print )
+aaa
+bbb
+ccc
+
+> print "" | print
+return code is 16384
+
+> cat main.c | while(|1 print |>) (|> join ""; )
+
+> (print aaa\n; print -error error\n )
+aaa
+error
+
+> vim a.c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    fprintf(stdout, "OUTPUT\n");
+    fprintf(stderr, "ERROR\n");
+    exit(0);
+}
+> gcc a.c
+> ./a.out | (|print -read-from-error | less; | less)
 -
 load ファイル名 引数1 引数2 ... 引数X
 -
 スクリプトファイルを実行する。ローカル変数は初期化される。ARGVに引数が入っている。
 
 -dynamic-library C言語による拡張ライブラリをロードする。サーチパスは/usr/local/lib/xyzsh/"ファイル名"(xyzshをインストールしたディレクトリ/lib/xyzsh/"ファイル名")を探して無いなら、~/lib/"ファイル名"を探す、それでもないなら、"ファイル名(絶対パス、または相対パス)"を探す。拡張子は省略してはならない。
+
+> vim a.xyzsh
+print Hello Script\n
+
+> load a.xyzsh
+Hello Script
+
+> vim a.xyzsh
+ARGV
+
+> load a.xyzsh A B C
+A
+B
+C
+
+> load -dynamic-library [TAB]
+migemo.so
+
+> load -dynamic-library migemo.so
 -
 eval (ブロック|文字列)
 -
-ブロックか文字列を実行する。文字列の場合はコンパイルされ実行される。
+ブロックか文字列を実行する。文字列の場合は解釈され実行される。
 フィルターとして使われた場合は入力された文字列を実行する。
 
 戻り値: フィルターとして使われた場合入力文字列が無ければ262
+
+> eval "print Hello\n"
+Hello
+
+> print ls | var A; eval "$A -al"
+output of "ls -al"
+
+> print "ls -al" | eval
+output of "ls -al"
+
+> cat src/main.c | eval "| uc |less"
+output of "cat src/main.c|uc"
+
 -
 msleep 数値
 -
 数値の時間だけ実行を止める。アニメーションが表示される。
+
+> msleep 10
+.oO.oO.oO.oO.oO.oO.oO.oO.oO
 -
 raise 文字列
 -
 エラーを起こす。文字列がエラーメッセージとなる。
+
+> make && raise "make is failed"
+run time error
+xyzsh 1: [raise] make is failed
+return code is 8192
+
+> try (
+    make || raise "make error"
+    sudo make install || raise "sudo make install error"
+) catch ( 
+    | =~ "make error" && print "catch make error\n";
+    | =~ "sudo make install error" && print "catch make install error\n"
+)
 -
 block 数値
 -
@@ -200,30 +418,110 @@ block 数値
 
 -run 渡されたブロックを実行する
 -number 渡されたブロックの数を返す
+
+> def fun ( block | pomch )
+> fun ( times 3 ( pwd ) )
+times 3 ( pwd )
+
+> def fun ( block -run )
+> fun ( times 3 ( pwd ) )
+/Users/ab25cq
+/Users/ab25cq
+/Users/ab25cq
+
+> def fun ( block -run 1 )
+> fun ( pwd ) ( whoami ) ( sys::groups )
+ab25cq
+
+> def fun ( block -number )
+> fun ( pwd ) ( whoami ) ( sys::groups )
+3
 -
 time ブロック
 -
 ブロックを実行して実行時間を出力する。
+
+> time ( sleep 1 )
+1 sec(0 minuts 1 sec)
+
+> time ( sleep 3 )
+3 sec(0 minuts 3 sec)
 -
 umask 数値(8進数)
 -
 umaskを実行する。
+
+> touch aaa
+> ls -al aaa
+-rw-r--r--  1 ab25cq  staff  0  3 11 15:02 aaa
+
+> umask 000
+> touch bbb
+> ls -al bbb
+-rw-rw-rw-  1 ab25cq  staff  0  3 11 15:03 bbb
+
+> umask 777
+> touch ccc
+> ls -al ccc
+----------  1 ab25cq  staff  0  3 11 15:03 ccc
+
+> umask 644
+> touch ddd
+> ls -al ddd
+-----w--w-  1 ab25cq  staff  0  3 11 15:03 ddd
+
+> umask 133
+> touch eee
+> ls -al eee
+-rw-r--r--  1 ab25cq  staff  0  3 11 15:03 eee
 -
 rehash
 -
 環境変数PATHに登録されているディレクトリをサーチして実行可能なプログラムをroot::sysオブジェクトの中に外部プログラムオブジェクトとして格納する
+
+> print $PATH:$HOME/bin | export PATH
+> rehash
+
+> groups
+run time error
+xyzsh 1: [groups] command not found
+return code is 127
+> sys::groups
+staff com.apple.access_screensharing com.apple.sharepoint.group.1 everyone _appstore localaccounts _appserverusr admin _appserveradm _lpadmin _lpoperator _developer
+> print groups\n >> ~/.xyzsh/program
+> rehash
+> groups
+staff com.apple.access_screensharing com.apple.sharepoint.group.1 everyone _appstore localaccounts _appserverusr admin _appserveradm _lpadmin _lpoperator _developer
 -
 try (ブロック1) (ブロック2)
 -
-ブロック1を実行してエラーが起こると直ちにブロック2を実行する。エラーメッセージはerrmsgコマンドで得ることができる。エラーを起こすにはraiseコマンドを使う。
+ブロック1を実行してエラーが起こると直ちにブロック2を実行する。エラーメッセージはブロック２のコンテキストパイプで得ることができる。エラーを起こすにはraiseコマンドを使う。
+
+> try (
+    make || raise "make error"
+    sudo make install || raise "sudo make install error"
+) catch ( 
+    | =~ "make error" && print "catch make error\n";
+    | =~ "sudo make install error" && print "catch make install error\n"
+)
 -
 errmsg
 -
 エラーメッセージを出力する。
+
+> groups
+run time error
+xyzsh 1: [groups] command not found
+return code is 127
+> errmsg
+xyzsh 1: [groups] command not found
 -
 prompt (ブロック)
 -
 インタラクティブシェルのプロンプトを設定する。ブロックの出力がプロンプトとして扱われる。
+
+> prompt ( print "ab25cq's terminal > " )
+ab25cq's terminal > 
 -
 each (ブロック)
 -
@@ -236,6 +534,34 @@ each (ブロック)
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> split -target "01aaa 02bbb 03ccc 04ddd 05eee" | each ( | print )
+01aaa
+02bbb
+03ccc
+04ddd
+05eee
+
+> print "aaa\nbbb ccc\nddd eee" | split -La " " | each -La ( |chomp| less )
+--- less ---
+aaa
+bbb
+------------
+
+--- less ---
+ccc
+ddd
+------------
+
+--- less ---
+eee
+------------
+
+> split -target "01aaa 02bbb 03ccc 04ddd 05eee" | each -number 2 ( | join )
+01aaa 02bbb
+03ccc 04ddd
+05eee
+
 -
 join (区切り文字。省略時はスペースとなる)
 -
@@ -247,6 +573,20 @@ join (区切り文字。省略時はスペースとなる)
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> print "aaa bbb ccc" | split | join 
+aaa bbb cccc
+
+> print "aaa bbb ccc" | split | join +
+aaa+bbb+ccc
+
+> ls | join ,
+AUTHORS,CHANGELOG,LICENSE,Makefile,Makefile.in,README,README.ja,USAGE,USAGE.ja,a.xyzsh,aaa,bbb,ccc,completion.xyzsh,config.h,config.h.in,configure,configure.in,ddd,eee,help.xyzsh,install.sh,libxyzsh.1.7.1.dylib,libxyzsh.1.dylib,libxyzsh.dylib,man,read_history.xyzsh,src,xyzsh,xyzsh.dSYM,xyzsh.xyzsh
+
+> print "aaa\nbbb ccc\nddd eee" | split -La " " | join -La +
+aaa
+bbb+ccc
+ddd+eee
 -
 lines 行 (ブロック) 行 (ブロック), ..., 行 (ブロック)
 -
@@ -263,6 +603,45 @@ lines 行 (ブロック) 行 (ブロック), ..., 行 (ブロック)
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> split -target "aaa bbb ccc ddd eee" | lines 0 1 2
+aaa
+bbb
+ccc
+
+> split -target "aaa bbb ccc ddd eee" | lines 0 0 0
+aaa
+aaa
+aaa
+
+> split -target "aaa bbb ccc ddd eee" | lines -1 -2
+eee
+ddd
+
+> split -target "aaa bbb ccc ddd eee" | lines 4..0
+eee
+ddd
+ccc
+bbb
+aaa
+
+> split -target "aaa bbb ccc ddd eee" | lines -1..0
+eee
+ddd
+ccc
+bbb
+aaa
+
+> split -target "aaa bbb ccc ddd eee" | lines 0..1 (| chomp | add XXX | pomch ) 2..-1 ( | uc )
+aaaXXX
+bbbXXX
+CCC
+DDD
+EEE
+
+> split -target "aaa bbb ccc ddd eee" | ( | lines 0..1 | join; | lines 2..-1 | join )
+aaa bbb
+ccc ddd eee
 -
 sort (ブロック)
 -
@@ -271,13 +650,32 @@ sort (ブロック)
 
 戻り値: 入力文字列が無ければ262
 
-例) > ls | sort ( | var a b; a | -slt $b )   # 辞書並び
-
 -shuffle ソートの並びをランダムに行う。引数にブロックは取らない。
 -Lw 改行コードをCRLFとして処理する
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> split -target "ddd eee aaa ccc bbb" | sort ( | var a b; a | -slt $b )
+aaa
+bbb
+ccc
+ddd
+eee
+
+> spit -target "ddd eee aaa ccc bbb" | sort (| var a b; a | -sgt $b )
+eee
+ddd
+ccc
+bbb
+aaa
+
+> split -target "ddd eee aaa ccc bbb" | sort -shuffle    # random sort
+bbb
+eee
+ddd
+aaa
+ccc
 -
 -n 
 -
@@ -305,6 +703,7 @@ sort (ブロック)
 -
 -h 
 -
+なし
 -
 -L 
 -
@@ -315,6 +714,8 @@ sort (ブロック)
 ファイルが存在し、名前付きパイプであれば真
 -
 -t
+-
+なし
 -
 -S
 -
@@ -444,6 +845,44 @@ sort (ブロック)
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print abcdefghijklmn | =~ e
+> PREMATCH
+abcd
+> MATCH
+e
+> POSTMATCH
+fghijklmn
+
+> print abcdefghijklmn | =~ -verbose e
+4
+
+> print abcdefghijklmn | =~ z
+return code is 4089
+
+> print aaabbbcccdddeee | =~ '^(...)...(...)'
+> PREMATCH
+
+> MATCH
+aaabbbbccc
+> POSTMATCH
+dddeee
+> 1
+aaa
+> 2
+ccc
+> LAST_MATCH
+ccc
+> MATCH_NUMBER
+3
+
+> print aaabbbcccdddeee | =~ '^(...)...(...)' -offsets
+0       # all matching offsets
+9
+0       # group 1 matching offsets
+3
+6       # group 2 matching offsets
+9
 -
 selector
 -
@@ -468,6 +907,14 @@ q, CTRL-c -> キャンセル
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> ls | selector
+AUTHORS
+
+> ls | selector -multiple
+AUTHORS
+CHANGELOG
+main.c
 -
 p
 -
@@ -481,6 +928,28 @@ p
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> ls | p
+run time error
+xyzsh 1: [p] p: canceled
+return code is 8192
+
+> ls | p
+AUTHORS
+CHANGELOG
+LICENSE
+Makefile
+Makefile.in
+README
+README.ja
+USAGE
+USAGE.ja
+a.xyzsh
+completion.xyzsh
+config.h
+config.h.in
+configure
+configure.in
 -
 write ファイル名
 -
@@ -491,55 +960,147 @@ write ファイル名
 -append パイプのデータをファイルに追記する。
 -force 強制的に上書きする
 -error エラー出力をファイルに書き込む。入力をそのまま出力する。
+
+> touch aaa
+> ls | write aaa
+run time error
+xyzsh 1: [write] The file exists. If you want to override, add -force option to "write" runinfo
+return code is 8192
+> ls | write -force aaa
+
+> vim a.c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    fprintf(stderr, "hello world\n");
+    exit(0);
+}
+
+> gcc a.c
+> ./a.out | write -error a
+> cat a
+hello world
 -
 cd ディレクトリ
 -
 カレントディレクトリを引数のディレクトリに変更する。
 引数のディレクトリが省略された場合はホームディレクトリに移動する。
+
+> pwd
+/Users/ab25cq
+> mkdir abc
+> cd abc
+> pwd
+/Users/ab25cq/abc
 -
 pushd ディレクトリ
 -
 引数のディレクトリをディレクトリスタックに保存する。
+
+> pwd
+/Users/ab25cq
+> pushd .
+> cd /
+> pwd
+/
+> popd
+> pwd
+/Users/ab25cq
 -
 popd 
 -
 保存されたディレクトリスタックから一番最新のものをカレントディレクトリとして復帰する。
+
+> pwd
+/Users/ab25cq
+> pushd .
+> cd /
+> pwd
+/
+> popd
+> pwd
+/Users/ab25cq
 -
 ++ 変数名
 -
 引数の変数名をもつ変数がvarなら、数値としてみて＋１する。
+
+> print 1 | + 1 | var I
+> print $I\n
+2
+> ++ I
+> print $I\n
+3
+> I
+3
 -
 -- 変数名
 -
 引数の変数名をもつ変数がvarなら、数値としてみてー１する。
+
+> print 1 | + 1 | var I
+> I
+2
+> -- I
+> I
+1
 -
 + 数値
 -
 パイプのデータを数値としてみて引数の数値を加算する。
+
+> print 3 | + 1 
+4
 -
 - 数値
 -
 パイプのデータを数値としてみて引数の数値を減算する。
+
+> print 3 | - 1
+2
 -
 * 数値
 -
 パイプのデータを数値としてみて引数の数値を乗算する。
+
+> print 3 | * 3
+9
 -
 / 数値
 -
 パイプのデータを数値としてみて引数の数値を除算する。
+
+> print 1 | / 2
+0
+> print 5 | / 2
+2
+> print 5 | / 0
+run time error
+xyzsh 1: [/] zero div
+return code is 8192
 -
 mod 数値
 -
 パイプのデータを数値としてみて引数の数値で除算して余りを出力する。
+
+> print 1 | mod 2
+1
 -
 pow 数値
 -
 パイプのデータを数値としてみて引数の数値でべき乗する。
+
+> print 2  | pow 2
 -
 abs
 -
 パイプのデータを数値としてみて絶対値を出力する。
+
+> print 2 | abs
+2
+> print -2 | abs
+2
 -
 def 関数名（ブロック）
 -
@@ -548,27 +1109,66 @@ def 関数名（ブロック）
 
 -inherit 同名の関数を上書きする場合、前の関数を親関数として扱う。新しい関数の定義内ではinherit内部コマンドで親関数を呼び出すことができる。親関数には内部コマンドもなることができる。
 -option-with-argument 複数の引数(カンマ区切り) ある引数を文字列をともに取る引数として設定する。
-(例) > def fun -option-with-argument abc,def ( hash OPTIOINS ); fun -abc aaa -def bbb
- -abc
- aaa
- -def
- bbb
--copy-stackframe スタックフレーム（ローカル変数の入れ物)を新しく作る際に現在のスタックフレームの内容をコピーします。
-(例)
-> vim a.xyzsh
-def times -copy-stackframe ( 
-    print 0 | var -local _i
-    while(_i | -lt $ARGV[0]) (
-       | eval $(block)
-       ++ _i
-    )
-)
-> load a.xyzsh; print Hello | var -local a; times 3 ( a )
+-copy-stackframr スタックフレーム（ローカル変数の入れ物)を新しく作る際に現在のスタックフレームの内容をコピーします。
+
+> def fun ( times 3 ( echo Hello ) )
+> fun
 Hello
 Hello
 Hello
 
-このオプションがないとtimes 3 ( a ) でaが見つからないエラーが出る。
+> print "times 3 ( echo Hello )" | def fun 
+> fun
+Hello
+Hello
+Hello
+
+> def fun | pomch
+times 3 ( echo Hello )
+
+> def fun ( echo Hello )
+> def fun -inherit ( inherit; echo Hello2; ) 
+> fun
+Hello
+Hello2
+
+> def fun -option-with-argument abc,def ( hash OPTIOINS )
+> fun -abc aaa -def bbb ccc
+ -abc
+ aaa
+ -def
+ bbb
+ ccc
+ ccc
+
+クラスとの違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
+
+> def Fun ( split -target "AAA BBB CCC" | var A B C )
+> def Klass ( split -target "DDD EEE FFF" | var D E F )
+> object a
+> a::run ( Fun )
+> a::A
+run time error
+xyzsh 1: [A] there is not this object
+> a::B
+run time error
+xyzsh 1: [B] there is not this object
+> a::C
+run time error
+xyzsh 1: [C] there is not this object
+> A
+AAA
+> B
+BBB
+> C
+CCC
+> a::run ( Klass )
+> a::D
+DDD
+> a::E
+EEE
+> a::F
+FFF
 -
 class クラス名（ブロック）
 -
@@ -577,31 +1177,75 @@ class クラス名（ブロック）
 
 -inherit 同名のクラスを上書きする場合、前のクラスを親クラスとして扱う。新しいクラスの定義内ではinherit内部コマンドで親クラスを呼び出すことができる。
 -option-with-argument 複数の引数(カンマ区切り) ある引数を文字列をともに取る引数として設定する。
-(例) > class klass -option-with-argument abc,def ( hash OPTIOINS ); klass -abc aaa -def bbb
- -abc
- aaa
- -def
- bbb
 -copy-stackframe スタックフレーム（ローカル変数の入れ物)を新しく作る際に現在のスタックフレームの内容をコピーします。
-(例)
-> vim a.xyzsh
-class times -copy-stackframe ( 
-    print 0 | var -local _i
-    while(_i | -lt $ARGV[0]) (
-       | eval $(block)
-       ++ _i
-    )
-)
-> load a.xyzsh; print Hello | var -local a; times 3 ( a )
+
+> class fun ( times 3 ( echo Hello ) )
+> fun
 Hello
 Hello
 Hello
 
-このオプションがないとtimes 3 ( a ) でaが見つからないエラーが出る。
+> print "times 3 ( echo Hello )" | class fun 
+> class
+Hello
+Hello
+Hello
+
+> class fun | pomch
+times 3 ( echo Hello )
+
+> class fun ( echo Hello )
+> class fun -inherit ( inherit; echo Hello2; ) 
+> fun
+Hello
+Hello2
+
+> class klass -option-with-argument abc,def ( hash OPTIOINS ); klass -abc aaa -def bbb ccc
+ -abc
+ aaa
+ -def
+ bbb
+ ccc
+ ccc
+
+関数との違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
+
+> def Fun ( split -target "AAA BBB CCC" | var A B C )
+> def Klass ( split -target "DDD EEE FFF" | var D E F )
+> object a
+> a::run ( Fun )
+> a::A
+run time error
+xyzsh 1: [A] there is not this object
+> a::B
+run time error
+xyzsh 1: [B] there is not this object
+> a::C
+run time error
+xyzsh 1: [C] there is not this object
+> A
+AAA
+> B
+BBB
+> C
+CCC
+> a::run ( Klass )
+> a::D
+DDD
+> a::E
+EEE
+> a::F
+FFF
 -
 inherit 引数|オプション|ブロック
 -
 親クラス、親関数、親内部関数を呼び出す。
+
+> def fun ( echo Hello )
+> def fun -inherit ( echo Hello2; inherit )
+> fun
+Hello2
+Hello
 -
 var 変数名1 変数名2, ... , 変数名X
 -
@@ -609,17 +1253,45 @@ var 変数名1 変数名2, ... , 変数名X
 フィルタとして使われた場合は改行コードごとにテキストを切り分け、先頭行から順に変数に代入する。
 
 -new オブジェクトを生成してアドレスを出力する
--index 文字を1文字取り出して出力する
 -local 変数をローカル変数として扱う
 -shift フィルタとして使われた場合、変数への代入に使ったパイプのデータの残りを出力する
 -Lw 改行コードをCRLFとして処理する
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
--byte バイトコードとして処理する
--utf8 UTF8コードとして処理する
--sjis SJISコードとして処理する
--eucjp EUCJPコードとして処理する
+
+> split -target "ABC DEF GHI" | var A B C
+> var A
+ABC
+> A
+ABC
+> var A B C
+ABC
+DEF
+GHI
+
+> print ABC | var -new | ref X
+> var X
+ABC
+> X
+ABC
+
+> split -target "ABC DEF GHI" | var -shift A
+DEF
+GHI
+> var A
+ABC
+
+> split -La -target "ABC\nDEF GHI\nJKL MNO\nPQR" " " | var -La A B C
+> var A
+ABC
+DEF
+> var B
+GHI
+JKL
+> var C
+MNO
+PQR
 -
 object オブジェクト名1 オブジェクト名2, ..., オブジェクト名X (ブロック)
 -
@@ -627,25 +1299,94 @@ object オブジェクト名1 オブジェクト名2, ..., オブジェクト名
 
 -new オブジェクトを生成して、アドレスを出力する。
 -local ローカル変数として登録する。
+
+> object a
+> a::run ( split -target "AAA BBB CCC" | var A B C)
+> a::A
+AAA
+> a::B
+BBB
+> a::C
+CCC
+
+> object a ( split -target "AAA BBB CCC" | var A B C)
+> a::A
+AAA
+> a::run ( A )
+AAA
+> a::run ( var A )
+AAA
+
+> class Human ( | var Name Age; def show ( var Name Age | printf "name:%s\nage:%s\n" ) )
+> object ab25cq ( split -target "ab25cq 35" | Human )
+> ab25cq::Name
+ab25cq
+> ab25cq::Age
+35
+> ab25cq::show
+name:ab25cq
+age:35
 -
 run (クラス名|ブロック)
 -
 ブロックがある場合はメッセージが送られたオブジェクトをカレントオブジェクトとしてブロックを実行する。
 クラス名がある場合は、メッセージが送られたオブエジェクトをカレントオブジェクトとしてクラスを実行する。
 カレントオブジェクトとはクラス内で変数が作成される場合、その変数を属性として登録する登録先のオブジェクトのことである。
+
+> object a
+> a::run ( split -target "AAA BBB CCC" | var A B C)
+> a::A
+AAA
+> a::B
+BBB
+> a::C
+CCC
+
+> object a ( split -target "AAA BBB CCC" | var A B C)
+> a::A
+AAA
+> a::run ( A )
+AAA
+> a::run ( var A )
+AAA
 -
 times 数値 (ブロック)
 -
 ブロックを数値回実行する。
+
+> times 3 ( print Hello World\n )
+Hello World
+Hello World
+Hello World
 -
 pwo
 -
 カレントオブジェクトを表示する。
 カレントオブジェクトとはクラス内で変数が作成される場合、その変数を属性として登録する登録先のオブジェクトのことである。
+
+> pwo
+root
+> object obj
+> co obj
+> pwo
+root:obj
+> co parent
+> pwo
+root
 -
 co
 -
 カレントオブジェクトを変更する。
+
+> pwo
+root
+> object obj
+> co obj
+> pwo
+root:obj
+> co parent
+> pwo
+root
 -
 ref 変数名 変数名, ..., 変数名
 -
@@ -659,6 +1400,36 @@ ref 変数名 変数名, ..., 変数名
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> split -target "aaa bbb ccc" | ary -new | ref X
+> ref X
+0x7fd73469c780
+> X
+aaa
+bbb
+ccc
+> ary X
+aaa
+bbb
+ccc
+
+> ls | var A B C
+
+> ref X A B C | ref -type
+array
+var
+var
+var
+
+> ref -type X A B C
+array
+var
+var
+var
+
+> ls | (|1 var -new; |1 var -new; |1 var -new )| ref -shift X
+0x7f8c5de9f9c0
+0x7f8c5de9f8c0
 -
 ary 変数名 変数名, ... , 変数名
 -
@@ -668,12 +1439,97 @@ ary 変数名 変数名, ... , 変数名
 -new オブジェクトを生成してアドレスを出力する
 -local ローカル変数として扱う
 -index 数値 配列の内容を出力する場合、数値のインデックスのみ内容を出力する。
--append 数値 数値の位置に配列の内容を追記する。配列が無い場合新規に配列を作成する。
+-insert 数値 数値の位置に配列の内容を追記する。配列が無い場合新規に配列を作成する。
+-append 配列に追記する。
 -size 配列の大きさを出力する
 -Lw 改行コードをCRLFとして処理する
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> split -target "AAA BBB CCC" | ary A
+> ary A
+AAA
+BBB
+CCC
+> A
+AAA
+BBB
+CCC
+
+> ary A -index 0
+AAA
+> ary A -index 1
+BBB
+> ary A -index 2
+CCC
+> ary A -index -1
+CCC
+> ary A -index 3
+
+> print $A[0]\n
+AAA
+> print $A[1]\n
+BBB
+> print $A[-1]\n
+CCC
+> print $A[5]\n
+
+> split -target "DDD EEE FFF" | ary -append A
+> A
+AAA
+BBB
+CCC
+DDD
+EEE
+FFF
+
+> print "XXX" | ary -insert 1 A
+> A
+AAA
+XXX
+BBB
+CCC
+DDD
+EEE
+FFF
+
+> print "ZZZ" | ary -insert -2 A
+> A
+AAA
+XXX
+BBB
+CCC
+DDD
+EEE
+ZZZ
+FFF
+
+> ary -size A
+8
+
+> split -target "AAA BBB CCC" | ary -new | ref X
+> X
+AAA
+BBB
+CCC
+
+> split -La -target "AAA\nBBB CCC\nDDD EEE\nFFF" " "| ary -La X
+> X
+AAA
+BBB
+CCC
+DDD
+EEE
+FFF
+
+> ary X -index 0
+AAA
+BBB
+> ary X -index 1
+CCC
+DDD
+
 -
 hash 変数名 変数名, ... , 変数名
 -
@@ -699,6 +1555,50 @@ hash 変数名 変数名, ... , 変数名
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> split -target "key1 item1 key2 item2 key3 item3" | hash A
+> hash A
+key3
+item3
+key2
+item2
+key1
+item1
+
+> print $A[key1]\n
+item1
+> hash A -key key1
+item1
+> print $A[key4]\n
+
+> hash A -key key4
+
+> hash A -key key2
+item2
+
+> A | each -number 2 ( | lines 0 )
+key1
+key2
+key3
+
+> A | each -number 2 ( | lines 1 )
+item1
+item2
+item3
+
+> hash A -size
+3
+
+> print key4\nitem4 | hash -append A
+> A
+key4
+item4
+key3
+item3
+key2
+item2
+key1
+item1
 -
 export 環境変数名 環境変数名2, ...., 環境変数名X
 -
@@ -710,10 +1610,33 @@ export 環境変数名 環境変数名2, ...., 環境変数名X
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> export PATH
+/bin:/usr/bin
+> print $PATH:/usr/local/bin | export PATH
+> export PATH
+/bin:/usr/bin:/usr/local/bin
+> split -target "AAA BBB CCC" | export A B -shift
+CCC
+> export A
+AAA
+> export B
+BBB
+> print $A\n
+AAA
+> print $B\n
+BBB
 -
 unset 環境変数名 環境変数名2, ...., 環境変数名X
 -
 引数の環境変数を削除する。
+
+> print aaa | export AAA
+> env | grep AAA
+AAA=aaa
+> unset AAA
+> env | grep AAA
+return code is 1
 -
 quote
 -
@@ -725,6 +1648,10 @@ quote
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print "abcdefghij%&$]" | quote | pomch
+abcdefghij\%\&\$\]
+
 -
 length
 -
@@ -741,12 +1668,41 @@ length
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
 -line-num 改行数を出力する
+
+> print abc| length
+3
+> print abc\n | length
+4
+> print あいうえお | length -byte
+15
+> print あいうえお | length -utf8
+5
+> print abc\ndef\n | length -line-num
+2
+> print abc\ndef | length -line-num
+1
+> split -target "abc def ghi" | each ( | chomp | length )
+3
+3
+3
 -
 x 数値
 -
 文字列を数値倍大きくするフィルター。
 
 戻り値: 入力文字列が無ければ262
+
+> print abc | x 2 | pomch
+abcabc
+
+> print abc\n | x 2 
+abc
+abc
+
+> split -target "abc def ghi" | each ( | chomp | x 2 | pomch )
+abcabc
+defdef
+ghighi
 -
 index 文字列
 -
@@ -762,6 +1718,19 @@ index 文字列
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print あいうえお | index -utf8 う
+3
+> print abcabcabc | index c
+2
+> print abcabcabc | index -number 6 c
+8
+> print abcabcabc | index -count 2 c
+5
+> print abcabcabc | index -regex '..c'
+0
+> print abcabcabc | index -ignore-case BC
+1
 -
 rindex 文字列
 -
@@ -778,6 +1747,19 @@ rindex 文字列
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print あいうえおう | rindex -utf8 う
+5
+> print abcabcabc | rindex c
+8
+> print abcabcabc | index -number 6 c
+5
+> print abcabcabcabc | rindex -count 2 c
+8
+> print abcabcabc | rindex -ignore-case A
+6
+> print abcabcabc | rindex -regex '.b'
+6
 -
 lc 
 -
@@ -787,6 +1769,12 @@ lc
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print ABCDEFG | lc
+abcdefg
+
+> print あいうえおABCかきくけこ | lc -utf8
+あいうえおabcかきくけこ
 -
 uc 
 -
@@ -796,10 +1784,24 @@ uc
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print abcdefg | uc
+ABCDEFG
+
+> print あいうえおabcかきくけこ | uc -utf8
+あいうえおABCかきくけこ
 -
 chomp
 -
 パイプのデータの末尾が改行コードなら取り除く。もし、取り除く改行が無ければリターンコードは1を返す
+
+> print ABC\n | chomp
+ABC
+> print ABC | chomp
+ABC
+return code is 1
+> split -target "ABC DEF GHI" | each ( | chomp )
+ABCDEFGHI
 -
 chop
 -
@@ -808,6 +1810,15 @@ chop
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print ABC | chop
+AB
+> print ABC\n | chop
+ABC
+> print ABC\r\n | chop
+ABC
+> print あいうえお | chop -utf8
+あいうえ
 -
 pomch
 -
@@ -817,24 +1828,44 @@ pomch
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> print ABC | pomch
+ABC
+> print ABC\n | pomch
+ABC
+return code is 1
+> split -target "ABC DEF GHI" | each ( |chomp | add XXX | pomch )
+ABCXXX
+DEFXXX
+GHIXXX
 -
 printf
 -
 C言語のprinfのようにフォーマット文字を出力する。
 ただしデータはパイプから各行を一つの文字列として受け取とる。
 
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+
 > ls | head -n 3
 main.c
 sub1.c
 sub2.c
 
-> ls | printf "%s,%s,%s" \n
+> ls | printf "%s,%s,%s\n"
 main.c,sub1.c,sub2.c
 
--Lw 改行コードをCRLFとして処理する
--Lm 改行コードをCRとして処理する
--Lu 改行コードをLFとして処理する
--La 改行コードをBELとして処理する
+> split -target "1 2 3 4 5" | printf "(%d,%d)\n(%d,%d,%d)"
+(1,2)
+(3,4,5)
+
+> split -target "ABC\nDEF GHI\nJKL" " " -La | printf -La "(%s) (%s)"
+(ABC
+DEF) (GHI
+JKL)
+
 -
 sub 正規表現 (変換文字列|ブロック)
 -
@@ -842,27 +1873,21 @@ sub 正規表現 (変換文字列|ブロック)
 ブロックのコンテキストパイプはマッチした文字列が入っている。
 
 変換文字列では\+英数字は特別な意味を持ち以下の文字列に置き換えられる。
-ブロックでは以下のグローバル変数に特定の文字列が代入されている。
 
 グループ化された文字列 \1..\9
-(ブロック時 1,2,..,9)
 マッチした文字列 \&,\0
-(ブロック時 MATCH, 0)
 マッチ以前の文字列 \`
-(ブロック時 PREMATCH)
 マッチ以後の文字列 \'
-(ブロック時 POSTMATCH)
 最後にマッチした文字列 \+
-(ブロック時 LAST_MATCH)
-マッチした文字列の数
-(ブロック時 MATCH_NUMBER)
 
-> print abc | sub "a(.)c" "\1\1" | pomch
-bb
+ブロックでは以下のグローバル変数に特定の文字列が代入されている。
 
-> print abc | sub "a(.)c" ( var 1 1 )
-b
-b
+グループ化された文字列 1,2,..,9
+マッチした文字列 MATCH, 0
+マッチ以前の文字列 PREMATCH
+マッチ以後の文字列 POSTMATCH
+最後にマッチした文字列 LAST_MATCH
+マッチした文字列の数 MATCH_NUMBER
 
 変換回数はグローバル変数SUB_COUNTに代入される。
 
@@ -879,6 +1904,46 @@ b
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> print abc | sub b B | pomch
+aBc
+> print abc | sub b ( | uc ) | pomch
+aBc
+> print abc | sub "a(.)c" '(\1\1)' | pomch
+(bb)
+> print abc | sub "a(.)c" ( var 1 1 | printf "(%s%s)" | pomch
+(bb)
+> print abc | sub b '(\0\0)' | pomch
+a(bb)c
+> print abc | sub b ( var 0 0 | printf "(%s%s)" ) | pomch
+a(bb)c
+> print abc | sub b '(\`\`)' | pomch
+a(aa)c
+> print abc | sub b ( var PREMATCH PREMATCH | printf "(%s%s)" ) | pomch
+a(aa)c
+> print abc | sub b "(\\\'\\\')" | pomch
+a(cc)c
+> print abc | sub b ( var POSTMATCH POSTMATCH | printf "(%s%s)" ) | pomch
+a(cc)c
+> print abcdefghij | sub '(.)c(.)' '(\+)' | pomch
+a(d)efghij
+> print abcdefghij | sub '(.)c(.)' ( var LAST_MATCH | printf "(%s)" ) | pomch
+a(d)efghij
+> print abcabcabc\n | sub -global b '' && SUB_COUNT
+acacac
+3
+> print abc | sub "a(.)c" ( var 1 1 )
+b
+b
+> print "a.b.c.d.e.f.g\n" | sub -no-regex -global . X
+aXbXcXdXeXfXg
+> print "ABCDEGHIJK\n" | sub -ignore-case c XX
+ABXXDEFGHIJK
+> split -target "AAA BBB CCC DDD EEE" | sub -multi-line AAA\nBBB\n XXX\n
+XXX
+CCC
+DDD
+EEE
 -
 scan 正規表現 (ブロック)
 -
@@ -907,10 +1972,130 @@ scan 正規表現 (ブロック)
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> print abc | scan .
+a
+b
+c
+> print abcaaadefbbbghiccc | scan '(.)\1\1' | each ( | chomp | x 3 | pomch )
+aaa
+bbb
+ccc
+> print ABCDEFGHIJKABCDEFGHIJK  | scan -ignore-case a
+A
+A
+> split -target "AAA BBB CCC DDD EEE" | scan -multi-line "BBB\nCCC"
+BBB
+CCC
+> print abcaaadefbbbghiccc | scan "(.)\1\1" ( MATCH )
+aaa
+bbb
+ccc
+> print abcaaadefbbbghiccc | scan '(.)\1\1' ( 1|chomp; 1|chomp; 1 )
+aaa
+bbb
+ccc
+> print abcaaadefbbbghiccc | scan '(.)\1\1' ( PREMATCH )
+abc
+def
+ghi
+> print abcaaadefbbbghiccc | scan '(.)\1\1' ( POSTMATCH )
+defbbbghiccc
+ghiccc
+
+-
+combine (ブロック) (ブロック) ... (ブロック)
+-
+各ブロックの出力を混ぜ合わせて出力する。
+
+-Lw 改行コードをCRLFとして処理する
+-Lm 改行コードをCRとして処理する
+-Lu 改行コードをLFとして処理する
+-La 改行コードをBELとして処理する
+
+> combine ( print aaa\nbbb\nccc\nddd\neee\n ) ( print AAA\nBBB\nCCC\n )
+aaa
+AAA
+bbb
+BBB
+ccc
+CCC
+ddd
+eee
 -
 strip
 -
 このフィルターはパイプのデータの前後のスペース、タブ、改行コードを取り除きます。
+
+> print \n\naaabbbccc\n\a | strip
+aaabbbccc
+> print " aaa bbb ccc ddd\n\n" | strip | split
+aaa
+bbb
+ccc
+ddd
+-
+lstrip
+-
+このフィルターはパイプのデータの前のスペース、タブ、改行コードを取り除きます。
+
+> print "\n\naaa\nbbb\nccc\n\n" | lstrip
+aaa
+bbb
+ccc
+
+-
+rstrip
+-
+このフィルターはパイプのデータの後ろのスペース、タブ、改行コードを取り除きます。
+
+> print "\n\naaa\nbbb\nccc\n\n" | rstrip
+
+aaa
+bbb
+ccc
+-
+substr (インデックス) (長さ)
+-
+このフィルターは部分文字列を取るフィルターです。
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+
+> print abcdefg | substr 1
+bcdefg
+> print abcdefg | substr 1 2
+bc
+> print abcdefg | substr 1 -1
+bcdef
+> print abcdefg | substr -1 1
+g
+> print abcdefg | substr -2
+fg
+> print abcdefg | substr -2 1
+f
+-
+substr_replace (置き換える文字列) (インデックス) (長さ)
+-
+このフィルターは部分文字列を置き換えるフィルターです。
+
+-byte バイトコードとして処理する
+-utf8 UTF8コードとして処理する
+-sjis SJISコードとして処理する
+-eucjp EUCJPコードとして処理する
+
+> print abcdefg | substr_replace AAA 1 3
+aAAAefg
+> print abcdefg | substr_repalce AAA 1 0
+aAAAbcdefg
+> print abcdefg | substr_replace AAA 1 -1
+aAAA
+> print abcdefg | substr_replace AAA -2
+abcdeAAA
+> print abcdefg | substr_replace AAAr -1 0
+abcdefAAAg
 -
 tr 変換する文字の集合 変換される文字の集合
 -
@@ -925,6 +2110,17 @@ a-c --> abc
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print abc | tr ab Z | pomch
+ZZc
+> print abc | tr a-z A-Z | pomch
+ABC
+> print abc | tr a-z B-ZA | pomch
+BCD
+> print abcbca | tr abc YKL | pomch
+YKLKLY
+> print abcdef | tr a-c ^a Z | pomch
+aZZdef
 -
 delete 削除する文字の集合
 -
@@ -939,6 +2135,15 @@ a-c --> abc
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print abcdefghi | delete a-z ^b-c | pomch
+bc
+> print abcdefghi | delete a-c | pomch
+defghi
+> print abcdefghi | delete ^a-c | pomch
+defghi
+> print あいうえお | delete -utf8 ^あ | pomch
+あ
 -
 squeeze まとめる文字の集合
 -
@@ -955,6 +2160,13 @@ a-c --> abc
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print aaabbbcccdddeeefff | squeeze a-c | pomch
+abcdddeeefff
+> print aaabbbcccdddeeefff | squeeze ^a-c | pomch
+aaabbbcccdef
+> print あああいいいうううえええおおお | squeeze -utf8 あいうえお | pomch
+あいうえお
 -
 count カウントする文字の集合
 -
@@ -969,6 +2181,13 @@ a-c --> abc
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print aaabbbcccdddeeeff | count a-c
+9
+> print あいうえおaaabbbcccあいうえお | count -utf8 あい
+4
+> print aaabbbcccdddeeefff | count a-c
+9
 -
 succ
 -
@@ -988,6 +2207,7 @@ split 正規表現
 パイプから得たテキストを正規表現にマッチする部分を区切りとして分解する。分解結果は複数行の文字列として出力される。
 正規表現が省略されたら、"\s+"が設定される。
 
+-target 文字列 文字列をターゲットとしてフィルターを動かす
 -no-regex 正規表現じゃなくて普通の文字列としてパターンを使う
 -ignore-case 大文字と小文字を無視する
 -multi-line 複数行にまたがる、正規表現を許す。（パフォーマンスは落ちる)
@@ -999,6 +2219,23 @@ split 正規表現
 -Lm 改行コードをCRとして処理する
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
+
+> split -target "aaa bbb ccc"
+aaa
+bbb
+ccc
+> print "aaa bbb ccc"  | split
+aaa
+bbb
+ccc
+> print "aaa,bbb,ccc" | split ,
+aaa
+bbb
+ccc
+> print "aaa.bbb.ccc" | split -no-regex .
+aaa
+bbb
+ccc
 -
 add 文字列
 -
@@ -1010,6 +2247,11 @@ add 文字列
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print aaa | add X | add X | add X | pomch
+aaaXXX
+> print abcdefghi | add -index 1 XXX | pomch
+aXXXbcdefghi
 -
 del インデックス
 -
@@ -1020,6 +2262,11 @@ del インデックス
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print 0123456789 | del 1 | pomch
+023456789
+> print 0123456789 | del 1 -number 2 | pomch
+03456789
 -
 rows インデックス (ブロック) インデックス (ブロック), ... , インデックス (ブロック)
 -
@@ -1034,42 +2281,103 @@ rows インデックス (ブロック) インデックス (ブロック), ... , 
 -utf8 UTF8コードとして処理する
 -sjis SJISコードとして処理する
 -eucjp EUCJPコードとして処理する
+
+> print あいうえおかきくけこ | rows -utf8 0 0 0 | pomch
+あああ
+> print あいうえおかきくけこ | rows -utf8 1..2 | pomch
+いう
+> print あいうえおかきくけこ | rows -utf8 -1..0 | pomch
+こけくきかおえういあ
+> print あいうえおかきくけこ | rows -utf8 -1 -1 -1 | pomch
+こここ
+> print あいうえおかきくけこ | rows -utf8 1200 -100 -100 | pomch
+
+> print abcdefghijk | rows 0 ( | uc ) 1..-1 ( | pomch )
+Abcdefghijk
 -
-readline プロンプト
+readline プロンプト | raedline プロンプト ( ブロック )
 -
 readlineを使って1文をユーザーの入力から読み込み、読み込んだ文字列を出力する。
 
+ブロックがある場合はブロックの出力の一行が候補の補完を行なう。
+
 -no-completion 補完を行わない
+
+> readline -no-completion "Select yes or no > " |=~ ^y && print "selected yes"
+Select yes or no > yes
+selected yes
+
+> readline "type command line > " | eval
+type command line > pwd
+/Users/ab25cq
+
+> readline "Select yes or no > " ( split -target "yes no" ) |=~ ^y && print "selected yes"
+Select yes or no > [TAB]
+yes no
 -
 completion (オブジェクト::)コマンド名 (ブロック)
 -
 ブロックがあった場合はユーザー定義の補完を定義する。ブロックの出力結果が補完の候補となる（LF区切り)
-root::complにオブジェクトとして登録される
+補完オブジェクトはroot::complにオブジェクトとして登録される
 ARGVにはコマンド名と入力中の文字列が入っている
 コンテキストパイプには入力中の行が入っている
 コマンド名に__all__を使うとコマンド名が見つからなかった時は__all__が使われる
 ブロックが無かった場合は定義された補完を実行して結果を返す。
 
 -source ソースを表示する
+
+> completion cd ( 
+    | file_completion | each ( | =~ '/$' && | print )
+    print ../\n
+    hash COMPLETION_OPTIONS -key cd
+)
+> ls | each ( | chomp | -d && | print )
+src
+man
+doc
+> cd [TAB]
+.. src man doc
+> completion -source cd
+
+    | file_completion | each ( | =~ '/$' && | print )
+    print ../\n
+    hash COMPLETION_OPTIONS -key cd
+
+> completion cd
+..
+
 -
 help コマンド名
 -
 ヘルプを表示する。コマンド名が無ければマニュアルと全てのコマンドのヘルプを表示する。
+
+> help [TAB]
+all commands are deplayed
+
+> help cd | less
+runned viewer with help of cd 
 -
 jump
 -
 ジャンプメニューを表示する。xyzsh.xyzshで定義されたユーザー関数。~/.xyzsh/jumpにジャンプ先のディレクトリは書かれている。
+
+> cat ~/.xyzsh/jump
+/etc/
+/var/log/
+
+> jump
+/etc/
+/var/log
 -
 menu
 -
 メニュー形式でコマンドを選択してコマンドを実行する。xyzsh.xyzshで定義されたユーザー関数。~/.xyzsh/menuに選択されるコマンドが書かれている。
--
-migemo_match (パターン)
--
-パイプの入力の文字列とパターンをmigemoで比較してマッチしたら、マッチ開始バイトとマッチ終端バイト数を返す。マッチしなかったら-1\n-1\nを出力する
-使用するにはconfigure で --with-migemoをしてコンパイルする必要がある
 
--quiet バイト数は出力せず、マッチするかしないかをリターンコードにのみ返す
+> cat ~/.xyzsh/menu
+pwd
+ls
+whoami
+> menu
 -
 fselector
 -
@@ -1095,10 +2403,23 @@ print <<<'EOS'
 defined (object name)
 -
 if object is defined, return true
+
+> ls | var A B C
+
+> if(defined A) ( print yes\n ) ( print no\n )
+yes
+> if(defined D) ( print yes\n ) ( print no\n )
+no
 -
 kanjicode
 -
 show language setting
+
+> kanjicode   # default of xyzsh kanjicode is byte
+byte
+> kanjicode -utf8  # sett
+> kanjicode
+utf8
 
 -byte change language setting to byte
 -sjis change language setting to SJIS(for Japanese)
@@ -1108,24 +2429,64 @@ show language setting
 funinfo
 -
 output running function or class information.
+
+> funinfo
+run time error
+xyzsh 1: [funinfo] invalid command using
+return code is 8192
+> def fun ( funinfo )
+> fun
+source name: xyzsh
+source line: 1
+run nest level: 2
+current object: root
+reciever object: root
+command name: fun
 -
 jobs
 -
 lists suspended jobs.
+
+> vim help.xyzsh # will be pressed CTRL-Z
+> jobs
+[1] vim help.xyzsh (pgrp: 46302)
+> fg
 -
 fg (job number)
 -
 forground a suspended job.
+
+> vim help.xyzsh # will be pressed CTRL-Z
+> jobs
+[1] vim help.xyzsh (pgrp: 46302)
+> fg
 -
 exit
 -
 exited from xyzsh.
 
 -force If there are some suspended jobs, exited from xyzsh.
+
+> vim help.xyzsh # will be pressed CTRL-Z
+> jobs
+[1] vim help.xyzsh (pgrp: 46302)
+> exit
+run time error
+xyzsh 1: [exit] jobs exist
+return code is 8192
+> exit -force
 -
 while (block1) (block2)
 -
 while the return code of block1 is true, continue to run block2.
+
+> print 0 | var -local I; while(I | -lt 5) ( print $I\n; ++ I )
+0
+1
+2
+3
+4
+5
 -
 for (variable name) in (argument1) (argument2)... (block1)
 -
@@ -1142,44 +2503,114 @@ c
 -
 break
 -
-exited from while or each loop.
+exited from while or each, for, times loop.
+
+> split -target "aaa bbb ccc" | each ( | print; | if(| chomp | = bbb) ( break ))
+aaa
+bbb
 -
 true
 -
 return the rusult of true.
+
+> if(true) ( print yes\n) else ( print no\n )
+yes
 -
 false
 -
 return the result of false.
+
+>if(false) ( print yes\n ) else ( print no\n)
+no
 -
 if (condition1) (block1) (condition2) (block2)...(conditioni X) (block X) (the last of blocks)
 -
 If the result of condition is true, run conresponding block. If the all result of conditions, runthe last of blocks.
+
+> if(false) ( print 1\n ) elif(false) ( print 2\n ) else if (false ) ( print 3\n ) elsif (false) ( print 4\n) else ( print 5\n )
+5
+
+> ls | each ( | if(| chomp | -d) ( print found a directory\n ) )
+found a directory
+found a directory
+found a directory
+
+> split -target "aaaaa bbb cccccc ddd e" | each ( | if(|chomp|=~ ...) ( | print ))
+bbb
 -
 return (return code)
 -
 If running function or class, exited from it.
+
+> def fun ( print head\n; return 1; print tail)
+> fun
+head
+return code is 1
 -
 stackinfo
 -
 show the information of xyzsh stack which is used for memory management.
+
+> stackinfo
+slot size 32
+pool size 128
+all object number 4096
 -
 stackframe
 -
-lists local variable difinitions.
+list of local variable difinitions.
+
+> stackframe
+ARGV: array
+
+> def fun ( ls | var -local A B C; stackframe )
+> fun
+C: var
+B: var
+A: var
+OPTIONS: hash
+ARGV: array
 -
 gcinfo
 -
 show the information of xyzsh gabage colector which is used for memory management.
+
+> gcinfo
+free objects 3902
+used objects 4285
+all object number 8192
+slot size 64
+pool size 128
 -
 subshell (block)
 -
 run the block. The context pipe in the block has previous command result or standard input.
 You can omit the command name.
+
+> subshell (print a\n; print b\n; print c\n ) | less
+a
+b
+c
+> (print a\n; print b\n; print c\n) | less
+a
+b
+c
+> print aaa\n | (| print; | print ; | print)
+aaa
+aaa
+aaa
 -
 sweep (object name1) (object name2) ... (object name X)
 -
 Remove the objects in current object. If you omit the arguments, run the gabage collection.
+
+> ls | var A B C
+> sweep A
+> print $A\n
+run time error
+xyzsh 1: [print] no such as object(A)
+> sweep          # run gabage collection
+47 objects deleted
 -
 print (string1) (string2) ... (string X)
 -
@@ -1188,25 +2619,102 @@ If you use this for filter, outputs the inout then.
 
 -error Outputs to error output.
 -read-from-error This option is enable in filter. Get from error output and output to standard output.
+
+> print "Hello World\n"
+Hello World
+
+> split -target "aaa bbb ccc" | each ( | print )
+aaa
+bbb
+ccc
+
+> print "" | print
+return code is 16384
+
+> cat main.c | while(|1 print |>) (|> join ""; )
+
+> (print aaa\n; print -error error\n )
+aaa
+error
+
+> vim a.c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    fprintf(stdout, "OUTPUT\n");
+    fprintf(stderr, "ERROR\n");
+    exit(0);
+}
+> gcc a.c
+> ./a.out | (|print -read-from-error | less; | less)
 -
 load (script file name) (argument1) (argument2) ... (argument X)
 -
 Run the script file. Local variable stackframe is initialized, and local variable array "ARGV" has the arguments.
 
 -dynamic-library load C language extension library. Searched path is 3 step. First searched it from /usr/local/xyzsh/(pathname) or (installed prefix path)/(pathname), next searched it from ~/lib/(pathname), and finaly searched it from (absolute pathname or relative pathname). You can't ommit the file name extesion.
+
+> vim a.xyzsh
+print Hello Script\n
+
+> load a.xyzsh
+Hello Script
+
+> vim a.xyzsh
+ARGV
+
+> load a.xyzsh A B C
+A
+B
+C
+
+> load -dynamic-library [TAB]
+migemo.so
+
+> load -dynamic-library migemo.so
 -
 eval (block|string)
 -
 Run the block or the string.
 If you use this for filter, run the getting input.
+
+> eval "print Hello\n"
+Hello
+
+> print ls | var A; eval "$A -al"
+output of "ls -al"
+
+> print "ls -al" | eval
+output of "ls -al"
+
+> cat src/main.c | eval "| uc |less"
+output of "cat src/main.c|uc"
+
 -
 msleep (number)
 -
 Stop to run while the number minits.
+
+> msleep 10
+.oO.oO.oO.oO.oO.oO.oO.oO.oO
 -
 raise (error message)
 -
 occur a error.
+
+> make && raise "make is failed"
+run time error
+xyzsh 1: [raise] make is failed
+return code is 8192
+
+> try (
+    make || raise "make error"
+    sudo make install || raise "sudo make install error"
+) catch ( 
+    | =~ "make error" && print "catch make error\n";
+    | =~ "sudo make install error" && print "catch make install error\n"
+)
 -
 block (number)
 -
@@ -1215,30 +2723,91 @@ If you omit the number, assume that the number is 0.
 
 -run Run the argument block.
 -number Output the number of argument blocks.
+
+> def fun ( block | pomch )
+> fun ( times 3 ( pwd ) )
+times 3 ( pwd )
+
+> def fun ( block -run )
+> fun ( times 3 ( pwd ) )
+/Users/ab25cq
+/Users/ab25cq
+/Users/ab25cq
+
+> def fun ( block -run 1 )
+> fun ( pwd ) ( whoami ) ( sys::groups )
+ab25cq
+
+> def fun ( block -number )
+> fun ( pwd ) ( whoami ) ( sys::groups )
+3
 -
 time (block)
 -
 Run the block and mesure the time of running.
+
+> time ( sleep 1 )
+1 sec(0 minuts 1 sec)
+
+> time ( sleep 3 )
+3 sec(0 minuts 3 sec)
 -
 umask (number)
 -
 umask.
+
+> touch aaa
+> ls -al aaa
+-rw-r--r--  1 ab25cq  staff  0  3 11 15:02 aaa
+
+> umask 000
+> touch bbb
+> ls -al bbb
+-rw-rw-rw-  1 ab25cq  staff  0  3 11 15:03 bbb
+
+> umask 777
+> touch ccc
+> ls -al ccc
 -
 rehash
 -
 Searching the directory in PATH environment variable, store the external objects to root::sys object.
+
+> print $PATH:$HOME/bin | export PATH
+> rehash
+
+> groups
+run time error
+xyzsh 1: [groups] command not found
+return code is 127
+> sys::groups
+staff com.apple.access_screensharing com.apple.sharepoint.group.1 everyone _appstore localaccounts _appserverusr admin _appserveradm _lpadmin _lpoperator _developer
+> print groups\n >> ~/.xyzsh/program
+> rehash
+> groups
+staff com.apple.access_screensharing com.apple.sharepoint.group.1 everyone _appstore localaccounts _appserverusr admin _appserveradm _lpadmin _lpoperator _developer
 -
 try (block1) (block2)
 -
-When occured a error running block1, imediately run block2. To get error message use "errmsg" inner command, and to occure error in block1 use "raise" inner command.
+When occured a error running block1, imediately run block2. To get error message context pipe in block2, and to occure error in block1 use "raise" inner command.
 -
 errmsg
 -
 Output error message.
+
+> groups
+run time error
+xyzsh 1: [groups] command not found
+return code is 127
+> errmsg
+xyzsh 1: [groups] command not found
 -
 prompt (block)
 -
 Set interactive shell prompt with block output.
+
+> prompt ( print "ab25cq's terminal > " )
+ab25cq's terminal > 
 -
 each (block)
 -
@@ -1249,6 +2818,34 @@ Run the block with each line. To get a line, use context pipe.
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> split -target "01aaa 02bbb 03ccc 04ddd 05eee" | each ( | print )
+01aaa
+02bbb
+03ccc
+04ddd
+05eee
+
+> print "aaa\nbbb ccc\nddd eee" | split -La " " | each -La ( |chomp| less )
+--- less ---
+aaa
+bbb
+------------
+
+--- less ---
+ccc
+ddd
+------------
+
+--- less ---
+eee
+------------
+
+> split -target "01aaa 02bbb 03ccc 04ddd 05eee" | each -number 2 ( | join )
+01aaa 02bbb
+03ccc 04ddd
+05eee
+
 -
 join (filed string)
 -
@@ -1258,6 +2855,20 @@ Make one line string from multi line string. If you omit field string, xyzsh set
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> print "aaa bbb ccc" | split | join 
+aaa bbb cccc
+
+> print "aaa bbb ccc" | split | join +
+aaa+bbb+ccc
+
+> ls | join ,
+AUTHORS,CHANGELOG,LICENSE,Makefile,Makefile.in,README,README.ja,USAGE,USAGE.ja,a.xyzsh,aaa,bbb,ccc,completion.xyzsh,config.h,config.h.in,configure,configure.in,ddd,eee,help.xyzsh,install.sh,libxyzsh.1.7.1.dylib,libxyzsh.1.dylib,libxyzsh.dylib,man,read_history.xyzsh,src,xyzsh,xyzsh.dSYM,xyzsh.xyzsh
+
+> print "aaa\nbbb ccc\nddd eee" | split -La " " | join -La +
+aaa
+bbb+ccc
+ddd+eee
 -
 lines (line number) (block) (line number) (block), ..., (line number) (block)
 -
@@ -1271,6 +2882,45 @@ A case of (line number1) > (line number2), reverse the order.
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> split -target "aaa bbb ccc ddd eee" | lines 0 1 2
+aaa
+bbb
+ccc
+
+> split -target "aaa bbb ccc ddd eee" | lines 0 0 0
+aaa
+aaa
+aaa
+
+> split -target "aaa bbb ccc ddd eee" | lines -1 -2
+eee
+ddd
+
+> split -target "aaa bbb ccc ddd eee" | lines 4..0
+eee
+ddd
+ccc
+bbb
+aaa
+
+> split -target "aaa bbb ccc ddd eee" | lines -1..0
+eee
+ddd
+ccc
+bbb
+aaa
+
+> split -target "aaa bbb ccc ddd eee" | lines 0..1 (| chomp | add XXX | pomch ) 2..-1 ( | uc )
+aaaXXX
+bbbXXX
+CCC
+DDD
+EEE
+
+> split -target "aaa bbb ccc ddd eee" | ( | lines 0..1 | join; | lines 2..-1 | join )
+aaa bbb
+ccc ddd eee
 -
 sort (blovk)
 -
@@ -1284,6 +2934,27 @@ ex) > ls | sort ( | var a b; a | -slt $b )
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> split -target "ddd eee aaa ccc bbb" | sort ( | var a b; a | -slt $b )
+aaa
+bbb
+ccc
+ddd
+eee
+
+> spit -target "ddd eee aaa ccc bbb" | sort (| var a b; a | -sgt $b )
+eee
+ddd
+ccc
+bbb
+aaa
+
+> split -target "ddd eee aaa ccc bbb" | sort -shuffle    # random sort
+bbb
+eee
+ddd
+aaa
+ccc
 -
 -n 
 -
@@ -1311,6 +2982,7 @@ if the file exists and it's a regular file, return code is 0
 -
 -h 
 -
+no implement
 -
 -L 
 -
@@ -1321,6 +2993,8 @@ if the file exists and it's a sibolic link, return code is 0
 if the file exists and it's a named pipe, return code is 0
 -
 -t
+-
+no implement
 -
 -S
 -
@@ -1366,7 +3040,7 @@ if the file exists , return code is 0
 -
 if the file exists and the size is begger, return code is 0
 -
-= 引数
+= (argument)
 -
 the input equals to the argument, return code is 0
 
@@ -1458,6 +3132,44 @@ Matched number --> MATCH_NUMBER
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print abcdefghijklmn | =~ e
+> PREMATCH
+abcd
+> MATCH
+e
+> POSTMATCH
+fghijklmn
+
+> print abcdefghijklmn | =~ -verbose e
+4
+
+> print abcdefghijklmn | =~ z
+return code is 4089
+
+> print aaabbbcccdddeee | =~ '^(...)...(...)'
+> PREMATCH
+
+> MATCH
+aaabbbbccc
+> POSTMATCH
+dddeee
+> 1
+aaa
+> 2
+ccc
+> LAST_MATCH
+ccc
+> MATCH_NUMBER
+3
+
+> print aaabbbcccdddeee | =~ '^(...)...(...)' -offsets
+0       # all matching offsets
+9
+0       # group 1 matching offsets
+3
+6       # group 2 matching offsets
+9
 -
 selector
 -
@@ -1480,6 +3192,14 @@ q, CTRL-c -> cansel
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> ls | selector
+AUTHORS
+
+> ls | selector -multiple
+AUTHORS
+CHANGELOG
+main.c
 -
 p
 -
@@ -1491,6 +3211,28 @@ This is for debuging.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> ls | p
+run time error
+xyzsh 1: [p] p: canceled
+return code is 8192
+
+> ls | p
+AUTHORS
+CHANGELOG
+LICENSE
+Makefile
+Makefile.in
+README
+README.ja
+USAGE
+USAGE.ja
+a.xyzsh
+completion.xyzsh
+config.h
+config.h.in
+configure
+configure.in
 -
 write (file name)
 -
@@ -1499,55 +3241,147 @@ Write data in pipe to file.
 -append append to the file.
 -force allow to override
 -error write error output. keep and continue outputing from input
+
+> touch aaa
+> ls | write aaa
+run time error
+xyzsh 1: [write] The file exists. If you want to override, add -force option to "write" runinfo
+return code is 8192
+> ls | write -force aaa
+
+> vim a.c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    fprintf(stderr, "hello world\n");
+    exit(0);
+}
+
+> gcc a.c
+> ./a.out | write -error a
+> cat a
+hello world
 -
 cd (directory name)
 -
 Change current directory.
 If you omit the directory name, change current directory to home directory.
+
+> pwd
+/Users/ab25cq
+> mkdir abc
+> cd abc
+> pwd
+/Users/ab25cq/abc
 -
 pushd (directory name)
 -
 Save argument directory to directory stack.
+
+> pwd
+/Users/ab25cq
+> pushd .
+> cd /
+> pwd
+/
+> popd
+> pwd
+/Users/ab25cq
 -
 popd 
 -
 Restore directory from directory stack.
+
+> pwd
+/Users/ab25cq
+> pushd .
+> cd /
+> pwd
+/
+> popd
+> pwd
+/Users/ab25cq
 -
 ++ (variable name)
 -
 Assume variable as numeric, and plus 1.
+
+> print 1 | + 1 | var I
+> print $I\n
+2
+> ++ I
+> print $I\n
+3
+> I
+3
 -
 -- (variable name)
 -
 Assume variable as numeric, and minus 1.
+
+> print 1 | + 1 | var I
+> I
+2
+> -- I
+> I
+1
 -
 + (number)
 -
 Assume pipe data as numeric, and plus the argument.
+
+> print 3 | + 1 
+4
 -
 - (number)
 -
 Assume pipe data as numeric, and minus the argument.
+
+> print 3 | - 1
+2
 -
 * (number)
 -
 Assume pipe data as numric, and multiple the argument.
+
+> print 3 | * 3
+9
 -
 / (number)
 -
 Assume pipe data as numric, and divide the argument.
+
+> print 1 | / 2
+0
+> print 5 | / 2
+2
+> print 5 | / 0
+run time error
+xyzsh 1: [/] zero div
+return code is 8192
 -
 mod (number)
 -
 Assume pipe data as numric, and mod the argument.
+
+> print 1 | mod 2
+1
 -
 pow (number)
 -
 Assume pipe data as numric, and pow the argument.
+
+> print 2  | pow 2
 -
 abs
 -
 Assume pipe data as numric, and output absolute number.
+
+> print 2 | abs
+2
+> print -2 | abs
+2
 -
 def (function name) (block)
 -
@@ -1577,6 +3411,65 @@ Hello
 Hello
 
 If there is not -copy-stackframe option, xyzsh raises an error which is "not found a variable" on "times 3 ( a )" code.
+
+> def fun ( times 3 ( echo Hello ) )
+> fun
+Hello
+Hello
+Hello
+
+> print "times 3 ( echo Hello )" | def fun 
+> fun
+Hello
+Hello
+Hello
+
+> def fun | pomch
+times 3 ( echo Hello )
+
+> def fun ( echo Hello )
+> def fun -inherit ( inherit; echo Hello2; ) 
+> fun
+Hello
+Hello2
+
+> def fun -option-with-argument abc,def ( hash OPTIOINS )
+> fun -abc aaa -def bbb ccc
+ -abc
+ aaa
+ -def
+ bbb
+ ccc
+ ccc
+
+クラスとの違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
+
+> def Fun ( split -target "AAA BBB CCC" | var A B C )
+> def Klass ( split -target "DDD EEE FFF" | var D E F )
+> object a
+> a::run ( Fun )
+> a::A
+run time error
+xyzsh 1: [A] there is not this object
+> a::B
+run time error
+xyzsh 1: [B] there is not this object
+> a::C
+run time error
+xyzsh 1: [C] there is not this object
+> A
+AAA
+> B
+BBB
+> C
+CCC
+> a::run ( Klass )
+> a::D
+DDD
+> a::E
+EEE
+> a::F
+FFF
 -
 class (class name) (block)
 -
@@ -1590,10 +3483,74 @@ If you omit the block, output the class source.
 aaa
 -def
 bbb
+
+> class fun ( times 3 ( echo Hello ) )
+> fun
+Hello
+Hello
+Hello
+
+> print "times 3 ( echo Hello )" | class fun 
+> class
+Hello
+Hello
+Hello
+
+> class fun | pomch
+times 3 ( echo Hello )
+
+> class fun ( echo Hello )
+> class fun -inherit ( inherit; echo Hello2; ) 
+> fun
+Hello
+Hello2
+
+> class klass -option-with-argument abc,def ( hash OPTIOINS ); klass -abc aaa -def bbb ccc
+ -abc
+ aaa
+ -def
+ bbb
+ ccc
+ ccc
+
+関数との違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
+
+> def Fun ( split -target "AAA BBB CCC" | var A B C )
+> def Klass ( split -target "DDD EEE FFF" | var D E F )
+> object a
+> a::run ( Fun )
+> a::A
+run time error
+xyzsh 1: [A] there is not this object
+> a::B
+run time error
+xyzsh 1: [B] there is not this object
+> a::C
+run time error
+xyzsh 1: [C] there is not this object
+> A
+AAA
+> B
+BBB
+> C
+CCC
+> a::run ( Klass )
+> a::D
+DDD
+> a::E
+EEE
+> a::F
+FFF
 -
 inherit (argument|option|block)
 -
 Call parent class or function or inner command.
+
+> def fun ( echo Hello )
+> def fun -inherit ( echo Hello2; inherit )
+> fun
+Hello2
+Hello
 -
 var (variable name1) (variable name2),..., (variable name X)
 -
@@ -1603,10 +3560,39 @@ If you use this for filter, split with line fields, and get from first line by t
 -new create a new object and output the address
 -local Treat as local variable.
 -shift If you use this for filter, outputs and substitutes the pipe data at same time.
--Lw Processing with CRLF line field
--Lm Processing with CR line field
--Lu Processing with LF line field
--La Processing with BEL line field
+
+> split -target "ABC DEF GHI" | var A B C
+> var A
+ABC
+> A
+ABC
+> var A B C
+ABC
+DEF
+GHI
+
+> print ABC | var -new | ref X
+> var X
+ABC
+> X
+ABC
+
+> split -target "ABC DEF GHI" | var -shift A
+DEF
+GHI
+> var A
+ABC
+
+> split -La -target "ABC\nDEF GHI\nJKL MNO\nPQR" " " | var -La A B C
+> var A
+ABC
+DEF
+> var B
+GHI
+JKL
+> var C
+MNO
+PQR
 -
 object (object name1) (object name2), ..., (object name X) (block)
 -
@@ -1614,23 +3600,92 @@ Create objects. If a block exists, initialize the objects with block.
 
 -new create a new object and output the address
 -local create a new object as a local variable
+
+> object a
+> a::run ( split -target "AAA BBB CCC" | var A B C)
+> a::A
+AAA
+> a::B
+BBB
+> a::C
+CCC
+
+> object a ( split -target "AAA BBB CCC" | var A B C)
+> a::A
+AAA
+> a::run ( A )
+AAA
+> a::run ( var A )
+AAA
+
+> class Human ( | var Name Age; def show ( var Name Age | printf "name:%s\nage:%s\n" ) )
+> object ab25cq ( split -target "ab25cq 35" | Human )
+> ab25cq::Name
+ab25cq
+> ab25cq::Age
+35
+> ab25cq::show
+name:ab25cq
+age:35
 -
 run (class name|block)
 -
 If a block exists, run the block with message passed object as current object.
 If class names exist, run the class with message passed object as current object.
+
+> object a
+> a::run ( split -target "AAA BBB CCC" | var A B C)
+> a::A
+AAA
+> a::B
+BBB
+> a::C
+CCC
+
+> object a ( split -target "AAA BBB CCC" | var A B C)
+> a::A
+AAA
+> a::run ( A )
+AAA
+> a::run ( var A )
+AAA
 -
 times number (block)
 -
 run a block number times
+
+> times 3 ( print Hello World\n )
+Hello World
+Hello World
+Hello World
 -
 pwo
 -
 Show current object.
+
+> pwo
+root
+> object obj
+> co obj
+> pwo
+root:obj
+> co parent
+> pwo
+root
 -
 co (object name)
 -
 Change current object.
+
+> pwo
+root
+> object obj
+> co obj
+> pwo
+root:obj
+> co parent
+> pwo
+root
 -
 ref (variable name1) (variable name2), ..., (variable name X)
 -
@@ -1644,6 +3699,36 @@ If you don't use for filter, output the address in variable.
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> split -target "aaa bbb ccc" | ary -new | ref X
+> ref X
+0x7fd73469c780
+> X
+aaa
+bbb
+ccc
+> ary X
+aaa
+bbb
+ccc
+
+> ls | var A B C
+
+> ref X A B C | ref -type
+array
+var
+var
+var
+
+> ref -type X A B C
+array
+var
+var
+var
+
+> ls | (|1 var -new; |1 var -new; |1 var -new )| ref -shift X
+0x7f8c5de9f9c0
+0x7f8c5de9f8c0
 -
 ary (variable name1) (variable name2), ... , (variable name X)
 -
@@ -1653,12 +3738,97 @@ If you don't use this for filter, output the variables.
 -new create a new object and output the address
 -local Treat as local variable.
 -index (number) When outputing variables, output only the index item of array.
--append (number) Append to the array at the index point. If arrat doesn't exist, create new array.
+-insert (number) Append to the array at the index point. If the array doesn't exist, create new array.
+-append Append to the end of array. If the array doesn't exist, create new array
 -size Output the size of array.
 -Lw Processing with CRLF line field
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> split -target "AAA BBB CCC" | ary A
+> ary A
+AAA
+BBB
+CCC
+> A
+AAA
+BBB
+CCC
+
+> ary A -index 0
+AAA
+> ary A -index 1
+BBB
+> ary A -index 2
+CCC
+> ary A -index -1
+CCC
+> ary A -index 3
+
+> print $A[0]\n
+AAA
+> print $A[1]\n
+BBB
+> print $A[-1]\n
+CCC
+> print $A[5]\n
+
+> split -target "DDD EEE FFF" | ary -append A
+> A
+AAA
+BBB
+CCC
+DDD
+EEE
+FFF
+
+> print "XXX" | ary -insert 1 A
+> A
+AAA
+XXX
+BBB
+CCC
+DDD
+EEE
+FFF
+
+> print "ZZZ" | ary -insert -2 A
+> A
+AAA
+XXX
+BBB
+CCC
+DDD
+EEE
+ZZZ
+FFF
+
+> ary -size A
+8
+
+> split -target "AAA BBB CCC" | ary -new | ref X
+> X
+AAA
+BBB
+CCC
+
+> split -La -target "AAA\nBBB CCC\nDDD EEE\nFFF" " "| ary -La X
+> X
+AAA
+BBB
+CCC
+DDD
+EEE
+FFF
+
+> ary X -index 0
+AAA
+BBB
+> ary X -index 1
+CCC
+DDD
+
 -
 hash (variable name1) (variable name2), ... , (variable name X)
 -
@@ -1683,6 +3853,50 @@ If you don't use for filter, output the hash.
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> split -target "key1 item1 key2 item2 key3 item3" | hash A
+> hash A
+key3
+item3
+key2
+item2
+key1
+item1
+
+> print $A[key1]\n
+item1
+> hash A -key key1
+item1
+> print $A[key4]\n
+
+> hash A -key key4
+
+> hash A -key key2
+item2
+
+> A | each -number 2 ( | lines 0 )
+key1
+key2
+key3
+
+> A | each -number 2 ( | lines 1 )
+item1
+item2
+item3
+
+> hash A -size
+3
+
+> print key4\nitem4 | hash -append A
+> A
+key4
+item4
+key3
+item3
+key2
+item2
+key1
+item1
 -
 export (environment varialbe name1) (environment variable name2), ... , (environment variable name X)
 -
@@ -1694,10 +3908,33 @@ If you don't use this for filter, output the environment varible value.
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> export PATH
+/bin:/usr/bin
+> print $PATH:/usr/local/bin | export PATH
+> export PATH
+/bin:/usr/bin:/usr/local/bin
+> split -target "AAA BBB CCC" | export A B -shift
+CCC
+> export A
+AAA
+> export B
+BBB
+> print $A\n
+AAA
+> print $B\n
+BBB
 -
 unset (environment varialbe name1) (environment variable name2), ... , (environment variable name X)
 -
 Remove environment variables.
+
+> print aaa | export AAA
+> env | grep AAA
+AAA=aaa
+> unset AAA
+> env | grep AAA
+return code is 1
 -
 quote
 -
@@ -1707,6 +3944,10 @@ It is filter for quoting all non alphabet character except utf8-character.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print "abcdefghij%&$]" | quote | pomch
+abcdefghij\%\&\$\]
+
 -
 length
 -
@@ -1721,10 +3962,39 @@ It is a filter for outputing the pipe data size.
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> print abc| length
+3
+> print abc\n | length
+4
+> print あいうえお | length -byte
+15
+> print あいうえお | length -utf8
+5
+> print abc\ndef\n | length -line-num
+2
+> print abc\ndef | length -line-num
+1
+> split -target "abc def ghi" | each ( | chomp | length )
+3
+3
+3
 -
 x (number)
 -
 It is a filter for increasing several times the pipe data.
+
+> print abc | x 2 | pomch
+abcabc
+
+> print abc\n | x 2 
+abc
+abc
+
+> split -target "abc def ghi" | each ( | chomp | x 2 | pomch )
+abcabc
+defdef
+ghighi
 -
 index (string)
 -
@@ -1740,6 +4010,19 @@ It is a filter for outputing the index with searching the string position.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print あいうえお | index -utf8 う
+3
+> print abcabcabc | index c
+2
+> print abcabcabc | index -number 6 c
+8
+> print abcabcabc | index -count 2 c
+5
+> print abcabcabc | index -regex '..c'
+0
+> print abcabcabc | index -ignore-case BC
+1
 -
 rindex (string)
 -
@@ -1756,6 +4039,19 @@ Searching from the tail.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print あいうえおう | rindex -utf8 う
+5
+> print abcabcabc | rindex c
+8
+> print abcabcabc | index -number 6 c
+5
+> print abcabcabcabc | rindex -count 2 c
+8
+> print abcabcabc | rindex -ignore-case A
+6
+> print abcabcabc | rindex -regex '.b'
+6
 -
 lc 
 -
@@ -1765,6 +4061,12 @@ It is a filter for outputing lower cased string in pipe data.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print ABCDEFG | lc
+abcdefg
+
+> print あいうえおABCかきくけこ | lc -utf8
+あいうえおabcかきくけこ
 -
 uc 
 -
@@ -1774,10 +4076,24 @@ It is a filter for outputing upper cased string in pipe data.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print abcdefg | uc
+ABCDEFG
+
+> print あいうえおabcかきくけこ | uc -utf8
+あいうえおABCかきくけこ
 -
 chomp
 -
 It is a filter for removing last one line field. If no removing character, the return code is 1.
+
+> print ABC\n | chomp
+ABC
+> print ABC | chomp
+ABC
+return code is 1
+> split -target "ABC DEF GHI" | each ( | chomp )
+ABCDEFGHI
 -
 chop
 -
@@ -1787,6 +4103,15 @@ It is a filter for removing last one character expcept that last one character i
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print ABC | chop
+AB
+> print ABC\n | chop
+ABC
+> print ABC\r\n | chop
+ABC
+> print あいうえお | chop -utf8
+あいうえ
 -
 pomch
 -
@@ -1796,24 +4121,44 @@ It is a filter for outputing string which is added line field to last.
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> print ABC | pomch
+ABC
+> print ABC\n | pomch
+ABC
+return code is 1
+> split -target "ABC DEF GHI" | each ( |chomp | add XXX | pomch )
+ABCXXX
+DEFXXX
+GHIXXX
 -
 printf
 -
 Like C language, output format string.
 However, getting arguments from pipe data.
 
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+
 > ls | head -n 3
 main.c
 sub1.c
 sub2.c
 
-> ls | printf "%s,%s,%s" \n
+> ls | printf "%s,%s,%s\n"
 main.c,sub1.c,sub2.c
 
--Lw Processing with CRLF line field
--Lm Processing with CR line field
--Lu Processing with LF line field
--La Processing with BEL line field
+> split -target "1 2 3 4 5" | printf "(%d,%d)\n(%d,%d,%d)"
+(1,2)
+(3,4,5)
+
+> split -target "ABC\nDEF GHI\nJKL" " " -La | printf -La "(%s) (%s)"
+(ABC
+DEF) (GHI
+JKL)
+
 -
 sub (regex) (string|block)
 -
@@ -1860,6 +4205,46 @@ You can get the count of searching to use the local variable "SUB_COUNT"
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print abc | sub b B | pomch
+aBc
+> print abc | sub b ( | uc ) | pomch
+aBc
+> print abc | sub "a(.)c" '(\1\1)' | pomch
+(bb)
+> print abc | sub "a(.)c" ( var 1 1 | printf "(%s%s)" | pomch
+(bb)
+> print abc | sub b '(\0\0)' | pomch
+a(bb)c
+> print abc | sub b ( var 0 0 | printf "(%s%s)" ) | pomch
+a(bb)c
+> print abc | sub b '(\`\`)' | pomch
+a(aa)c
+> print abc | sub b ( var PREMATCH PREMATCH | printf "(%s%s)" ) | pomch
+a(aa)c
+> print abc | sub b "(\\\'\\\')" | pomch
+a(cc)c
+> print abc | sub b ( var POSTMATCH POSTMATCH | printf "(%s%s)" ) | pomch
+a(cc)c
+> print abcdefghij | sub '(.)c(.)' '(\+)' | pomch
+a(d)efghij
+> print abcdefghij | sub '(.)c(.)' ( var LAST_MATCH | printf "(%s)" ) | pomch
+a(d)efghij
+> print abcabcabc\n | sub -global b '' && SUB_COUNT
+acacac
+3
+> print abc | sub "a(.)c" ( var 1 1 )
+b
+b
+> print "a.b.c.d.e.f.g\n" | sub -no-regex -global . X
+aXbXcXdXeXfXg
+> print "ABCDEGHIJK\n" | sub -ignore-case c XX
+ABXXDEFGHIJK
+> split -target "AAA BBB CCC DDD EEE" | sub -multi-line AAA\nBBB\n XXX\n
+XXX
+CCC
+DDD
+EEE
 -
 scan (regex) (block)
 -
@@ -1888,11 +4273,130 @@ Matched number --> MATCH_NUMBER
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> print abc | scan .
+a
+b
+c
+> print abcaaadefbbbghiccc | scan '(.)\1\1' | each ( | chomp | x 3 | pomch )
+aaa
+bbb
+ccc
+> print ABCDEFGHIJKABCDEFGHIJK  | scan -ignore-case a
+A
+A
+> split -target "AAA BBB CCC DDD EEE" | scan -multi-line "BBB\nCCC"
+BBB
+CCC
+> print abcaaadefbbbghiccc | scan "(.)\1\1" ( MATCH )
+aaa
+bbb
+ccc
+> print abcaaadefbbbghiccc | scan '(.)\1\1' ( 1|chomp; 1|chomp; 1 )
+aaa
+bbb
+ccc
+> print abcaaadefbbbghiccc | scan '(.)\1\1' ( PREMATCH )
+abc
+def
+ghi
+> print abcaaadefbbbghiccc | scan '(.)\1\1' ( POSTMATCH )
+defbbbghiccc
+ghiccc
+
 -
 strip
 -
 It is a filter for removing front and tail spaces, tabs, and line fields.
 
+> print \n\naaabbbccc\n\a | strip
+aaabbbccc
+> print " aaa bbb ccc ddd\n\n" | strip | split
+aaa
+bbb
+ccc
+ddd
+-
+lstrip
+-
+It is a filter for removing front spaces, tabs, and line fields.
+
+> print "\n\naaa\nbbb\nccc\n\n" | lstrip
+aaa
+bbb
+ccc
+
+-
+rstrip
+-
+It is a filter for removing spaces, tabs, and line fields.
+
+> print "\n\naaa\nbbb\nccc\n\n" | rstrip
+
+aaa
+bbb
+ccc
+-
+substr (index) (length)
+-
+This is filter which gets the part of input.
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+
+> print abcdefg | substr 1
+bcdefg
+> print abcdefg | substr 1 2
+bc
+> print abcdefg | substr 1 -1
+bcdef
+> print abcdefg | substr -1 1
+g
+> print abcdefg | substr -2
+fg
+> print abcdefg | substr -2 1
+f
+-
+substr_replace (replace) (index) (length)
+-
+This is a filter which replace the part of input.
+
+-byte assume text encode as byte code.
+-utf8 assume text encode as utf-8 code.
+-sjis assume text encode as SJIS code.
+-eucjp assume text encode as EUCJP code.
+
+> print abcdefg | substr_replace AAA 1 3
+aAAAefg
+> print abcdefg | substr_repalce AAA 1 0
+aAAAbcdefg
+> print abcdefg | substr_replace AAA 1 -1
+aAAA
+> print abcdefg | substr_replace AAA -2
+abcdeAAA
+> print abcdefg | substr_replace AAAr -1 0
+abcdefAAAg
+-
+combine (block) (block) ... (block)
+-
+Combine each output of blocks.
+
+-Lw Processing with CRLF line field
+-Lm Processing with CR line field
+-Lu Processing with LF line field
+-La Processing with BEL line field
+
+> combine ( print aaa\nbbb\nccc\nddd\neee\n ) ( print AAA\nBBB\nCCC\n )
+aaa
+AAA
+bbb
+BBB
+ccc
+CCC
+ddd
+eee
 -
 tr (characters) (characters2)
 -
@@ -1907,6 +4411,17 @@ a-c --> abc
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print abc | tr ab Z | pomch
+ZZc
+> print abc | tr a-z A-Z | pomch
+ABC
+> print abc | tr a-z B-ZA | pomch
+BCD
+> print abcbca | tr abc YKL | pomch
+YKLKLY
+> print abcdef | tr a-c ^a Z | pomch
+aZZdef
 -
 delete (characters)
 -
@@ -1921,6 +4436,15 @@ a-c --> abc
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print abcdefghi | delete a-z ^b-c | pomch
+bc
+> print abcdefghi | delete a-c | pomch
+defghi
+> print abcdefghi | delete ^a-c | pomch
+defghi
+> print あいうえお | delete -utf8 ^あ | pomch
+あ
 -
 squeeze (characters)
 -
@@ -1937,6 +4461,13 @@ If there is no argument, put together all successive characters.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print aaabbbcccdddeeefff | squeeze a-c | pomch
+abcdddeeefff
+> print aaabbbcccdddeeefff | squeeze ^a-c | pomch
+aaabbbcccdef
+> print あああいいいうううえええおおお | squeeze -utf8 あいうえお | pomch
+あいうえお
 -
 count (characters)
 -
@@ -1951,6 +4482,13 @@ a-c --> abc
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print aaabbbcccdddeeeff | count a-c
+9
+> print あいうえおaaabbbcccあいうえお | count -utf8 あい
+4
+> print aaabbbcccdddeeefff | count a-c
+9
 -
 succ
 -
@@ -1970,6 +4508,7 @@ split (regex)
 It is a filter for spliting pipe data with regex.
 If you omit the argument, xyzsh set "\s+" for it.
 
+-target (str) run filter with argument string.
 -no-regex Don't use regex for pattern. Use it as text.
 -ignore-case ignore case
 -multi-line Allow to write multiline matching regex, but the performance is less than normal.
@@ -1981,6 +4520,23 @@ If you omit the argument, xyzsh set "\s+" for it.
 -Lm Processing with CR line field
 -Lu Processing with LF line field
 -La Processing with BEL line field
+
+> split -target "aaa bbb ccc"
+aaa
+bbb
+ccc
+> print "aaa bbb ccc"  | split
+aaa
+bbb
+ccc
+> print "aaa,bbb,ccc" | split ,
+aaa
+bbb
+ccc
+> print "aaa.bbb.ccc" | split -no-regex .
+aaa
+bbb
+ccc
 -
 add (string)
 -
@@ -1992,6 +4548,11 @@ It is a filter for adding string to pipe data.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print aaa | add X | add X | add X | pomch
+aaaXXX
+> print abcdefghi | add -index 1 XXX | pomch
+aXXXbcdefghi
 -
 del (index)
 -
@@ -2002,6 +4563,11 @@ It is a filter for removing a character on pipe data.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print 0123456789 | del 1 | pomch
+023456789
+> print 0123456789 | del 1 -number 2 | pomch
+03456789
 -
 rows (number1) (block) (number2) (block), ... , (number X) (block X)
 -
@@ -2015,12 +4581,39 @@ A case of (character number1) > (character number2), reverse the order.
 -utf8 assume text encode as utf-8 code.
 -sjis assume text encode as SJIS code.
 -eucjp assume text encode as EUCJP code.
+
+> print あいうえおかきくけこ | rows -utf8 0 0 0 | pomch
+あああ
+> print あいうえおかきくけこ | rows -utf8 1..2 | pomch
+いう
+> print あいうえおかきくけこ | rows -utf8 -1..0 | pomch
+こけくきかおえういあ
+> print あいうえおかきくけこ | rows -utf8 -1 -1 -1 | pomch
+こここ
+> print あいうえおかきくけこ | rows -utf8 1200 -100 -100 | pomch
+
+> print abcdefghijk | rows 0 ( | uc ) 1..-1 ( | pomch )
+Abcdefghijk
 -
-readline (prompt string)
+readline (prompt string) | readline (prompt string) (block)
 -
 Using readline, get a line input by the user, and output it.
 
+"readline" innser command can do completion with output of block.
+
 -no-completion Using readline with no completion
+
+> readline -no-completion "Select yes or no > " |=~ ^y && print "selected yes"
+Select yes or no > yes
+selected yes
+
+> readline "type command line > " | eval
+type command line > pwd
+/Users/ab25cq
+
+> readline "Select yes or no > " ( split -target "yes no" ) |=~ ^y && print "selected yes"
+Select yes or no > [TAB]
+yes no
 -
 completion (object name::)(command name) (block)
 -
@@ -2031,18 +4624,59 @@ If you use __all__ for command name, it is wild card.
 If there is not a block, run the completion and return output.
 
 -source output a source program of completion
+
+> completion cd ( 
+    | file_completion | each ( | =~ '/$' && | print )
+    print ../\n
+    hash COMPLETION_OPTIONS -key cd
+)
+> ls | each ( | chomp | -d && | print )
+src
+man
+doc
+> cd [TAB]
+.. src man doc
+> completion -source cd
+
+    | file_completion | each ( | =~ '/$' && | print )
+    print ../\n
+    hash COMPLETION_OPTIONS -key cd
+
+> completion cd
+..
+
 -
 help (command name)
 -
 View help. If command name is null, output manual and all command help.
+
+> help [TAB]
+all commands are deplayed
+
+> help cd | less
+runned viewer with help of cd 
 -
 jump
 -
 Select menu for changing directory. A user function defined in xyzsh.xyzsh。The jump menu definition is written in ~/.xyzsh/jump.
+
+> cat ~/.xyzsh/jump
+/etc/
+/var/log/
+
+> jump
+/etc/
+/var/log
 -
 menu
 -
 Select menu for running a one line command. A user function defined in xyzsh.xyzsh. The menu definition is written in ~/.xyzsh/menu.
+
+> cat ~/.xyzsh/menu
+pwd
+ls
+whoami
+> menu
 -
 migemo_match (pattern)
 -

@@ -156,7 +156,7 @@ How to compile
     --with-migemo-dir --> indicate migemo installed directory.
     --with-system-migemodir --> specify the directory of system migemo dictionary.
 
-    xyzsh makes library, so add /usr/local/lib(or your installed directory)  to /etc/ld.so.conf and type below to refresh dynamic loarding searched path cache.
+    xyzsh makes library, so add /usr/local/lib(or your installed directory)  to /etc/ld.so.conf and type below to refresh dynamic loarding searched path cache in the case of linux
     
     sudo ldconfig
     
@@ -165,13 +165,16 @@ How to compile
     su
     ldconfig
     exit
-    
 
-    If you don't have root comission, add the path to LD_LIBRARY_PATH environment variable. (With OSX, you should use DYLD_LIBRARY_PATH_FALLBACK environment variable.)
+    If you don't have root comission, add the path to LD_LIBRARY_PATH environment variable.
 
 with OS X
     Before you installed xyzsh, you should compile the readline library because OSX's readline is libedit, xyzsh needs GNU readline.
     Also you can use Macports or other compling system instead of manually compiling to install GNU readline.
+
+    You don't have to be setting on ldconfig, but you need to set DYLD_LIBRARY_PATH like below
+
+    export DYLD_LIBRARY_PATH=/usr/local/lib
 
 Used files
     /usr/local/bin/xyzsh --> a program
@@ -234,6 +237,7 @@ Files
     src/xyzsh --> headers
     src/block.c --> code structure 
     src/cmd_ary.c --> inner commands which is related to array 
+    src/cmd_loop.c --> inner commands which is related to loop
     src/cmd_base.c --> base inner commands 
     src/cmd_condition.c --> condition expression inner commands
     src/cmd_curses.c --> inner commands which manipulate text consoles.

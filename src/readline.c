@@ -498,12 +498,9 @@ static int readline_bind_cr(int count, int key)
 
     sObject* block = BLOCK_NEW_STACK();
 
-    sObject* cmdline = STRING_NEW_STACK("");
-    string_push_back3(cmdline, rl_line_buffer, rl_point);
-
     int sline = 1;
     sObject* current_object = gCurrentObject;
-    BOOL result = parse(string_c_str(cmdline), "readline", &sline, block, &current_object);
+    BOOL result = parse(rl_line_buffer, "readline", &sline, block, &current_object);
 
     /// in the block? get the block
     if(!result && (SBLOCK(block).mCompletionFlags & (COMPLETION_FLAGS_BLOCK|COMPLETION_FLAGS_ENV_BLOCK))) {
@@ -752,6 +749,45 @@ char** readline_on_complete(const char* text, int start, int end)
 
     stack_end_stack();
     return NULL;
+}
+
+static sObject* gReadlineUserCastamized = NULL;
+
+char** readline_on_complete_user_castamized(const char* text, int start, int end)
+{
+    stack_start_stack();
+
+    sObject* nextin = FD_NEW_STACK();
+    sObject* nextout = FD_NEW_STACK();
+
+    sObject* fun = FUN_NEW_STACK(NULL);
+    sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
+    vector_add(gStackFrames, stackframe);
+    //uobject_init(stackframe);
+    SFUN(fun).mLocalObjects = stackframe;
+
+    int rcode = 0;
+    xyzsh_set_signal();
+    if(!run(gReadlineUserCastamized, nextin, nextout, &rcode, gCurrentObject, fun)) {
+        readline_signal();
+        fprintf(stderr, "\nrun time error\n");
+        fprintf(stderr, "%s", string_c_str(gErrMsg));
+        stack_end_stack();
+        return NULL;
+    }
+    readline_signal();
+
+    eLineField lf;
+    if(fd_guess_lf(nextout, &lf)) {
+        fd_split(nextout, lf);
+    } else {
+        fd_split(nextout, kLF);
+    }
+
+    gUserCompletionNextout = nextout;
+    char** result = rl_completion_matches(text, user_completion);
+    stack_end_stack();
+    return result;
 }
 
 BOOL cmd_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
@@ -1586,6 +1622,28 @@ void readline_completion()
     rl_bind_key('x'-'a'+1, readline_macro);
     rl_bind_key('\n', readline_bind_cr);
     rl_bind_key('\r', readline_bind_cr);
+}
+
+void readline_completion_user_castamized(sObject* block)
+{
+    gReadlineUserCastamized = block;
+    rl_attempted_completion_function = readline_on_complete_user_castamized;
+    rl_completion_entry_function = readline_filename_completion_null_generator;
+
+    rl_completer_quote_characters = "\"'";
+    rl_completer_word_break_characters = " \t\n\"'|!&;()$<>=";
+    rl_completion_append_character= ' ';
+    rl_filename_quote_characters = " \t\n\"'|!&;()$%<>[]~";
+    rl_filename_quoting_function = bash_quote_filename;
+    rl_filename_dequoting_function = (rl_dequote_func_t*)bash_dequote_filename;
+    rl_char_is_quoted_p = (rl_linebuf_func_t*)lftp_char_is_quoted;
+    rl_menu_completion_entry_function = 0;
+
+    rl_completion_suppress_quote = 1;
+
+    rl_completion_display_matches_hook = 0;
+
+    rl_bind_key('x'-'a'+1, readline_macro);
 }
 
 void xyzsh_readline_init(BOOL runtime_script)

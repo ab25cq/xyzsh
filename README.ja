@@ -65,31 +65,6 @@ xyzsh シェルスクリプト言語
     name: Yamanaka Gorou
     age: 23
     country: Japan
-
-    > print 1 | var -local i; ls | scan . | while(| eval "|$i print |>") (|> join ""; ++ i )
-    A
-    UT
-    HOR
-    SCHA
-    NGELO
-    GLICEN
-    SEMakef
-    ileMakef
-    ile.inREA
-    DMEREADME.
-    jaUSAGEUSAG
-    E.jacompleti
-    on.xyzshconfi
-    g.hconfig.h.in
-    config.logconfi
-    g.statusconfigur
-    econfigure.inhelp
-    .xyzshinstall.shli
-    bxyzsh.1.7.0.dylibl
-    ibxyzsh.1.dyliblibxy
-    zsh.dylibmanread_hist
-    ory.xyzshsrcxyzshxyzsh
-    .dSYMxyzsh.xyzsh
     
 コンパイルとテストを行ったOS
 
@@ -201,7 +176,6 @@ xyzsh シェルスクリプト言語
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
     
     などとライブラリがインストールされるディレクトリをLD_LIBRARY_PATHに追加してください。(.bashrcなどに書く)
-    (OSXではDYLD_LIBRARY_PATH_FALLBAK)
     プログラムが動的ライブラリをリンクして実行できるようになります。
     （動的ライブラリのある場所が決まらないとxyzshは実行できない)
 
@@ -209,6 +183,12 @@ OSXでは
 
     OSXで標準でインストールされているreadlineはlibeditで、それはxyzshから使えません。GNU readlineが必要となります。
     Macportsなどのパッケージツールを使ってインストールするか自分でコンパイルしてGNU readlineをインストールする必要があります。
+
+    OSXではldconfigの設定は必要ありませんが、以下の設定が必要になります。
+
+    export DYLD_LIBRARY_PATH=/usr/local/lib
+
+    ~/.bashrcに書いておいてください。(無くても実行できる場合もあるが、mfiler4でmigemoをロードするとこの設定が無いと僕の環境ではmfiler4が落ちる)
 
 xyzshが使用するファイル
 
@@ -278,6 +258,7 @@ xyzshが使用するファイル
     src/block.c --> コードを格納するblock_obj関連の実装
     src/class.c --> classオブジェクトの実装。
     src/cmd_ary.c --> 配列関連の内部コマンドが定義されている
+    src/cmd_loop.c --> ループ関連の内部コマンドが定義されている
     src/cmd_base.c --> 基本となる内部コマンドが定義されている
     src/cmd_condition.c --> -ltなど条件判定を行う内部コマンドが実装されている
     src/cmd_curses.c --> pやselectorなど端末制御を行う内部コマンドが実装されている

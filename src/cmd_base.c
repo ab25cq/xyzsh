@@ -41,88 +41,6 @@ BOOL cmd_exit(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return FALSE;
 }
 
-BOOL cmd_while(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    if(runinfo->mBlocksNum == 2) {
-        runinfo->mRCode = 0;
-
-        while(1) {
-            /// condition ///
-            int rcode;
-            if(!run(runinfo->mBlocks[0], nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                runinfo->mRCode = rcode;
-                return FALSE;
-            }
-
-            if(rcode != 0) {
-                break;
-            }
-
-            /// inner loop ///
-            if(!run(runinfo->mBlocks[1], nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                if(rcode == RCODE_BREAK) {
-                    rcode = 0;
-                    break;
-                }
-                else {
-                    runinfo->mRCode = rcode;
-                    return FALSE;
-                }
-            }
-
-            runinfo->mRCode = rcode;
-        }
-    }
-
-    return TRUE;
-}
-
-BOOL cmd_for(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    if(runinfo->mBlocksNum == 1 && runinfo->mArgsNumRuntime >= 4) {
-        char* arg_name = runinfo->mArgsRuntime[1];
-        char* in = runinfo->mArgsRuntime[2];
-
-        if(strcmp(in, "in") != 0) {
-            err_msg("for command needs 'in' word at 3th argument.", runinfo->mSName, runinfo->mSLine, "for");
-            return FALSE;
-        }
-
-        runinfo->mRCode = 0;
-
-        sObject* object = SFUN(runinfo->mRunningObject).mLocalObjects;
-
-        int i;
-        for(i=3; i<runinfo->mArgsNumRuntime; i++) {
-            /// condition ///
-            uobject_put(object, arg_name, STRING_NEW_GC(runinfo->mArgsRuntime[i], TRUE));
-
-            /// inner loop ///
-            int rcode = 0;
-            if(!run(runinfo->mBlocks[0], nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                if(rcode == RCODE_BREAK) {
-                    rcode = 0;
-                    break;
-                }
-                else {
-                    runinfo->mRCode = rcode;
-                    return FALSE;
-                }
-            }
-
-            runinfo->mRCode = rcode;
-        }
-    }
-
-    return TRUE;
-}
-
-BOOL cmd_break(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    runinfo->mRCode = RCODE_BREAK;
-    return FALSE;
-}
-
 BOOL cmd_true(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     runinfo->mRCode = 0;
@@ -304,7 +222,14 @@ BOOL cmd_try(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 return FALSE;
             }
             else {
-                if(!run(runinfo->mBlocks[1], nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                sObject* nextin2 = FD_NEW_STACK();
+                if(!fd_write(nextin2, string_c_str(gErrMsg), string_length(gErrMsg))) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+
+                if(!run(runinfo->mBlocks[1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
                     runinfo->mRCode = rcode;
                     return FALSE;
                 }
@@ -850,6 +775,8 @@ BOOL cmd_block(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 runinfo->mRCode = rcode;
                 return FALSE;
             }
+
+            runinfo->mRCode = 0;
         }
     }
     else {

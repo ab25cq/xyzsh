@@ -3049,7 +3049,7 @@ SO_VERSION=1.7.1
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking Operating System" >&5
 $as_echo_n "checking Operating System... " >&6; }
 
-OBJ="src/gc.o src/stack.o src/string.o src/list.o src/kanji.o src/debug.o src/hash.o src/vector.o src/block.o src/fun.o src/class.o src/completion.o src/xyzsh.o src/parser.o src/run.o src/readline.o src/curses.o src/cmd_base.o src/cmd_obj.o src/cmd_file.o src/cmd_str.o src/cmd_ary.o src/cmd_condition.o src/interface.o src/object.o src/uobject.o src/cmd_num.o src/cmd_curses.o src/fd.o src/nfun.o src/extprog.o"
+OBJ="src/gc.o src/stack.o src/string.o src/list.o src/kanji.o src/debug.o src/hash.o src/vector.o src/block.o src/fun.o src/class.o src/completion.o src/xyzsh.o src/parser.o src/run.o src/readline.o src/curses.o src/cmd_base.o src/cmd_obj.o src/cmd_file.o src/cmd_str.o src/cmd_ary.o src/cmd_condition.o src/interface.o src/object.o src/uobject.o src/cmd_num.o src/cmd_curses.o src/cmd_loop.o src/fd.o src/nfun.o src/extprog.o"
 
 
 CFLAGS='-DSYSCONFDIR="\"${sysconfdir}/\"" -DDOCDIR="\"${docdir}/\"" -DSYSTEM_MIGEMODIR="\"${SYSTEM_MIGEMODIR}\"" -DEXTDIR="\"${EXTDIR}\""'
@@ -3969,6 +3969,47 @@ else
    exit
 fi
 ac_cv_lib_onig=ac_cv_lib_onig_main
+
+
+#####################################################################
+# dl settings
+#####################################################################
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -ldl" >&5
+$as_echo_n "checking for main in -ldl... " >&6; }
+if ${ac_cv_lib_dl_main+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldl  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_dl_main=yes
+else
+  ac_cv_lib_dl_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_dl_main" >&5
+$as_echo "$ac_cv_lib_dl_main" >&6; }
+if test "x$ac_cv_lib_dl_main" = xyes; then :
+   LIBS="$LIBS -ldl";
+else
+   exit
+fi
+ac_cv_lib_dl=ac_cv_lib_dl_main
 
 
 ##########################################################################

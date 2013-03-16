@@ -6,6 +6,7 @@ print ~/.xyzsh | if(| -e) (
         print "~/.xyzsh is not directory\n"
         exit
     )
+    sys::chmod 700 ~/.xyzsh
 ) else (
     sys::mkdir -p ~/.xyzsh
     sys::chmod 700 ~/.xyzsh
@@ -82,37 +83,30 @@ EOS > ~/.xyzsh/macro
     )
 )
 
-def times -copy-stackframe ( 
-    print 0 | var -local _i
-    while(_i | -lt $ARGV[0]) (
-       | eval $(block)
-       ++ _i
-    )
-)
-
 def max (
-    | var -local max_value
+    | var -local MaxValue
     | each ( 
-        if(| -gt $max_value) (
-            | var -local max_value
+        if(| -gt $MaxValue) (
+            | var -local MaxValue
         )
     )
 
-    max_value
+    MaxValue
 )
 
 def min (
-    | var -local min_value
+    | var -local MinValue
     | each ( 
-        if(| -lt $min_value ) (
-            | var -local min_value
+        if(| -lt $MinValue ) (
+            | var -local MinValue
         )
     )
 
-    min_value
+    MinValue
 )
 
 if(export XYZSH_RUNNING_AS_INTRACTIVE_MODE | -n) (
     print "-+- Welcome to xyzsh $XYZSH_VERSION -+-\n"
     print "run \"help\" command to see usage\n"
 )
+

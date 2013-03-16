@@ -1,6 +1,6 @@
 
 def xyzsh_quote (
-    | sub -global ' |\\|"|\$|\*|\?|\[|\]|\{|\}|\&|\;|\(|\)' ( | add -number 0 \\ )
+    | sub -global ' |\\|"|\$|\*|\?|\[|\]|\{|\}|\&|\;|\(|\)|'\' ( | add -number 0 \\ )
 )
 
 def xyzsh_dequote (

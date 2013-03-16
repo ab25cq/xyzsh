@@ -593,22 +593,41 @@ BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         prompt = "> ";
     }
 
-    if(sRunInfo_option(runinfo, "-no-completion")) {
-        readline_no_completion();
-    }
+    if(runinfo->mBlocksNum == 1) {
+        readline_completion_user_castamized(runinfo->mBlocks[0]);
 
-    char* buf = readline(prompt);
+        char* buf = readline(prompt);
 
-    if(buf) {
-        if(!fd_write(nextout, buf, strlen(buf))) {
-            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-            readline_completion();
-            return FALSE;
+        if(buf) {
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                readline_completion();
+                return FALSE;
+            }
         }
+
+        readline_completion();
     }
-    
-    readline_completion();
+    else {
+        if(sRunInfo_option(runinfo, "-no-completion")) {
+            readline_no_completion();
+        }
+
+        char* buf = readline(prompt);
+
+        if(buf) {
+            if(!fd_write(nextout, buf, strlen(buf))) {
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                readline_completion();
+                return FALSE;
+            }
+        }
+        
+        readline_completion();
+    }
+
     runinfo->mRCode = 0;
 
     return TRUE;

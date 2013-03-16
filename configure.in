@@ -37,7 +37,7 @@ SO_VERSION=1.7.1
 AC_SUBST(SO_VERSION)
 AC_MSG_CHECKING(Operating System)
 
-OBJ="src/gc.o src/stack.o src/string.o src/list.o src/kanji.o src/debug.o src/hash.o src/vector.o src/block.o src/fun.o src/class.o src/completion.o src/xyzsh.o src/parser.o src/run.o src/readline.o src/curses.o src/cmd_base.o src/cmd_obj.o src/cmd_file.o src/cmd_str.o src/cmd_ary.o src/cmd_condition.o src/interface.o src/object.o src/uobject.o src/cmd_num.o src/cmd_curses.o src/fd.o src/nfun.o src/extprog.o"
+OBJ="src/gc.o src/stack.o src/string.o src/list.o src/kanji.o src/debug.o src/hash.o src/vector.o src/block.o src/fun.o src/class.o src/completion.o src/xyzsh.o src/parser.o src/run.o src/readline.o src/curses.o src/cmd_base.o src/cmd_obj.o src/cmd_file.o src/cmd_str.o src/cmd_ary.o src/cmd_condition.o src/interface.o src/object.o src/uobject.o src/cmd_num.o src/cmd_curses.o src/cmd_loop.o src/fd.o src/nfun.o src/extprog.o"
 AC_SUBST(OBJ)
 
 CFLAGS='-DSYSCONFDIR="\"${sysconfdir}/\"" -DDOCDIR="\"${docdir}/\"" -DSYSTEM_MIGEMODIR="\"${SYSTEM_MIGEMODIR}\"" -DEXTDIR="\"${EXTDIR}\""'
@@ -259,6 +259,11 @@ fi
 #####################################################################
 AC_CHECK_HEADER(oniguruma.h, [AC_DEFINE(HAVE_ONIGURUMA_H, 1)], [ exit ])
 AC_HAVE_LIBRARY(onig, [ LIBS="$LIBS -lonig"; ], [ exit ])
+
+#####################################################################
+# dl settings
+#####################################################################
+AC_HAVE_LIBRARY(dl, [ LIBS="$LIBS -ldl"; ], [ exit ])
 
 ##########################################################################
 # migemo

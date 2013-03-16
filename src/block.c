@@ -813,13 +813,9 @@ static BOOL expand_variable(sCommand* command, sObject* object, sBuf* buf, sRunI
                 int index = atoi(key);
                 if(index < 0) {
                     index += vector_count(object);
-                    if(index < 0) index = 0;
-                }
-                if(index >= vector_count(object)) {
-                    index = vector_count(object) -1;
                 }
 
-                if(vector_count(object) > 0) {
+                if(index >= 0 && index < vector_count(object)) {
                     object = vector_item(object, index);
                     add_str_to_buf(buf, string_c_str(object), string_length(object));
                 }
@@ -836,15 +832,9 @@ static BOOL expand_variable(sCommand* command, sObject* object, sBuf* buf, sRunI
             }
             else {
                 object = hash_item(object, key);
-                if(object == NULL) {
-                    char buf[128];
-                    snprintf(buf, 128, "invalid key(%s)", key);
-                    err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                    FREE(key);
-                    return FALSE;
+                if(object) {
+                    add_str_to_buf(buf, string_c_str(object), string_length(object));
                 }
-
-                add_str_to_buf(buf, string_c_str(object), string_length(object));
             }
             break;
 

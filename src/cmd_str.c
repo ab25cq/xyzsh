@@ -98,7 +98,9 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     /// output
     if(runinfo->mFilter) {
-        char* p = SFD(nextin).mBuf;
+        char* target = SFD(nextin).mBuf;
+
+        char* p = target;
         if(code == kByte) {
             while(*p) {
                 if(isalpha(*p)) {
@@ -230,10 +232,12 @@ BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     /// output
     if(runinfo->mFilter) {
+        char* target = SFD(nextin).mBuf;
+
         /// line number
         if(sRunInfo_option(runinfo, "-line-num")) {
             int result = 0;
-            char* p = SFD(nextin).mBuf;
+            char* p = target;
             if(lf == kCRLF) {
                 while(1) {
                     if(*p == '\r' && *(p+1) == '\n') {
@@ -284,7 +288,7 @@ BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
         }
         else {
-            char* arg = SFD(nextin).mBuf;
+            char* arg = target;
             int len = str_kanjilen(code, arg);
 
             char buf[128];
@@ -310,21 +314,25 @@ BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
 BOOL cmd_x(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    /// input
     if(runinfo->mFilter) {
+        char* target;
+        int target_len;
+
+        target = SFD(nextin).mBuf; 
+        target_len = SFD(nextin).mBufLen;
+
         if(runinfo->mArgsNumRuntime == 2) {
             int multiple = atoi(runinfo->mArgsRuntime[1]);
             if(multiple < 1) multiple = 1;
 
             int i;
             for(i=0; i<multiple; i++) {
-                if(!fd_write(nextout, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
+                if(!fd_write(nextout, target, target_len)) {
                     err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
             }
-
 
             if(SFD(nextin).mBufLen == 0) {
                 runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
@@ -337,7 +345,6 @@ BOOL cmd_x(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     return TRUE;
 }
-
 
 BOOL cmd_lc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -356,7 +363,9 @@ BOOL cmd_lc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
 
     if(runinfo->mFilter) {
-        sObject* str = STRING_NEW_STACK(SFD(nextin).mBuf);
+        char* target = SFD(nextin).mBuf;
+
+        sObject* str = STRING_NEW_STACK(target);
         string_tolower(str, code);
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
@@ -393,7 +402,9 @@ BOOL cmd_uc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
 
     if(runinfo->mFilter) {
-        sObject* str = STRING_NEW_STACK(SFD(nextin).mBuf);
+        char* target = SFD(nextin).mBuf;
+
+        sObject* str = STRING_NEW_STACK(target);
         string_toupper(str, code);
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
@@ -554,6 +565,87 @@ BOOL cmd_strip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else {
                 first = FALSE;
+                last_point = p;
+                if(!fd_writec(nextout, *p++)) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+            }
+        }
+
+        const int space_of_tail_len = SFD(nextin).mBufLen - (last_point - SFD(nextin).mBuf) - 1;
+        if(space_of_tail_len > 0) {
+            fd_trunc(nextout, SFD(nextout).mBufLen - space_of_tail_len);
+        }
+
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_lstrip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mFilter) {
+        BOOL first = TRUE;
+        char* p = SFD(nextin).mBuf;
+        while(*p) {
+            if(*p == '\n' || *p =='\r' || *p == '\t' || *p == ' ' || *p == '\a')
+            {
+                if(!first) {
+                    if(!fd_writec(nextout, *p++)) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                }
+                else {
+                    p++;
+                }
+            }
+            else {
+                first = FALSE;
+                if(!fd_writec(nextout, *p++)) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+            }
+        }
+
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_rstrip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mFilter) {
+        BOOL first = TRUE;
+        char* last_point = NULL;
+        char* p = SFD(nextin).mBuf;
+        while(*p) {
+            if(*p == '\n' || *p =='\r' || *p == '\t' || *p == ' ' || *p == '\a')
+            {
+                if(!fd_writec(nextout, *p++)) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+            }
+            else {
                 last_point = p;
                 if(!fd_writec(nextout, *p++)) {
                     err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
@@ -978,130 +1070,133 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(first < 0) {
                         first += kanjilen;
-                        if(first < 0) first = 0;
                     }
                     if(second < 0) {
                         second += kanjilen;
-                        if(second < 0) second = 0;
-                    }
-                    if(first >= kanjilen) {
-                        first = kanjilen -1;
-                        if(first < 0) first = 0;
-                    }
-                    if(second >= kanjilen) {
-                        second = kanjilen -1;
-                        if(second < 0) second = 0;
                     }
 
-                    /// make table to indexing access ///
-                    char** array = MALLOC(sizeof(char*)*(kanjilen+1));
-                    if(code == kByte) {
-                        int k;
-                        for(k=0; k<kanjilen; k++) {
+                    if(!(first >= kanjilen && second >= kanjilen || first < 0 && second < 0)) {
+                        if(first < 0) first = 0;
+                        if(second < 0) second = 0;
+                        if(first >= kanjilen) {
+                            first = kanjilen -1;
+                            if(first < 0) first = 0;
+                        }
+                        if(second >= kanjilen) {
+                            second = kanjilen -1;
+                            if(second < 0) second = 0;
+                        }
+
+                        /// make table to indexing access ///
+                        char** array = MALLOC(sizeof(char*)*(kanjilen+1));
+                        if(code == kByte) {
+                            int k;
+                            for(k=0; k<kanjilen; k++) {
+                                array[k] = SFD(nextin).mBuf + k;
+                            }
                             array[k] = SFD(nextin).mBuf + k;
                         }
-                        array[k] = SFD(nextin).mBuf + k;
-                    }
-                    else if(code == kUtf8) {
-                        char* p = SFD(nextin).mBuf;
+                        else if(code == kUtf8) {
+                            char* p = SFD(nextin).mBuf;
 
-                        int k;
-                        for(k=0; k<kanjilen; k++) {
+                            int k;
+                            for(k=0; k<kanjilen; k++) {
+                                array[k] = p;
+                                if(((unsigned char)*p) > 127) {
+                                    const int size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                                    p+=size;
+                                }
+                                else {
+                                    p++;
+                                }
+                            }
                             array[k] = p;
-                            if(((unsigned char)*p) > 127) {
-                                const int size = ((*p & 0x80) >> 7) + ((*p & 0x40) >> 6) + ((*p & 0x20) >> 5) + ((*p & 0x10) >> 4);
+                        }
+                        else {
+                            char* p = SFD(nextin).mBuf;
+
+                            int k;
+                            for(k=0; k<kanjilen; k++) {
+                                const int size = is_kanji(code, *p) ? 2 : 1;
+                                array[k] = p;
                                 p+=size;
                             }
-                            else {
-                                p++;
-                            }
-                        }
-                        array[k] = p;
-                    }
-                    else {
-                        char* p = SFD(nextin).mBuf;
-
-                        int k;
-                        for(k=0; k<kanjilen; k++) {
-                            const int size = is_kanji(code, *p) ? 2 : 1;
                             array[k] = p;
-                            p+=size;
                         }
-                        array[k] = p;
-                    }
 
-                    if(first < second) {
-                        sObject* nextin2 = FD_NEW_STACK();
+                        if(first < second) {
+                            sObject* nextin2 = FD_NEW_STACK();
 
-                        int j;
-                        for(j=first; j<=second; j++) {
-                            fd_clear(nextin2);
+                            int j;
+                            for(j=first; j<=second; j++) {
+                                fd_clear(nextin2);
 
-                            if(!fd_write(nextin2, array[j], array[j+1] -array[j])) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                FREE(array);
-                                return FALSE;
-                            }
-
-                            if(i-1 < runinfo->mBlocksNum) {
-                                int rcode = 0;
-                                if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                                    runinfo->mRCode = rcode;
-                                    FREE(array);
-                                    return FALSE;
-                                }
-                                runinfo->mRCode = rcode;
-                            }
-                            else {
-                                if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
-                                {
+                                if(!fd_write(nextin2, array[j], array[j+1] -array[j])) {
                                     err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(array);
                                     return FALSE;
                                 }
-                                runinfo->mRCode = 0;
+
+                                if(i-1 < runinfo->mBlocksNum) {
+                                    int rcode = 0;
+                                    if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                                        runinfo->mRCode = rcode;
+                                        FREE(array);
+                                        return FALSE;
+                                    }
+                                    runinfo->mRCode = rcode;
+                                }
+                                else {
+                                    if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
+                                    {
+                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        FREE(array);
+                                        return FALSE;
+                                    }
+                                    runinfo->mRCode = 0;
+                                }
                             }
                         }
-                    }
-                    else {
-                        sObject* nextin2 = FD_NEW_STACK();
+                        else {
+                            sObject* nextin2 = FD_NEW_STACK();
 
-                        int j;
-                        for(j=first; j>=second; j--) {
-                            fd_clear(nextin2);
+                            int j;
+                            for(j=first; j>=second; j--) {
+                                fd_clear(nextin2);
 
-                            if(!fd_write(nextin2, array[j], array[j+1]-array[j])) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                FREE(array);
-                                return FALSE;
-                            }
-
-                            if(i-1 < runinfo->mBlocksNum) {
-                                int rcode = 0;
-                                if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                                    runinfo->mRCode = rcode;
-                                    FREE(array);
-                                    return FALSE;
-                                }
-                                runinfo->mRCode = rcode;
-                            }
-                            else {
-                                if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
-                                {
+                                if(!fd_write(nextin2, array[j], array[j+1]-array[j])) {
                                     err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(array);
                                     return FALSE;
                                 }
-                                runinfo->mRCode = 0;
+
+                                if(i-1 < runinfo->mBlocksNum) {
+                                    int rcode = 0;
+                                    if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                                        runinfo->mRCode = rcode;
+                                        FREE(array);
+                                        return FALSE;
+                                    }
+                                    runinfo->mRCode = rcode;
+                                }
+                                else {
+                                    if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
+                                    {
+                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        FREE(array);
+                                        return FALSE;
+                                    }
+                                    runinfo->mRCode = 0;
+                                }
                             }
                         }
-                    }
 
-                    FREE(array);
+                        FREE(array);
+                    }
                 }
             }
             else {
@@ -1110,40 +1205,167 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                 if(num < 0) {
                     num += len;
-                    if(num < 0) num = 0;
-                }
-                if(num >= len) {
-                    num = len -1;
-                    if(num < 0) num = 0;
                 }
 
                 sObject* nextin2 = FD_NEW_STACK();
 
-                char* str = str_kanjipos2pointer(code, SFD(nextin).mBuf, num);
-                char* str2 = str_kanjipos2pointer(code, str, 1);
-                if(!fd_write(nextin2, str, str2 -str)) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                    return FALSE;
-                }
-
-                if(i-1 < runinfo->mBlocksNum) {
-                    int rcode = 0;
-                    if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                        runinfo->mRCode = rcode;
-                        return FALSE;
-                    }
-                    runinfo->mRCode = rcode;
-                }
-                else {
-                    if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
-                    {
+                if(num >= 0 && num < len) {
+                    char* str = str_kanjipos2pointer(code, SFD(nextin).mBuf, num);
+                    char* str2 = str_kanjipos2pointer(code, str, 1);
+                    if(!fd_write(nextin2, str, str2 -str)) {
                         err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
-                    runinfo->mRCode = 0;
+
+                    if(i-1 < runinfo->mBlocksNum) {
+                        int rcode = 0;
+                        if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                            runinfo->mRCode = rcode;
+                            return FALSE;
+                        }
+                        runinfo->mRCode = rcode;
+                    }
+                    else {
+                        if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
+                        {
+                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                        runinfo->mRCode = 0;
+                    }
                 }
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_substr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(runinfo->mFilter && (runinfo->mArgsNumRuntime == 2 || runinfo->mArgsNumRuntime == 3)) {
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+
+        char* target = SFD(nextin).mBuf;
+        const int kanjilen = str_kanjilen(code, target);
+
+        int index = atoi(runinfo->mArgsRuntime[1]);
+        int length;
+        if(runinfo->mArgsNumRuntime == 3) {
+            length = atoi(runinfo->mArgsRuntime[2]);
+        }
+        else {
+            length = kanjilen;
+        }
+
+        if(index < 0) { index += kanjilen; }
+        if(index < 0) { index = 0; }
+        if(length < 0) { length = kanjilen + length - index; } 
+        if(index + length > kanjilen) { length = kanjilen - index + 1; }
+
+        if(index >= 0 && index < kanjilen && length > 0) {
+            char* str = str_kanjipos2pointer(code, target, index);
+            char* str2 = str_kanjipos2pointer(code, target, index + length);
+
+            if(!fd_write(nextout, str, str2 - str)) {
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_substr_replace(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    enum eKanjiCode code = gKanjiCode;
+    if(sRunInfo_option(runinfo, "-byte")) {
+        code = kByte;
+    }
+    else if(sRunInfo_option(runinfo, "-utf8")) {
+        code = kUtf8;
+    }
+    else if(sRunInfo_option(runinfo, "-sjis")) {
+        code = kSjis;
+    }
+    else if(sRunInfo_option(runinfo, "-eucjp")) {
+        code = kEucjp;
+    }
+
+    if(runinfo->mFilter && (runinfo->mArgsNumRuntime == 3 || runinfo->mArgsNumRuntime == 4)) {
+        if(SFD(nextin).mBufLen == 0) {
+            runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
+
+        char* target = SFD(nextin).mBuf;
+        const int kanjilen = str_kanjilen(code, target);
+        char* replace = runinfo->mArgsRuntime[1];
+
+        int index = atoi(runinfo->mArgsRuntime[2]);
+        int length;
+        if(runinfo->mArgsNumRuntime == 4) {
+            length = atoi(runinfo->mArgsRuntime[3]);
+        }
+        else {
+            length = kanjilen;
+        }
+
+        if(index < 0) { index += kanjilen; }
+        if(index < 0) { index = 0; }
+        if(length < 0) { length = kanjilen + length - index; } 
+        if(index + length > kanjilen) { length = kanjilen - index + 1; }
+
+        if(index >= 0 && index < kanjilen && length >= 0) {
+            char* str = str_kanjipos2pointer(code, target, index);
+            char* str2 = str_kanjipos2pointer(code, target, index + length);
+
+            if(!fd_write(nextout, target, str - target)) {
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            if(!fd_write(nextout, replace, strlen(replace))) {
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+            if(!fd_write(nextout, str2, strlen(str2))) {
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+        }
+        else {
+            if(!fd_write(nextout, replace, strlen(replace))) {
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
             }
         }
     }
@@ -4884,7 +5106,18 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         code = kEucjp;
     }
 
-    if(runinfo->mFilter) {
+    if(runinfo->mFilter || sRunInfo_option_with_argument(runinfo, "-target")) {
+        char* target;
+        int target_len;
+        if(runinfo->mFilter) {
+            target = SFD(nextin).mBuf;
+            target_len = SFD(nextin).mBufLen;
+        }
+        else {
+            target = sRunInfo_option_with_argument(runinfo, "-target");
+            target_len = strlen(target);
+        }
+
         if(sRunInfo_option(runinfo, "-no-regex")) {
             BOOL ignore_case = sRunInfo_option(runinfo, "-ignore-case");
             char* word;
@@ -4899,9 +5132,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 word_len = strlen(word);
             }
 
-            char* target;
-            char* p = target = SFD(nextin).mBuf;
-            int target_len = SFD(nextin).mBufLen;
+            char* p = target;
 
             int split_count = 0;
 
@@ -4953,7 +5184,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
 
             if(split_count > 0) {
-                if(SFD(nextin).mBufLen == 0) {
+                if(runinfo->mFilter && SFD(nextin).mBufLen == 0) {
                     runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
                 }
                 else {
@@ -4977,9 +5208,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             int r = get_onig_regex(&reg, runinfo, regex);
 
             if(r == ONIG_NORMAL) {
-                char* target;
-                char* p = target = SFD(nextin).mBuf;
-                int target_len = SFD(nextin).mBufLen;
+                char* p = target;
 
                 int split_count = 0;
 
@@ -5140,7 +5369,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 }
 
                 if(split_count > 0) {
-                    if(SFD(nextin).mBufLen == 0) {
+                    if(runinfo->mFilter && SFD(nextin).mBufLen == 0) {
                         runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
                     }
                     else {

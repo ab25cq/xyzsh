@@ -1,4 +1,138 @@
 
+2013 16th of March version 1.4.1
+    
+    1. "readline" inner command can do completion with output of argument block.
+
+    > readline "Select yes or no > " ( split -target "yes no" )
+    Select yes or no > [TAB]
+    yes no
+
+    2. Added "-target" option to "split" inner command.
+
+    > split -target "aaa bbb ccc"
+    aaa
+    bbb
+    ccc
+
+    3. Start to get error message by context pipe on 2nd block of "try" inner command.
+
+    > try ( make || raise "make erorr" ) catch ( |=~ "make error" && print "catch make error" )
+
+    4. Fixed a bug of "block" inner command with "-run" option.
+
+    5. Add xyzsh program samples to help messages.
+
+2013 3月16日 version 1.4.1
+
+    1. "readline"内部コマンドがブロックを引数に取ってユーザーカスタマイズ補完を行なえるようになりました。
+
+    > readline "Select yes or no > " ( split -target "yes no" )
+    Select yes or no > [TAB]
+    yes no
+
+    2. "-target"オプションが"split"内部コマンドが追加されました。
+
+    > split -target "aaa bbb ccc"
+    aaa
+    bbb
+    ccc
+
+    3. "try"内部コマンドの第二ブロックでエラーメッセージをコンテキストパイプで受け取れるようになりました。
+
+    > try ( make || raise "make erorr" ) catch ( |=~ "make error" && print "catch make error" )
+
+    4. block -runコマンドがエラーになっていたバグを修正。
+
+    5. ヘルプにxyzshプログラムのサンプルを追加しました。webにも上げておきます。
+
+2013 9th of March version 1.4.0
+
+    1. Changed working on expand variable of array or hash.
+
+    > print 0\n1\n2 | ary A
+    > print $A[0]\n
+    0
+    > print $A[-1]\n
+    2
+    > print $A[3]\n
+
+    > print key1\nitem1 | hash A
+    > print $A[key2]\n
+
+    > print $A[key1]\n
+    item1
+
+    2. deleted "-index" option of var
+
+    3. Changed algorithm of "ary" and "-append" option.
+
+    4. Changed algorithm of "ary" and "-index" option.
+
+    5. Changed algorithm of "hash" and "-append" option.
+
+    6. Changed algorithm of "hash" and "-key" option.
+
+    7. Fixed bug with multi-line editing on readline
+
+    8. Added %q, %Q quote from version 1.3.9. SEE USAGE
+
+    9. Chaged algorithm of "hash".
+
+    10. Added "-insert" option to "ary" inner command.
+
+    11. Chaged "lines" and "rows" range algorithm.
+
+    12. Checked compling on Arch Linux
+
+    13. Fixed bug with completion of file name which has ' character 
+
+    14. Added "times", "substr", "substr_replace", "combine", "lstrip", "rstrip" inner commands.
+
+2013 ３月９日 version 1.4.0
+
+    1. 配列とハッシュの参照の動きが変わっています。前はハッシュは存在しないキーでアクセスするとエラーを返してましたが
+       空の文字列の張り付けになっています。あと配列は存在しないインデックスでアクセスするとインデックスを修正して張り付けていましたが
+       同じく空の文字列の張り付けになっています。
+
+    > print 0\n1\n2 | ary A
+    > print $A[0]\n
+    0
+    > print $A[-1]\n
+    2
+    > print $A[3]\n
+
+    > print key1\nitem1 | hash A
+    > print $A[key2]\n
+
+    > print $A[key1]\n
+    item1
+
+    2. varの-indexオプション廃止
+
+    3. aryの-appendオプションが-insertに改名。-appendオプションが追加されました。（末尾に追記)
+
+    4. aryと-indexオプションのアルゴリズムが変わっています。範囲外のアクセスは空文字列＋改行を返します。
+
+    5. hashと-appendオプションのアルゴリズムが変わっています。同名の変数があっても新しくハッシュを作成して上書きします。
+
+    6. hashと-keyオプションのアルゴリズムが変わっています。存在しないキーへのアクセスは空文字列＋改行を返します。
+
+    7. readlineでの複数行の編集にバグがありました。修正しています。
+
+    8. verison 1.3.9で%q, %Qクォートが追加されています。USAGE.jaを見てください。
+
+    9. hashが空行の要素を受け取るようになりました。
+
+    10. aryと-append(-insert)オプションのアルゴリズムが変わっています。同名の変数があっても新しく配列を作成して上書きします。空文字列を入力に取った場合でも空文字列の要素を作ります。
+
+    11. linesとrowsで範囲外の数値を指定するとlinesは空行をrowsは何も出力しないようになりました。lines, rowsの範囲指定では両方が範囲外だと何も出力しないようになりました。
+
+    12. Arch Linuxでコンパイルと実行をチェックしています。
+
+    13. シングルクォートを含むファイル名の補完がおかしかった問題を修正
+
+    14. "times", "substr", "substr_replace, "lstrip", "rstrip", "combine" 内部コマンドが追加されました。
+
 2013 1st of March version 1.3.9
 
     1. Changed working on "hash" inner command with "-append" option and "ary" inner command with "-append" option.

@@ -24,110 +24,6 @@
 
 #include "xyzsh/xyzsh.h"
 
-BOOL cmd_each(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    eLineField lf = gLineField;
-    if(sRunInfo_option(runinfo, "-Lw")) {
-        lf = kCRLF;
-    }
-    else if(sRunInfo_option(runinfo, "-Lm")) {
-        lf = kCR;
-    }
-    else if(sRunInfo_option(runinfo, "-Lu")) {
-        lf = kLF;
-    }
-    else if(sRunInfo_option(runinfo, "-La")) {
-        lf = kBel;
-    }
-
-    if(runinfo->mBlocksNum == 1 && runinfo->mFilter) {
-        fd_split(nextin, lf);
-
-        char* argument;
-        if(argument = sRunInfo_option_with_argument(runinfo, "-number")) {
-            if(SFD(nextin).mBufLen == 0) {
-                runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-            }
-            else {
-                runinfo->mRCode = 0;
-            }
-
-            int number = atoi(argument);
-
-            sObject* nextin2 = FD_NEW_STACK();
-
-            int i;
-            for(i=0; i<vector_count(SFD(nextin).mLines); i+=number) {
-                fd_clear(nextin2);
-
-                int j;
-                for(j=0; j<number && i+j<vector_count(SFD(nextin).mLines); j++)
-                {
-                    char* str = vector_item(SFD(nextin).mLines, i+j);
-                    if(!fd_write(nextin2, str, strlen(str))) {
-                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
-                    }
-                }
-
-                int rcode = 0;
-                if(!run(runinfo->mBlocks[0], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                    if(rcode == RCODE_BREAK) {
-                        runinfo->mRCode = rcode = 0;
-                        break;
-                    }
-                    else {
-                        runinfo->mRCode = rcode;
-                        return FALSE;
-                    }
-                }
-
-                runinfo->mRCode = rcode;
-            }
-        }
-        else {
-            if(SFD(nextin).mBufLen == 0) {
-                runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
-            }
-            else {
-                runinfo->mRCode = 0;
-            }
-
-            sObject* nextin2 = FD_NEW_STACK();
-
-            int i;
-            for(i=0; i<vector_count(SFD(nextin).mLines); i++) {
-                fd_clear(nextin2);
-
-                char* str = vector_item(SFD(nextin).mLines, i);
-
-                if(!fd_write(nextin2, str, strlen(str))) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                    return FALSE;
-                }
-
-                int rcode = 0;
-                if(!run(runinfo->mBlocks[0], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                    if(rcode == RCODE_BREAK) {
-                        runinfo->mRCode = rcode = 0;
-                        break;
-                    }
-                    else {
-                        runinfo->mRCode = rcode;
-                        return FALSE;
-                    }
-                }
-
-                runinfo->mRCode = rcode;
-            }
-        }
-    }
-
-    return TRUE;
-}
-
 BOOL cmd_join(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     eLineField lf = gLineField;
@@ -248,89 +144,93 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     int first = atoi(buf);
                     int second = atoi(buf2);
+                    int max = vector_count(SFD(nextin).mLines);
 
                     if(first < 0) {
-                        first += vector_count(SFD(nextin).mLines);
-                        if(first < 0) first = 0;
+                        first += max;
                     }
                     if(second < 0) {
-                        second += vector_count(SFD(nextin).mLines);
-                        if(second < 0) second = 0;
+                        second += max;
                     }
-                    if(first >= vector_count(SFD(nextin).mLines)) {
-                        first = vector_count(SFD(nextin).mLines) -1;
+
+                    if(!(first >= max && second >= max || first < 0 && second < 0)) {
                         if(first < 0) first = 0;
-                    }
-                    if(second >= vector_count(SFD(nextin).mLines)) {
-                        second = vector_count(SFD(nextin).mLines) -1;
                         if(second < 0) second = 0;
-                    }
+                        if(first >= max) {
+                            first = max -1;
+                            if(first < 0) first = 0;
+                        }
+                        if(second >= max) {
+                            second = max -1;
+                            if(second < 0) second = 0;
+                        }
 
-                    if(first < second) {
-                        sObject* nextin2 = FD_NEW_STACK();
+                        if(first < second) {
+                            sObject* nextin2 = FD_NEW_STACK();
 
-                        int j;
-                        for(j=first; j<=second; j++) {
-                            fd_clear(nextin2);
+                            int j;
+                            for(j=first; j<=second; j++) {
+                                fd_clear(nextin2);
 
-                            char* str = vector_item(SFD(nextin).mLines, j);
-                            if(!fd_write(nextin2,str,strlen(str))) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-
-                            if(i-1 < runinfo->mBlocksNum) {
-                                int rcode = 0;
-                                if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                                    runinfo->mRCode = rcode;
-                                    return FALSE;
-                                }
-                                runinfo->mRCode = rcode;
-                            }
-                            else {
-                                if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen))
-                                {
+                                char* str = vector_item(SFD(nextin).mLines, j);
+                                if(!fd_write(nextin2,str,strlen(str))) {
                                     err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     return FALSE;
                                 }
-                                runinfo->mRCode = 0;
+
+                                if(i-1 < runinfo->mBlocksNum) {
+                                    int rcode = 0;
+                                    if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                                        runinfo->mRCode = rcode;
+                                        return FALSE;
+                                    }
+                                    runinfo->mRCode = rcode;
+                                }
+                                else {
+                                    if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen))
+                                    {
+                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        return FALSE;
+                                    }
+                                    runinfo->mRCode = 0;
+                                }
                             }
                         }
-                    }
-                    else {
-                        sObject* nextin2 = FD_NEW_STACK();
+                        else {
+                            sObject* nextin2 = FD_NEW_STACK();
 
-                        int j;
-                        for(j=first; j>=second; j--) {
-                            fd_clear(nextin2);
+                            int j;
+                            for(j=first; j>=second; j--) {
+                                fd_clear(nextin2);
 
-                            char* str = vector_item(SFD(nextin).mLines, j);
-                            if(!fd_write(nextin2, str, strlen(str))) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                                return FALSE;
-                            }
-
-                            if(i-1 < runinfo->mBlocksNum) {
-                                int rcode = 0;
-                                if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                                    runinfo->mRCode = rcode;
-                                    return FALSE;
-                                }
-
-                                runinfo->mRCode = rcode;
-                            }
-                            else {
-                                if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen))
-                                {
+                                char* str = vector_item(SFD(nextin).mLines, j);
+                                if(!fd_write(nextin2, str, strlen(str))) {
                                     err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     return FALSE;
                                 }
 
-                                runinfo->mRCode = 0;
+                                if(i-1 < runinfo->mBlocksNum) {
+                                    int rcode = 0;
+                                    if(!run(runinfo->mBlocks[i-1], nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                                        runinfo->mRCode = rcode;
+                                        return FALSE;
+                                    }
+
+                                    runinfo->mRCode = rcode;
+                                }
+                                else {
+                                    if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen))
+                                    {
+                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                        return FALSE;
+                                    }
+
+                                    runinfo->mRCode = 0;
+                                }
                             }
                         }
                     }
@@ -340,20 +240,52 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(num < 0) {
                         num += vector_count(SFD(nextin).mLines);
-                        if(num < 0) num = 0;
-                    }
-                    if(num >= vector_count(SFD(nextin).mLines)) {
-                        num = vector_count(SFD(nextin).mLines) -1;
-                        if(num < 0) num = 0;
                     }
 
                     sObject* nextin2 = FD_NEW_STACK();
 
-                    char* str = vector_item(SFD(nextin).mLines, num);
-                    if(!fd_write(nextin2, str, strlen(str))){
-                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
+                    if(num >= 0 && num < vector_count(SFD(nextin).mLines)) {
+                        char* str = vector_item(SFD(nextin).mLines, num);
+                        if(!fd_write(nextin2, str, strlen(str))){
+                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                            return FALSE;
+                        }
+                    }
+                    else {
+                        switch(lf) {
+                            case kCRLF:
+                                if(!fd_write(nextin2, "\r\n", 2)) {
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    return FALSE;
+                                }
+                                break;
+
+                            case kCR:
+                                if(!fd_writec(nextin2, '\r')) {
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    return FALSE;
+                                }
+                                break;
+
+                            case kLF:
+                                if(!fd_writec(nextin2, '\n')) {
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    return FALSE;
+                                }
+                                break;
+
+                            case kBel:
+                                if(!fd_writec(nextin2, '\a')) {
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                                    return FALSE;
+                                }
+                                break;
+                        }
                     }
 
                     if(i-1 < runinfo->mBlocksNum) {
@@ -612,6 +544,68 @@ BOOL cmd_sort(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else {
                 runinfo->mRCode = 0;
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_combine(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    eLineField lf = gLineField;
+    if(sRunInfo_option(runinfo, "-Lw")) {
+        lf = kCRLF;
+    }
+    else if(sRunInfo_option(runinfo, "-Lm")) {
+        lf = kCR;
+    }
+    else if(sRunInfo_option(runinfo, "-Lu")) {
+        lf = kLF;
+    }
+    else if(sRunInfo_option(runinfo, "-La")) {
+        lf = kBel;
+    }
+
+    if(runinfo->mBlocksNum >= 2) {
+        runinfo->mRCode = 0;
+
+        sObject* nextout2[runinfo->mBlocksNum];
+
+        int i;
+        for(i=0; i<runinfo->mBlocksNum; i++) {
+            nextout2[i] = FD_NEW_STACK();
+
+            /// condition ///
+            int rcode;
+            if(!run(runinfo->mBlocks[i], nextin, nextout2[i], &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
+                runinfo->mRCode = rcode;
+                return FALSE;
+            }
+
+            fd_split(nextout2[i], lf);
+        }
+
+        int n = 0;
+        while(1) {
+            BOOL flg = FALSE;
+            for(i=0; i<runinfo->mBlocksNum; i++) {
+                if(n < vector_count(SFD(nextout2[i]).mLines)) {
+                    char* line = vector_item(SFD(nextout2[i]).mLines, n);
+                    if(!fd_write(nextout, line, strlen(line))) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+
+                    flg = TRUE;
+                }
+            }
+
+            n++;
+
+            if(!flg) {
+                break;
             }
         }
     }

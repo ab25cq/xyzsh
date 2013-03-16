@@ -489,6 +489,16 @@
     -ghi
     -ghi
 
+    引数で受けたオプションをまた別のコマンドに渡したい場合はuniqコマンドを使ってください。
+
+    > def fun ( OPTIONS )
+    > def fun -inherit ( inherit $$-(OPTIONS|uniq) )
+    > fun -abc -def
+    -abc
+    -abc
+    -def
+    -def
+
 1.9 クラス
 
     クラスは関数とほとんど同じで呼ばれると実行されます。
@@ -511,6 +521,35 @@
     > a
     called
 
+    関数との違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
+
+    > def Fun ( split -target "AAA BBB CCC" | var A B C )
+    > def Klass ( split -target "DDD EEE FFF" | var D E F )
+    > object a
+    > a::run ( Fun )
+    > a::A
+    run time error
+    xyzsh 1: [A] there is not this object
+    > a::B
+    run time error
+    xyzsh 1: [B] there is not this object
+    > a::C
+    run time error
+    xyzsh 1: [C] there is not this object
+    > A
+    AAA
+    > B
+    BBB
+    > C
+    CCC
+    > a::run ( Klass )
+    > a::D
+    DDD
+    > a::E
+    EEE
+    > a::F
+    FFF
+
 2.0 コマンド置換
 
     ブロックの出力をコマンドに貼付けます。
@@ -526,7 +565,7 @@
     > fun $$(print aaa\nbbb\nccc\n )
     3
 
-    行の区切りは$$a(), $$m(), $$w()を使うことによってそれぞれ、ベル、CR、CRLFと返ることができます。
+    行の区切りは$$a(), $$m(), $$w()を使うことによってそれぞれ、ベル、CR、CRLFと変えることができます。
 
     > def fun ( ary -size ARGV )
 
@@ -551,9 +590,9 @@
 2.1 例外
 
     tryコマンドは例外処理を扱えます。tryの第一ブロックでエラーが起きるとエラーが起きた時点で直ちに第二ブロックが実行されます。
-    起こったエラーはerrmsgコマンドによってエラーメッセージを得て知ることができます。
+    起こったエラーは第２ブロックのコンテキストパイプで得られるエラーメッセージで知ることができます。
 
-    > try ( print ) catch ( errmsg  | if (|=~ "invalid command using") ( print get invalid command using \n ) else (print another error \n))
+    > try ( print ) catch ( |=~ "invalid command using" && print "get invalid command using" )
 
     raiseコマンドによってエラーを起こすことができます。
 
@@ -804,7 +843,7 @@
 
 3.6 C拡張ライブラリ
 
-    C拡張ライブラリはload -dynamic-libraryを使って呼び出せます。サーチパスは/usr/local/lib/xyzsh/"ファイル名"(xyzshをインストールしたディレクトリ/lib/xyzsh/"ファイル名")を探して無いなら、~/lib/"ファイル名"を探し、それでもないなら、"ファイル名(絶対パス、または相対パス)"を探します。拡張子は省略してはいけません。
+    C拡張ライブラリはload -dynamic-libraryを使って呼び出せます。サーチパスは/usr/local/lib/xyzsh/"ファイル名"(xyzshをインストールしたディレクトリ/lib/xyzsh/"ファイル名")を探して無いなら、~/.mfiler4/lib/"ファイル名"を探し、それでもないなら、"ファイル名(絶対パス、または相対パス)"を探します。拡張子は省略してはいけません。
     作り方について。migemoがC拡張ライブラリとなってます。詳しくはsrc/ext/migemo.cを見てください。dl_initとdl_finalを定義する必要があります。dl_initはload -dynamic-libraryをするときに呼ばれます。dl_finalはxyzshが終了するときに呼ばれます。拡張ライブラリのコンパイルは
 
     gcc -shared src/ext/migemo.c -o src/ext/migemo.so -lmigemo -lxyzsh $(LIBS) $(CFLAGS)

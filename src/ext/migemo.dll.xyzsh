@@ -323,7 +323,7 @@ root::run(
             print "loaded migemo completion.\n"
         )
     ) else (
-        if(readline -no-completion "Do you want to use migemo completion which is Japanese ROMAJI completion?(y/n)" | chomp |=~ -ignore-case ^y) (
+        if(readline "Do you want to use migemo completion which is Japanese ROMAJI completion?(y/n)" ( print "yes no" | split ) | chomp |=~ -ignore-case ^y) (
             MigemoCompletion
             print "loaded migemo completion.\n"
         )

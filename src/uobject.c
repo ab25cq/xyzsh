@@ -126,6 +126,7 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "for", NFUN_NEW_GC(cmd_for, NULL, TRUE));
     uobject_put(self, "break", NFUN_NEW_GC(cmd_break, NULL, TRUE));
     uobject_put(self, "while", NFUN_NEW_GC(cmd_while, NULL, TRUE));
+    uobject_put(self, "times", NFUN_NEW_GC(cmd_times, NULL, TRUE));
     uobject_put(self, "return", NFUN_NEW_GC(cmd_return, NULL, TRUE));
     uobject_put(self, "rehash", NFUN_NEW_GC(cmd_rehash, NULL, TRUE));
     uobject_put(self, "true", NFUN_NEW_GC(cmd_true, NULL, TRUE));
@@ -133,6 +134,7 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "write", NFUN_NEW_GC(cmd_write, NULL, TRUE));
     uobject_put(self, "quote", NFUN_NEW_GC(cmd_quote, NULL, TRUE));
     uobject_put(self, "load", NFUN_NEW_GC(cmd_load, NULL, TRUE));
+    uobject_put(self, "combine", NFUN_NEW_GC(cmd_combine, NULL, TRUE));
     gInheritObject = NFUN_NEW_GC(cmd_inherit, NULL, TRUE);
     uobject_put(self, "inherit", gInheritObject);
     uobject_put(self, "eval", NFUN_NEW_GC(cmd_eval, NULL, TRUE));
@@ -142,7 +144,7 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "ref", NFUN_NEW_GC(cmd_ref, NULL, TRUE));
     uobject_put(self, "length", NFUN_NEW_GC(cmd_length, NULL, TRUE));
     uobject_put(self, "export", NFUN_NEW_GC(cmd_export, NULL, TRUE));
-    uobject_put(self, "x", NFUN_NEW_GC(cmd_x , NULL, TRUE));
+    uobject_put(self, "x", NFUN_NEW_GC(cmd_x, NULL, TRUE));
     uobject_put(self, "stackframe", NFUN_NEW_GC(cmd_stackframe, NULL, TRUE));
     uobject_put(self, "msleep", NFUN_NEW_GC(cmd_msleep, NULL, TRUE));
     uobject_put(self, "raise", NFUN_NEW_GC(cmd_raise, NULL, TRUE));
@@ -152,7 +154,12 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "block", NFUN_NEW_GC(cmd_block, NULL, TRUE));
     uobject_put(self, "lc", NFUN_NEW_GC(cmd_lc, NULL, TRUE));
     uobject_put(self, "uc", NFUN_NEW_GC(cmd_uc, NULL, TRUE));
+    uobject_put(self, "umask", NFUN_NEW_GC(cmd_umask, NULL, TRUE));
     uobject_put(self, "strip", NFUN_NEW_GC(cmd_strip, NULL, TRUE));
+    uobject_put(self, "lstrip", NFUN_NEW_GC(cmd_lstrip, NULL, TRUE));
+    uobject_put(self, "rstrip", NFUN_NEW_GC(cmd_rstrip, NULL, TRUE));
+    uobject_put(self, "substr", NFUN_NEW_GC(cmd_substr, NULL, TRUE));
+    uobject_put(self, "substr_replace", NFUN_NEW_GC(cmd_substr_replace, NULL, TRUE));
     uobject_put(self, "chomp", NFUN_NEW_GC(cmd_chomp, NULL, TRUE));
     uobject_put(self, "chop", NFUN_NEW_GC(cmd_chop, NULL, TRUE));
     uobject_put(self, "pomch", NFUN_NEW_GC(cmd_pomch, NULL, TRUE));
@@ -162,7 +169,11 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "lines", NFUN_NEW_GC(cmd_lines, NULL, TRUE));
     uobject_put(self, "rows", NFUN_NEW_GC(cmd_rows, NULL, TRUE));
     uobject_put(self, "scan", NFUN_NEW_GC(cmd_scan, NULL, TRUE));
-    uobject_put(self, "split", NFUN_NEW_GC(cmd_split, NULL, TRUE));
+
+    sObject* nfun = NFUN_NEW_GC(cmd_split, NULL, TRUE);
+    (void)nfun_put_option_with_argument(nfun, STRDUP("-target"));
+    uobject_put(self, "split", nfun);
+
     uobject_put(self, "try", NFUN_NEW_GC(cmd_try, NULL, TRUE));
     uobject_put(self, "errmsg", NFUN_NEW_GC(cmd_errmsg, NULL, TRUE));
     uobject_put(self, "prompt", NFUN_NEW_GC(cmd_prompt, NULL, TRUE));
@@ -228,17 +239,16 @@ void uobject_root_init(sObject* self)
     uobject_put(self, "sub", NFUN_NEW_GC(cmd_sub, NULL, TRUE));
     uobject_put(self, "time", NFUN_NEW_GC(cmd_time, NULL, TRUE));
 
-    sObject* nfun = NFUN_NEW_GC(cmd_hash, NULL, TRUE);
+    nfun = NFUN_NEW_GC(cmd_hash, NULL, TRUE);
     (void)nfun_put_option_with_argument(nfun, STRDUP("-key"));
     uobject_put(self, "hash", nfun);
+
     nfun = NFUN_NEW_GC(cmd_ary, NULL, TRUE);
     (void)nfun_put_option_with_argument(nfun, STRDUP("-index"));
-    (void)nfun_put_option_with_argument(nfun, STRDUP("-append"));
+    (void)nfun_put_option_with_argument(nfun, STRDUP("-insert"));
     uobject_put(self, "ary", nfun);
 
-    nfun = NFUN_NEW_GC(cmd_var, NULL, TRUE);
-    (void)nfun_put_option_with_argument(nfun, STRDUP("-index"));
-    uobject_put(self, "var", nfun);
+    uobject_put(self, "var", NFUN_NEW_GC(cmd_var, NULL, TRUE));
 
     nfun = NFUN_NEW_GC(cmd_add, NULL, TRUE);
     (void)nfun_put_option_with_argument(nfun, STRDUP("-number"));

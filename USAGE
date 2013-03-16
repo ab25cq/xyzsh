@@ -474,9 +474,9 @@
 2.1 Exception
 
     "try" inner command treats exeception.If error ocurrs on the first block of try, immediately runned the second block.
-    You can see the error message with "errmsg" inner command.
+    You can see the error message with context pipe of the second block
 
-    > try ( print ) catch ( errmsg  | if (|=~ "invalid command using") ( print get invalid command using \n ) else (print another error \n))
+    > try ( print ) catch ( |=~ "invalid command using" && print "get invalid command using" )
 
     "raise" inner command makes an error.
 
