@@ -1,0 +1,7 @@
+*.o
+*.so*
+xyzsh
+*.log
+*.status
+config.h
+Makefile
