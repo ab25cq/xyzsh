@@ -22,7 +22,7 @@
 #include <ncurses/ncurses.h>
 #endif
 
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 BOOL cmd_while(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -77,7 +77,7 @@ BOOL cmd_each(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
 
     if(runinfo->mBlocksNum == 1 && runinfo->mFilter) {
-        fd_split(nextin, lf);
+        fd_split(nextin, lf, FALSE, FALSE, FALSE);
 
         char* argument;
         if(argument = sRunInfo_option_with_argument(runinfo, "-number")) {
@@ -101,7 +101,7 @@ BOOL cmd_each(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 {
                     char* str = vector_item(SFD(nextin).mLines, i+j);
                     if(!fd_write(nextin2, str, strlen(str))) {
-                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -139,7 +139,7 @@ BOOL cmd_each(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 char* str = vector_item(SFD(nextin).mLines, i);
 
                 if(!fd_write(nextin2, str, strlen(str))) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -177,7 +177,7 @@ BOOL cmd_for(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         char* in = runinfo->mArgsRuntime[2];
 
         if(strcmp(in, "in") != 0) {
-            err_msg("for command needs 'in' word at 3th argument.", runinfo->mSName, runinfo->mSLine, "for");
+            err_msg("for command needs 'in' word at 3th argument.", runinfo->mSName, runinfo->mSLine);
             return FALSE;
         }
 

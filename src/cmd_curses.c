@@ -1,5 +1,5 @@
 #include "config.h"
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 #include <errno.h>
 #include <time.h>
 #include <stdlib.h>
@@ -14,8 +14,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <dirent.h>
-#include <readline/readline.h>
-#include <readline/history.h>
+#include <editline/readline.h>
 
 #if defined(HAVE_CURSES_H)
 #include <curses.h>
@@ -32,10 +31,12 @@ static void str_cut(enum eKanjiCode code, char* mbs, int termsize, char* dest_mb
         wchar_t* wcs_tmp;
         int i;
 
-        wcs = (wchar_t*)MALLOC(sizeof(wchar_t)*(termsize+1)*MB_CUR_MAX);
-        wcs_tmp = (wchar_t*)MALLOC(sizeof(wchar_t)*(termsize+1)*MB_CUR_MAX);
-        if(mbstowcs(wcs, mbs, (termsize+1)*MB_CUR_MAX) == -1) {
-            mbstowcs(wcs, "?????", (termsize+1)*MB_CUR_MAX);
+        const int len = strlen(mbs) + 1;
+
+        wcs = (wchar_t*)MALLOC(sizeof(wchar_t)*len);
+        wcs_tmp = (wchar_t*)MALLOC(sizeof(wchar_t)*len);
+        if(mbstowcs(wcs, mbs, len) == -1) {
+            mbstowcs(wcs, "?????", len);
         }
 
         for(i=0; i<wcslen(wcs); i++) {
@@ -74,19 +75,125 @@ static void str_cut(enum eKanjiCode code, char* mbs, int termsize, char* dest_mb
     }
 }
 
+static void selector_view(BOOL p_view, int scrolltop, int cursor, sObject* nextin, int* markfiles, enum eKanjiCode code, int* n)
+{
+    const int maxx = mgetmaxx();
+    const int maxy = mgetmaxy();
+
+    mclear();
+    *n = scrolltop;
+    const int start_line = *n;
+    const int end_line = *n + maxy-1;
+    int y = 0;
+    while(y < maxy-1 && *n < vector_count(SFD(nextin).mLines)) {
+        int attrs = 0;
+        if(*n == cursor) {
+            attrs = A_REVERSE;
+        }
+        if(attrs) attron(attrs);
+
+        char* line = vector_item(SFD(nextin).mLines, *n);
+
+        char head[2];
+        if(markfiles[*n]) {
+            xstrncpy(head, "*", 2);
+        } else {
+            xstrncpy(head, " ", 2);
+        }
+
+        if(str_termlen(code, line) + 1 <= maxx) {
+            if(p_view) {
+                mvprintw(y, 0, "%s", line);
+            } else {
+                mvprintw(y, 0, head);
+                printw("%s", line);
+            }
+            y++;
+        }
+        else {
+            char* p = line;
+
+            char one_line[BUFSIZ];
+            str_cut(code, p, maxx-1, one_line, BUFSIZ);
+            if(p_view) {
+                mvprintw(y, 0, "%s", one_line);
+            }
+            else {
+                mvprintw(y, 0, "%s", head);
+                printw("%s", one_line);
+            }
+            y++;
+
+            p+=strlen(one_line);
+
+            while(y < maxy -1 && p < line + strlen(line)) {
+                str_cut(code, p, maxx, one_line, BUFSIZ);
+                mvprintw(y, 0, "%s", one_line);
+                y++;
+
+                p+=strlen(one_line);
+            }
+        }
+
+        if(attrs) attroff(attrs);
+
+        (*n)++;
+    }
+
+    mvprintw(maxy-1, 0, "lines (%d-%d of %d) cursor index (%d)", start_line, end_line, vector_count(SFD(nextin).mLines), cursor);
+}
+
+static void selector_search_forward(sObject* nextin, char* search_str, int* cursor)
+{
+    int i;
+    for(i=*cursor+1; i<vector_count(SFD(nextin).mLines); i++) {
+        char* line = vector_item(SFD(nextin).mLines, i);
+        if(strstr(line, search_str)) {
+            *cursor = i;
+            return;
+        }
+    }
+    for(i=0; i<*cursor; i++) {
+        char* line = vector_item(SFD(nextin).mLines, i);
+        if(strstr(line, search_str)) {
+            *cursor = i;
+            return;
+        }
+    }
+}
+
+static void selector_search_backward(sObject* nextin, char* search_str, int* cursor)
+{
+    int i;
+    for(i=*cursor-1; i>=0; i--) {
+        char* line = vector_item(SFD(nextin).mLines, i);
+        if(strstr(line, search_str)) {
+            *cursor = i;
+            return;
+        }
+    }
+    for(i=vector_count(SFD(nextin).mLines)-1; i>*cursor; i--) {
+        char* line = vector_item(SFD(nextin).mLines, i);
+        if(strstr(line, search_str)) {
+            *cursor = i;
+            return;
+        }
+    }
+}
+
 BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     if(isatty(0) == 0 || isatty(1) == 0) {
-        err_msg("selector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("selector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
     if(tcgetpgrp(0) != getpgid(0)) {
-        err_msg("selector: not forground process group", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("selector: not forground process group", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
     char* term_env = getenv("TERM");
     if(term_env == NULL || strcmp(term_env, "") == 0) {
-        err_msg("selector: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("selector: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
 
@@ -118,13 +225,50 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         code = kEucjp;
     }
 
-
     BOOL multiple = sRunInfo_option(runinfo, "-multiple");
+    sObject* search_str = STRING_NEW_STACK("");
 
     if(runinfo->mFilter) {
-        fd_split(nextin, lf);
+        sObject* nextin2 = FD_NEW_STACK();
 
-        if(vector_count(SFD(nextin).mLines) > 0) {
+        /// make control characters visible ///
+        char* p = SFD(nextin).mBuf;
+        while(p - SFD(nextin).mBuf < SFD(nextin).mBufLen) {
+            if(*p == '\n') {
+                if(!fd_writec(nextin2, *p)) {
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+                p++;
+            }
+            else if(*p >= 0 && *p <= 31) {
+                if(!fd_writec(nextin2, '^')) {
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+                if(!fd_writec(nextin2, *p+'@')) {
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+                p++;
+            }
+            else {
+                if(!fd_writec(nextin2, *p)) {
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+                p++;
+            }
+        }
+
+        /// go ///
+        fd_split(nextin2, lf, FALSE, FALSE, FALSE);
+
+        if(vector_count(SFD(nextin2).mLines) > 0) {
             msave_ttysettings();
             msave_screen();
             initscr();
@@ -134,8 +278,8 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             const int maxx = mgetmaxx();
             const int maxy = mgetmaxy();
 
-            int* markfiles = MALLOC(sizeof(int)*vector_count(SFD(nextin).mLines));
-            memset(markfiles, 0, sizeof(int)*vector_count(SFD(nextin).mLines));
+            int* markfiles = MALLOC(sizeof(int)*vector_count(SFD(nextin2).mLines));
+            memset(markfiles, 0, sizeof(int)*vector_count(SFD(nextin2).mLines));
 
             static int scrolltop = 0;
             static int cursor = 0;
@@ -148,15 +292,15 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             if(cursor < 0) {
                 cursor = 0;
             }
-            if(cursor >= vector_count(SFD(nextin).mLines)) {
-                cursor = vector_count(SFD(nextin).mLines)-1;
+            if(cursor >= vector_count(SFD(nextin2).mLines)) {
+                cursor = vector_count(SFD(nextin2).mLines)-1;
                 if(cursor < 0) cursor = 0;
             }
             if(cursor < scrolltop) {
                 int i = cursor;
                 int width_sum = 0;
                 while(width_sum < maxy) {
-                    char* line = vector_item(SFD(nextin).mLines, i);
+                    char* line = vector_item(SFD(nextin2).mLines, i);
                     int width = str_termlen(code, line) / maxx + 1;
                     width_sum += width;
                     i--;
@@ -171,64 +315,47 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
             while(1) {
                 /// view ///
-                clear();
-                int n = scrolltop;
-                int y = 0;
-                while(y < maxy && n < vector_count(SFD(nextin).mLines)) {
-                    int attrs = 0;
-                    if(n == cursor) {
-                        attrs = A_REVERSE;
-                    }
-                    else if(markfiles[n]) {
-                        attrs = A_BOLD;
-                    }
-                    if(attrs) attron(attrs);
-
-                    char* line = vector_item(SFD(nextin).mLines, n);
-
-                    if(str_termlen(code, line) <= maxx) {
-                        mvprintw(y, 0, "%s", line);
-                        y++;
-                    }
-                    else {
-                        char* p = line;
-                        while(p < line + strlen(line)) {
-                            char one_line[BUFSIZ];
-                            str_cut(code, p, maxx, one_line, BUFSIZ);
-                            mvprintw(y, 0, "%s", one_line);
-                            y++;
-
-                            p+=strlen(one_line);
-                        }
-                    }
-
-                    if(attrs) attroff(attrs);
-
-                    n++;
-                }
+                mclear();
+                int n;
+                selector_view(FALSE, scrolltop, cursor, nextin2, markfiles, code, &n);
                 refresh();
 
                 /// input ///
                 int key = getch();
 
-                if(key == 14 || key == KEY_DOWN) {
+                if(key == 14 || key == KEY_DOWN || key == 'e' || key == 5 || key == 'j' || key == 'n'-'a'+1) {
                     cursor++;
                 }
-                else if(key == 16 || key == KEY_UP) {
+                else if(key == 'y' || key == 'y'-'a'+1 || key == 'k' || key == 'k'-'a'+1 || key == 16 || key == KEY_UP) {
                     cursor--;
                 }
-                else if(key == 4 || key == KEY_NPAGE) {
+                else if(key == 'd' || key == 4) {
                     cursor += (maxy / 2);
                 }
-                else if(key == 21 || key == KEY_PPAGE) {
+                else if(key == 'u' || key == 21) {
                     cursor -= (maxy /2);
                 }
+                else if(key == 'f' || key == 'f'-'a'+1 || key == 'v'-'a'+1 || key == KEY_NPAGE) {
+                    cursor += maxy -1;
+                }
+                else if(key == 27) {
+                    key = getch();
+                    if(key == 'v') {
+                        cursor -= (maxy-1);
+                    }
+                }
+                else if(key == 'b' || key == 'b'-'a'+1 || key == KEY_PPAGE) {
+                    cursor -= (maxy -1);
+                }
                 else if(key == 12) {
-                    clear();
+                    mclear();
                     refresh();
                 }
+                else if(key == 'g') {
+                    cursor = 0;
+                }
                 else if(key == 'q' || key == 3 || key == 7) {
-                    err_msg("canceled", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("canceled", runinfo->mSName, runinfo->mSLine);
                     endwin();
                     mrestore_screen();
                     mrestore_ttysettings();
@@ -237,9 +364,54 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 }
                 else if(key == 'a' && multiple) {
                     int i;
-                    for(i=0; i<vector_count(SFD(nextin).mLines); i++) {
+                    for(i=0; i<vector_count(SFD(nextin2).mLines); i++) {
                         markfiles[i] = !markfiles[i];
                     }
+                }
+                else if(key == '/') {
+                    string_put(search_str, "");
+
+                    while(1) {
+                        int dummy;
+                        selector_view(FALSE, scrolltop, cursor, nextin2, markfiles, code, &dummy);
+                        const int maxy = mgetmaxy();
+                        mclear_online(maxy-1);
+                        mvprintw(maxy-1, 0, "/%s", string_c_str(search_str));
+                        refresh();
+
+                        int key = getch();
+                        if(key == 10 || key == 13) {
+                            break;
+                        }
+                        else if(key == 8 || key == 127) {
+                            string_trunc(search_str, string_length(search_str)-1);
+                        }
+                        else if(key >= ' ' && key <= '~' || key >= 128) {
+                            string_push_back2(search_str, (char)key);
+                        }
+                    }
+
+                    selector_search_forward(nextin2, string_c_str(search_str), &cursor);
+                }
+                else if(key == 'n') {
+                    int dummy;
+                    selector_view(FALSE, scrolltop, cursor, nextin2, markfiles, code, &dummy);
+                    const int maxy = mgetmaxy();
+                    mclear_online(maxy-1);
+                    mvprintw(maxy-1, 0, "/%s", string_c_str(search_str));
+                    refresh();
+
+                    selector_search_forward(nextin2, string_c_str(search_str), &cursor);
+                }
+                else if(key == 'N') {
+                    int dummy;
+                    selector_view(FALSE, scrolltop, cursor, nextin2, markfiles, code, &dummy);
+                    const int maxy = mgetmaxy();
+                    mclear_online(maxy-1);
+                    mvprintw(maxy-1, 0, "/%s", string_c_str(search_str));
+                    refresh();
+
+                    selector_search_backward(nextin2, string_c_str(search_str), &cursor);
                 }
                 else if(key == ' ' && multiple) {
                     markfiles[cursor] = !markfiles[cursor];
@@ -249,11 +421,11 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     if(multiple) {
                         BOOL flg_mark = FALSE;
                         int k;
-                        for(k=0; k<vector_count(SFD(nextin).mLines); k++) {
+                        for(k=0; k<vector_count(SFD(nextin2).mLines); k++) {
                             if(markfiles[k]) {
-                                char* str = vector_item(SFD(nextin).mLines, k);
+                                char* str = vector_item(SFD(nextin2).mLines, k);
                                 if(!fd_write(nextout,str, strlen(str))) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(markfiles);
                                     return FALSE;
@@ -264,9 +436,9 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         }
 
                         if(!flg_mark) {
-                            char* str = vector_item(SFD(nextin).mLines, cursor);
+                            char* str = vector_item(SFD(nextin2).mLines, cursor);
                             if(!fd_write(nextout, str, strlen(str))) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 FREE(markfiles);
                                 return FALSE;
@@ -274,15 +446,15 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         }
                     }
                     else {
-                        char* str = vector_item(SFD(nextin).mLines, cursor);
+                        char* str = vector_item(SFD(nextin2).mLines, cursor);
                         if(!fd_write(nextout, str, strlen(str))) {
-                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             FREE(markfiles);
                             return FALSE;
                         }
                     }
-                    if(SFD(nextin).mBufLen == 0) {
+                    if(SFD(nextin2).mBufLen == 0) {
                         runinfo->mRCode = RCODE_NFUN_NULL_INPUT;
                     }
                     else {
@@ -294,8 +466,8 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(cursor < 0) {
                     cursor = 0;
                 }
-                if(cursor >= vector_count(SFD(nextin).mLines)) {
-                    cursor = vector_count(SFD(nextin).mLines)-1;
+                if(cursor >= vector_count(SFD(nextin2).mLines)) {
+                    cursor = vector_count(SFD(nextin2).mLines)-1;
                     if(cursor < 0) cursor = 0;
                 }
                 if(cursor >= n) {
@@ -304,8 +476,8 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(cursor < scrolltop) {
                     int i = cursor;
                     int width_sum = 0;
-                    while(width_sum < maxy) {
-                        char* line = vector_item(SFD(nextin).mLines, i);
+                    while(width_sum < (maxy-1)) {
+                        char* line = vector_item(SFD(nextin2).mLines, i);
                         int width = str_termlen(code, line) / maxx + 1;
                         width_sum += width;
                         i--;
@@ -336,16 +508,16 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     if(isatty(0) == 0 || isatty(1) == 0) {
-        err_msg("p: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("p: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
     if(tcgetpgrp(0) != getpgid(0)) {
-        err_msg("p: not forground process group", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("p: not forground process group", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
     char* term_env = getenv("TERM");
     if(term_env == NULL || strcmp(term_env, "") == 0) {
-        err_msg("p: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("p: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
 
@@ -373,7 +545,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         while(p - SFD(nextin).mBuf < SFD(nextin).mBufLen) {
             if(*p == '\n') {
                 if(!fd_writec(nextin2, *p)) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -381,12 +553,12 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else if(*p >= 0 && *p <= 31) {
                 if(!fd_writec(nextin2, '^')) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(!fd_writec(nextin2, *p+'@')) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -394,7 +566,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else {
                 if(!fd_writec(nextin2, *p)) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -402,11 +574,18 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
         }
 
+        if(!fd_write(nextin2, "[EOF]", 5)) {
+            err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+
         /// go ///
-        fd_split(nextin2, lf);
+        fd_split(nextin2, lf, FALSE, FALSE, FALSE);
 
         msave_ttysettings();
         msave_screen();
+        mreset_tty();
         initscr();
         raw();
         keypad(stdscr, TRUE);
@@ -449,66 +628,100 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             scrolltop = i +2;
         }
 
+        sObject* search_str = STRING_NEW_STACK("");
+
         while(1) {
             /// view ///
-            clear();
-            int n = scrolltop;
-            int y = 0;
-            while(y < maxy && n < vector_count(SFD(nextin2).mLines)) {
-                int attrs = 0;
-                if(n == cursor) {
-                    attrs = A_REVERSE;
-                }
-                else if(markfiles[n]) {
-                    attrs = A_BOLD;
-                }
-                if(attrs) attron(attrs);
-
-                char* line = vector_item(SFD(nextin2).mLines, n);
-
-                if(str_termlen(code, line) <= maxx) {
-                    mvprintw(y, 0, "%s", line);
-                    y++;
-                }
-                else {
-                    char* p = line;
-                    while(p < line + strlen(line)) {
-                        char one_line[BUFSIZ];
-                        str_cut(code, p, maxx, one_line, BUFSIZ);
-                        mvprintw(y, 0, "%s", one_line);
-                        y++;
-
-                        p+=strlen(one_line);
-                    }
-                }
-
-                if(attrs) attroff(attrs);
-
-                n++;
-            }
+            mclear();
+            int n;
+            selector_view(TRUE, scrolltop, cursor, nextin2, markfiles, code, &n);
             refresh();
 
             /// input ///
             int key = getch();
 
-            if(key == 14 || key == KEY_DOWN) {
+            if(key == 14 || key == KEY_DOWN || key == 'e' || key == 5 || key == 'j' || key == 'n'-'a'+1) {
                 cursor++;
             }
-            else if(key == 16 || key == KEY_UP) {
+            else if(key == 'y' || key == 'y'-'a'+1 || key == 'k' || key == 'k'-'a'+1 || key == 16 || key == KEY_UP) {
                 cursor--;
             }
-            else if(key == 4 || key == KEY_NPAGE) {
+            else if(key == 'd' || key == 4) {
                 cursor += (maxy / 2);
             }
-            else if(key == 21 || key == KEY_PPAGE) {
+            else if(key == 'u' || key == 21) {
                 cursor -= (maxy /2);
             }
+            else if(key == 'f' || key == 'f'-'a'+1 || key == 'v'-'a'+1 || key == KEY_NPAGE) {
+                cursor += maxy -1;
+            }
+            else if(key == 27) {
+                key = getch();
+                if(key == 'v') {
+                    cursor -= (maxy-1);
+                }
+            }
+            else if(key == 'b' || key == 'b'-'a'+1 || key == KEY_PPAGE) {
+                cursor -= (maxy -1);
+            }
             else if(key == 12) {
-                clear();
+                mclear();
                 refresh();
             }
+            else if(key == 'g') {
+                cursor = 0;
+            }
+            else if(key == 12) {
+                mclear();
+                refresh();
+            }
+            else if(key == '/') {
+                string_put(search_str, "");
+
+                while(1) {
+                    int dummy;
+                    selector_view(TRUE, scrolltop, cursor, nextin2, markfiles, code, &dummy);
+                    const int maxy = mgetmaxy();
+                    mclear_online(maxy-1);
+                    mvprintw(maxy-1, 0, "/%s", string_c_str(search_str));
+                    refresh();
+
+                    int key = getch();
+                    if(key == 10 || key == 13) {
+                        break;
+                    }
+                    else if(key == 8 || key == 127) {
+                        string_trunc(search_str, string_length(search_str)-1);
+                    }
+                    else if(key >= ' ' && key <= '~' || key >= 128) {
+                        string_push_back2(search_str, (char)key);
+                    }
+                }
+
+                selector_search_forward(nextin2, string_c_str(search_str), &cursor);
+            }
+            else if(key == 'n') {
+                int dummy;
+                selector_view(TRUE, scrolltop, cursor, nextin2, markfiles, code, &dummy);
+                const int maxy = mgetmaxy();
+                mclear_online(maxy-1);
+                mvprintw(maxy-1, 0, "/%s", string_c_str(search_str));
+                refresh();
+
+                selector_search_forward(nextin2, string_c_str(search_str), &cursor);
+            }
+            else if(key == 'N') {
+                int dummy;
+                selector_view(TRUE, scrolltop, cursor, nextin2, markfiles, code, &dummy);
+                const int maxy = mgetmaxy();
+                mclear_online(maxy-1);
+                mvprintw(maxy-1, 0, "/%s", string_c_str(search_str));
+                refresh();
+
+                selector_search_backward(nextin2, string_c_str(search_str), &cursor);
+            }
             else if(key == 'q' || key == 3 || key == 7) {
-                err_msg("p: canceled", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("p: canceled", runinfo->mSName, runinfo->mSLine);
                 endwin();
                 mrestore_screen();
                 mrestore_ttysettings();
@@ -517,7 +730,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else if(key == 10 || key == 13) {
                 if(!fd_write(nextout, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     FREE(markfiles);
                     return FALSE;
@@ -544,7 +757,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             if(cursor < scrolltop) {
                 int i = cursor;
                 int width_sum = 0;
-                while(width_sum < maxy) {
+                while(width_sum < (maxy-1)) {
                     char* line = vector_item(SFD(nextin2).mLines, i);
                     int width = str_termlen(code, line) / maxx + 1;
                     width_sum += width;
@@ -572,16 +785,16 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     if(isatty(0) == 0 || isatty(1) == 0) {
-        err_msg("readline: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("readline: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
     if(tcgetpgrp(0) != getpgid(0)) {
-        err_msg("readline: not forground process group", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("readline: not forground process group", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
     char* term_env = getenv("TERM");
     if(term_env == NULL || strcmp(term_env, "") == 0) {
-        err_msg("readline: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("readline: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
 
@@ -594,38 +807,37 @@ BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
 
     if(runinfo->mBlocksNum == 1) {
-        readline_completion_user_castamized(runinfo->mBlocks[0]);
-
-        char* buf = readline(prompt);
+        char* buf = ALLOC editline_user_castamized(prompt, NULL, NULL, -1, runinfo->mBlocks[0]);
 
         if(buf) {
             if(!fd_write(nextout, buf, strlen(buf))) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                readline_completion();
+                FREE(buf);
                 return FALSE;
             }
+            FREE(buf);
         }
-
-        readline_completion();
     }
     else {
+        char* buf;
         if(sRunInfo_option(runinfo, "-no-completion")) {
-            readline_no_completion();
+            buf = ALLOC editline_no_completion(prompt, NULL, NULL, -1);
         }
-
-        char* buf = readline(prompt);
+        else {
+            buf = ALLOC editline(prompt, NULL, NULL, -1);
+        }
 
         if(buf) {
             if(!fd_write(nextout, buf, strlen(buf))) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                readline_completion();
+                FREE(buf);
                 return FALSE;
             }
+
+            FREE(buf);
         }
-        
-        readline_completion();
     }
 
     runinfo->mRCode = 0;
@@ -735,13 +947,11 @@ static void str_cut2(enum eKanjiCode code, char* mbs, int termsize, char* dest_m
         int i;
         int n;
 
-        wchar_t* wcs 
-            = (wchar_t*)MALLOC(sizeof(wchar_t)*(termsize+1)*MB_CUR_MAX);
-        wchar_t* tmp 
-            = (wchar_t*)MALLOC(sizeof(wchar_t)*(termsize+1)*MB_CUR_MAX);
+        wchar_t* wcs = (wchar_t*)MALLOC(sizeof(wchar_t)*(termsize+1));
+        wchar_t* tmp = (wchar_t*)MALLOC(sizeof(wchar_t)*(termsize+1));
 
-        if(mbstowcs(wcs, mbs, (termsize+1)*MB_CUR_MAX) == -1) {
-            mbstowcs(wcs, "?????", (termsize+1)*MB_CUR_MAX);
+        if(mbstowcs(wcs, mbs, termsize+1) == -1) {
+            mbstowcs(wcs, "?????", termsize+1);
         }
 
         i = 0;
@@ -957,16 +1167,16 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     BOOL multiple = sRunInfo_option(runinfo, "-multiple");
 
     if(isatty(0) == 0 || isatty(1) == 0) {
-        err_msg("fselector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("fselector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
     if(tcgetpgrp(0) != getpgid(0)) {
-        err_msg("fselector: not forground process group", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("fselector: not forground process group", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
     char* term_env = getenv("TERM");
     if(term_env == NULL || strcmp(term_env, "") == 0) {
-        err_msg("fselector: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("fselector: not TERM environment variable setting", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
 
@@ -994,7 +1204,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int cursor = 0;
         while(1) {
             /// 描写 ///
-            clear();
+            mclear();
             mvprintw(0,0,"%s", current_dir);
 
             int page = cursor/((maxy-1)*4);
@@ -1065,7 +1275,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 cursor -= (maxy-1)*4;
             }
             else if(key == 12) {
-                clear();
+                mclear();
                 refresh();
             }
             else if(key == ' ' && multiple) {
@@ -1113,7 +1323,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 break;
             }
             else if(key == 'q' || key == 3 || key == 7) {
-                err_msg("canceled", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("canceled", runinfo->mSName, runinfo->mSLine);
                 endwin();
                 mrestore_screen();
                 mrestore_ttysettings();    // 端末の設定の復帰
@@ -1201,7 +1411,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                 if(!fd_write(nextout, cursor_path2, strlen(cursor_path2)))
                 {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     int i;
                     for(i=0; i<vector_count(v); i++) {
                         sFile_delete(vector_item(v, i));
@@ -1213,7 +1423,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 xstrncat(cursor_path, "\n", PATH_MAX+1);
                 if(!fd_write(nextout, cursor_path, strlen(cursor_path)))
                 {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     int i;
                     for(i=0; i<vector_count(v); i++) {
                         sFile_delete(vector_item(v, i));
@@ -1240,7 +1450,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!fd_write(nextout, full_path2, strlen(full_path2)))
                     {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         int i;
                         for(i=0; i<vector_count(v); i++) {
                             sFile_delete(vector_item(v, i));
@@ -1252,7 +1462,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     xstrncat(full_path, "\n", PATH_MAX+1);
                     if(!fd_write(nextout, full_path, strlen(full_path)))
                     {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         int i;
                         for(i=0; i<vector_count(v); i++) {
                             sFile_delete(vector_item(v, i));
@@ -1302,7 +1512,7 @@ BOOL cmd_curses_getch(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         char buf[BUFSIZ];
         int n = snprintf(buf, BUFSIZ, "%d\n", key);
         if(!fd_write(nextout, buf, n)) {
-            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -1364,7 +1574,7 @@ BOOL cmd_curses_printw(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     if(mis_raw_mode() && runinfo->mArgsNumRuntime == 2) {
         if(runinfo->mFilter) {
-            fd_split(nextin, lf);
+            fd_split(nextin, lf, TRUE, FALSE, TRUE);
         }
 
         /// go ///
@@ -1427,25 +1637,23 @@ BOOL cmd_curses_printw(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         snprintf(aformat, 16, "%%%c", *p);
                         p++;
 
-                        sObject* arg;
+                        char* arg;
                         if(runinfo->mFilter && strings_num < vector_count(SFD(nextin).mLines)) {
-                            arg = STRING_NEW_STACK(vector_item(SFD(nextin).mLines, strings_num));
+                            arg = vector_item(SFD(nextin).mLines, strings_num);
                         }
                         else {
-                            arg = STRING_NEW_STACK("");
+                            arg = "";
                         }
                         strings_num++;
 
-                        string_chomp(arg);
-
                         char* buf;
-                        int size = asprintf(&buf, aformat, string_c_str(arg));
+                        int size = asprintf(&buf, aformat, arg);
 
                         printw("%s", buf);
                         free(buf);
                     }
                     else {
-                        err_msg("invalid format at printf", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("invalid format at printf", runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
                 }

@@ -32,9 +32,7 @@
 #include <sys/time.h>
 #endif
 
-#include "xyzsh/xyzsh.h"
-
-enum eTerminalKanjiCode gTerminalKanjiCode = kTKUtf8;
+#include "xyzsh.h"
 
 static int wis_2cols(wchar_t c)
 {
@@ -48,9 +46,13 @@ static int wis_2cols(wchar_t c)
 
 static int gMCTtyFd;
 
-static int ttywrite(char* str)
+static int write_escape_suqence(char* str)
 {
-    return write(gMCTtyFd, str, strlen(str));
+    if(str) {
+        char* p = str;
+        while(*p && *p != '$') { p++; }
+        return write(gMCTtyFd, str, p - str);
+    }
 }
 
 static int ttywritec(char c)
@@ -73,27 +75,27 @@ static int mhas_color()
 
 void mbackspace_immediately()
 {
-    ttywrite(tigetstr("cub1"));
-    ttywrite(tigetstr("dch1"));
+    write_escape_suqence(tigetstr("cub1"));
+    write_escape_suqence(tigetstr("dch1"));
 }
 
 void mbackspace_head_of_line_immediately()
 {
     const int maxx = mgetmaxx();
 
-    ttywrite(tigetstr("cuu1"));
-    ttywrite(tparm(tigetstr("cuf"), maxx));
-    ttywrite(tigetstr("dch1"));
+    write_escape_suqence(tigetstr("cuu1"));
+    write_escape_suqence(tparm(tigetstr("cuf"), maxx));
+    write_escape_suqence(tigetstr("dch1"));
 }
 
 void mcursor_left_immediately(int n)
 {
-    ttywrite(tparm(tigetstr("cub"), n));
+    write_escape_suqence(tparm(tigetstr("cub"), n));
 }
 
 void mcursor_right_immediately(int n)
 {
-    ttywrite(tparm(tigetstr("cuf"), n));
+    write_escape_suqence(tparm(tigetstr("cuf"), n));
 }
 
 
@@ -101,10 +103,10 @@ void mmove_line_home_immediately()
 {
     const int maxx = mgetmaxx();
 
-    ttywrite(tparm(tigetstr("cub"), maxx));
+    write_escape_suqence(tparm(tigetstr("cub"), maxx));
 }
 
-void mcurses_init(enum eTerminalKanjiCode code)
+void mcurses_init()
 {
     if(setupterm(NULL, STDOUT_FILENO, (int*) 0) == ERR) {
         fprintf(stderr, "invalid TERM setting");
@@ -112,8 +114,6 @@ void mcurses_init(enum eTerminalKanjiCode code)
     }
 
     gMCTtyFd = open("/dev/tty", O_RDWR);
-
-    gTerminalKanjiCode = code;
 }
 
 void mcurses_final()
@@ -135,35 +135,6 @@ void mrestore_ttysettings()
     tcsetattr(gMCTtyFd, TCSANOW, &gSaveTty);
 }
 
-void mbox(int y, int x, int width, int height)
-{
-   char hbar[256];
-   int i;
-
-   hbar[0] = '+';
-   for(i=1; i<width-1; i++) {
-      hbar[i] = '-';
-   }
-   hbar[i] = '+';
-   hbar[i+1] = 0;
-
-   mvprintw(y, x, hbar);
-   for(i=0; i<height-2; i++) {
-       char hbar2[256];
-
-       int j;
-       hbar2[0] = '|';
-       for(j=1; j<width-1; j++) {
-           hbar2[j] = ' ';
-       }
-       hbar2[j] = '|';
-       hbar2[j+1] = 0;
-
-       mvprintw(y + 1 +i, x, hbar2);
-   }
-
-   mvprintw(y + height-1, x, hbar);
-}
 
 int mgetmaxx()
 {
@@ -235,14 +206,8 @@ void msave_screen()
 {
 #if defined(__FREEBSD__)
 #else
-    char* str = tigetstr("smcup");
-    if(str) {
-        ttywrite(str);
-    }
-    str = tigetstr("sc");
-    if(str) {
-        ttywrite(str);
-    }
+    write_escape_suqence(tigetstr("smcup"));
+    write_escape_suqence(tigetstr("sc"));
 #endif
 }
 
@@ -250,20 +215,38 @@ void mrestore_screen()
 {
 #if defined(__FREEBSD__)
 #else
-    char* str = tigetstr("rmcup");
-    if(str) {
-        ttywrite(str);
-    }
-    str = tigetstr("rc");
-    if(str) {
-        ttywrite(str);
-    }
+    write_escape_suqence(tigetstr("rmcup"));
+    write_escape_suqence(tigetstr("rc"));
 #endif
 }
 
 void mclear_immediately()
 {
-    ttywrite(tigetstr("clear"));
+    write_escape_suqence(tigetstr("clear"));
+}
+
+void mclear()
+{
+clear();
+//erase();
+/*
+    char space[1024];
+    char space2[1024];
+    int x, y;
+    const int maxx = mgetmaxx();
+    const int maxy = mgetmaxy();
+
+    for(x=0; x<maxx; x++) {
+       space[x] = ' ';
+    }
+    space[x] = 0;
+
+    for(y=0; y<maxy-1; y++) {
+       mvprintw(y, 0, space);
+    }
+    space[maxx-1] = 0;
+    mvprintw(y, 0, space);
+*/
 }
 
 void mclear_online(int y)
@@ -272,18 +255,23 @@ void mclear_online(int y)
     int x;
 
     const int maxx = mgetmaxx();
+    const int maxy = mgetmaxy();
 
     for(x=0; x<maxx; x++) {
         space[x] = ' ';
     }
     space[x] = 0;
 
-    attron(0);
-    mvprintw(y, 0, space);
+    if(y == maxy -1) {
+        space[maxx-1] = 0;
+        mvprintw(y, 0, space);
+    }
+    else {
+        mvprintw(y, 0, space);
+    }
 }
 
 void mmove_immediately(int y, int x)
 {
-    ttywrite(tparm(tigetstr("cup"), y, x));
+    write_escape_suqence(tparm(tigetstr("cup"), y, x));
 }
-

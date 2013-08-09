@@ -3,9 +3,7 @@ xyzsh シェルスクリプト言語
 
 このソフトウェアはなんですか？
 
-    Linux, OSX, cygwin, FreeBSDで動くインタラクティブシェルです。
-    Perl/Rubyライクなテキスト処理コマンドを含み、オブジェクト指向も行えます。
-    ガベージコレクションも装備しています。
+    インタラクティブシェル。OSX, cygwin, Linux, FreeBSDで動きます。 ガベージコレクションがついていて、簡易なオブジェクト指向ができます。perlやrubyのようなテキスト処理を行なう内部コマンドを装備しています。全ての内部コマンドにはサンプル付きのヘルプがついてきます。補完は自身によって記述されていて、IDEのようにxyzshの文法に基づいて補完されます。migemoによる日本語ファイル名の補完もあります。
 
     サンプル
 
@@ -65,6 +63,49 @@ xyzsh シェルスクリプト言語
     name: Yamanaka Gorou
     age: 23
     country: Japan
+
+    > ls | scan . | while(| eval "|${I=1} print |>") (|> join ""; ++ I )
+    A
+    UT
+    HOR
+    SCHA
+    NGELO
+    GLICEN
+    SEMakef
+    ileMakef
+    ile.inREA
+    DMEREADME.
+    jaUSAGEUSAG
+    E.jacompleti
+    on.xyzshconfi
+    g.hconfig.h.in
+    config.logconfi
+    g.statusconfigur
+    econfigure.inhelp
+    .xyzshinstall.shli
+    bxyzsh.1.7.0.dylibl
+    ibxyzsh.1.dyliblibxy
+    zsh.dylibmanread_hist
+    ory.xyzshsrcxyzshxyzsh
+    .dSYMxyzsh.xyzsh
+
+    > ls | lines 0 1 | scan . | each ( | chomp | x 5 | pomch )
+    AAAAA
+    UUUUU
+    TTTTT
+    HHHHH
+    OOOOO
+    RRRRR
+    SSSSS
+    CCCCC
+    HHHHH
+    AAAAA
+    NNNNN
+    GGGGG
+    EEEEE
+    LLLLL
+    OOOOO
+    GGGGG
     
 コンパイルとテストを行ったOS
 
@@ -92,7 +133,7 @@ xyzsh シェルスクリプト言語
     libc
     libm 
     ncurses(w)
-    readline
+    editline
     oniguruma
     iconv
 
@@ -133,9 +174,9 @@ xyzsh シェルスクリプト言語
         /usrや/usr/localに鬼車がインストールされていない場合、鬼車がインストールされているディレクトリを指定します。]
         管理者権限がない場合にシステム管理者が鬼車をインストールしていない時、ホームディレクトリに鬼車を自分で
         コンパイルしてインストールして、ここで$HOMEを指定すれば管理者権限がなくてもxyzshをインストールできます。
-    --with-readline-dir
-        /usrや/usr/localにreadlineがインストールされていない場合
-        readlineがインストールされているディレクトリを指定します。
+    --with-editline-dir
+        /usrや/usr/localにeditlineがインストールされていない場合
+        editlineがインストールされているディレクトリを指定します。
     --with-debug
         デバッグモードのプログラムを作成。-gオプションをつけてgccを実行します。
         gdbでデバッグができるようになります。またxyzsh自身のメモリーリーク検出機能を有効にします。
@@ -149,7 +190,7 @@ xyzsh シェルスクリプト言語
     日本人向けのオプション
     
     --with-migemo
-        migemo::match内部コマンドをC拡張ライブラリとして作成します。
+        migemoオブジェクトをC拡張ライブラリとして作成します。
     --with-migemo-dir
         デフォルトでは/usr, /usr/localで検索されるmigemoのインストール先を指定します。
         これも管理者権限がない場合で自分のホームディレクトリにmigemoをインストールした場合には必要になるでしょう。
@@ -180,9 +221,6 @@ xyzsh シェルスクリプト言語
     （動的ライブラリのある場所が決まらないとxyzshは実行できない)
 
 OSXでは
-
-    OSXで標準でインストールされているreadlineはlibeditで、それはxyzshから使えません。GNU readlineが必要となります。
-    Macportsなどのパッケージツールを使ってインストールするか自分でコンパイルしてGNU readlineをインストールする必要があります。
 
     OSXではldconfigの設定は必要ありませんが、以下の設定が必要になります。
 
@@ -250,13 +288,14 @@ xyzshが使用するファイル
     configure --> インストール時に実行されるプログラム。OSの種別などを判別する。
     configure.in --> configureの元となったファイル。autoconfコマンドによってconifugreファイルに変換される
     install.sh --> configureプログラムに必要なファイル
-    src/xyzsh/xyzsh.h --> xyzshヘッダーファイル。このファイルをインクルードして-lxyzshオプションをgccにつければ、xyzshを組み込んだプログラムも作成できます
+    src/xyzsh.h --> xyzshヘッダーファイル。このファイルをインクルードして-lxyzshオプションをgccにつければ、xyzshを組み込んだプログラムも作成できます
     xyzsh.xyzsh --> xyzshランタイムスクリプト
     completion.xyzsh --> 補完関係のxyzshランタイムスクリプト
     help.xyzsh --> xyzshのヘルプ用のスクリプト
     src/xyzsh --> ヘッダーが含まれるディレクトリ
+
     src/block.c --> コードを格納するblock_obj関連の実装
-    src/class.c --> classオブジェクトの実装。
+    src/env.c --> 変数を展開して実行時の引数情報に展開するプログラム
     src/cmd_ary.c --> 配列関連の内部コマンドが定義されている
     src/cmd_loop.c --> ループ関連の内部コマンドが定義されている
     src/cmd_base.c --> 基本となる内部コマンドが定義されている
@@ -266,29 +305,37 @@ xyzshが使用するファイル
     src/cmd_num.c --> 四則演算を行う内部コマンドが実装されている
     src/cmd_obj.c --> オブジェクト指向を行う内部コマンドが実装されている。変数を扱う。
     src/cmd_str.c --> 文字列処理を行う内部コマンドが実装されている。
-    src/completion.c --> completionオブジェクトの実装
     src/curses.c --> 端末制御関連の関数が実装されている
     src/debug.c --> オリジナルのデバッグ用の関数が実装されている。メモリリークの検出など。
-    src/fun.c --> 関数オブジェクトの実装
     src/gc.c --> xyzshのオブジェクトのガベージコレクションの実装。
-    src/hash.c --> 連想配列のライブラリの実装。
     src/interface.c --> xyzshを組み込んだプログラムから呼び出されるインターフェース関数の実装。
     src/kanji.c --> UTF-8やSJIS, EUCJPを扱うライブラリの実装。
-    src/list.c --> リストのライブラリの実装。
     src/main.c --> メイン関数が定義されている
     src/object.c --> その他のオブジェクトの実装
     src/parser.c --> パーサー本体
+    src/obj_list.c --> リストオブジェクト
+    src/obj_hash.c --> 連想配列オブジェクト
+    src/obj_string.c --> 文字列オブジェクト
+    src/obj_vector.c --> 動的配列オブジェクト
+    src/obj_nfun.c --> 内部関数オブジェクト
+    src/obj_fd.c --> ファイルディスクリプターオブジェクト
+    src/obj_extprog.c --> 外部プログラムオブジェクト
+    src/obj_completion.c --> 補完オブジェクト
+    src/obj_class.c --> クラスオブジェクト
+    src/obj_fun.c --> 関数オブジェクト
+    src/obj_user.c --> ユーザーオブジェクト
     src/xyzsh.c --> xyzshのその他のルーチンを集めている
-    src/readline.c --> readlineを扱っているソース。
+    src/editline.c --> editlineを扱っているソース。
     src/run.c --> xyzshのメインエンジン
     src/stack.c --> xyzshのスタックを扱う実装。
-    src/string.c --> 文字列ライブラリ
-    src/uobject --> ユーザーオブジェクトの定義
-    src/vector.c --> 動的配列の実装
-    src/nfun.c --> ネイティブ関数オブジェクトの実装
-    src/fd.c --> ファイル記述子オブジェクトの実装
-    src/extprog.c --> 外部プログラムオブジェクトの実装
+    src/editline/*.c --> editline C ソース
+    src/editline/*.h --> editline ヘッダー
+    src/load.c --> load関連
+    src/xfun.c --> カスタマイズされたCライブラリの関数
 
 ラインセンス
 
     MITラインセンスです。
+
+    このソフトウェアはeditline(libedit)のソースを含みます。
+

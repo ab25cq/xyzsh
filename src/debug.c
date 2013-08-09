@@ -1,45 +1,68 @@
-#include "config.h"
+#include "debug.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "xyzsh/xyzsh.h"
-
-#ifdef MDEBUG
-
-static FILE* gFile;
-static BOOL gLogging = FALSE;
-
 #include <unistd.h>
-#include <time.h>
 #include <fcntl.h>
-#include <sys/time.h>
-/*
-struct timeval gTV;
-char gTimerMsg[1024];
 
-void timer_count_start(char* msg)
+#ifndef MDEBUG
+
+ALLOC void* xmalloc(size_t size)
 {
-    gettimeofday(&gTV, NULL);
-    strcpy(gTimerMsg, msg);
+    void* buf = malloc(size);
+
+    if(buf == NULL) {
+        fprintf(stderr, "It is not enough memory");
+        exit(1);
+    }
+
+    return buf;
 }
 
-void timer_count_end(const char* file, int line, const char* fun)
+ALLOC char* xstrdup(char* str)
 {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
+    char* buf = strdup(str);
 
-    FILE* f = fopen("timer.log", "a");
-    fprintf(f, "%s:%d %s %ld micro sec %s\n", file, line, fun, tv.tv_usec - gTV.tv_usec, gTimerMsg);
-    fclose(f);
+    if(buf == NULL) {
+        fprintf(stderr, "It is not enough memory\n");
+        exit(1);
+    }
+
+    return buf;
 }
-*/
+
+ALLOC void* xrealloc(void* ptr, size_t size)
+{
+    char* buf = realloc(ptr, size);
+
+    if(buf == NULL) {
+        fprintf(stderr, "It is not enough memory\n");
+        exit(1);
+    }
+
+    return buf;
+}
+
+#else
+
+static char* xstrncpy(char* des, char* src, int size)
+{
+    des[size-1] = 0;
+    return strncpy(des, src, size-1);
+}
+
+static char* xstrncat(char* des, char* str, int size)
+{
+    des[size-1] = 0;
+    return strncat(des, str, size-1);
+}
 
 //////////////////////////////////////////////////////////////////////
-// メモリーリークチェック用定義
+// for memory leak checking
 //////////////////////////////////////////////////////////////////////
-#define NAME_SIZE 32
+#define NAME_SIZE 128
 
-typedef struct _sMallocEntry
+typedef struct _t_malloc_entry
 {
     void* mMemory;
 
@@ -47,15 +70,15 @@ typedef struct _sMallocEntry
     int mLine;
     char mFuncName[NAME_SIZE];
 
-    struct _sMallocEntry* mNextEntry;
-} sMallocEntry;
-      
+    struct _t_malloc_entry* mNextEntry;
+} t_malloc_entry;
+
 #define ARRAY_SIZE 65535
-static sMallocEntry* gMallocEntries[ARRAY_SIZE];
+static t_malloc_entry* gMallocEntries[ARRAY_SIZE];
 
 void release_entry(void* memory, const char* file_name, int line, const char* func_name)
 {
-    sMallocEntry* entry;
+    t_malloc_entry* entry;
 #ifdef __64bit__
     unsigned long long hash = ((unsigned long long)memory) % ARRAY_SIZE;
 #else
@@ -64,8 +87,7 @@ void release_entry(void* memory, const char* file_name, int line, const char* fu
     
     entry = gMallocEntries[hash];
     if(entry->mMemory == memory) { 
-        sMallocEntry* next_entry = entry->mNextEntry;
-if(gLogging) fprintf(gFile, "mem %p freed for debug info\n", entry);
+        t_malloc_entry* next_entry = entry->mNextEntry;
         free(entry);
         gMallocEntries[hash] = next_entry;
         return ;
@@ -73,8 +95,7 @@ if(gLogging) fprintf(gFile, "mem %p freed for debug info\n", entry);
     else {
         while(entry->mNextEntry) {
             if(entry->mNextEntry->mMemory == memory) {
-                sMallocEntry* next_entry = entry->mNextEntry->mNextEntry;
-if(gLogging) fprintf(gFile, "mem %p freed for debug info\n", entry->mNextEntry);
+                t_malloc_entry* next_entry = entry->mNextEntry->mNextEntry;
                 free(entry->mNextEntry);
                 entry->mNextEntry = next_entry;
 
@@ -92,29 +113,23 @@ if(gLogging) fprintf(gFile, "mem %p freed for debug info\n", entry->mNextEntry);
 }
 
 //////////////////////////////////////////////////////////////////////
-// メモリーリークチェック用開始
+// memory leak checking starts
 //////////////////////////////////////////////////////////////////////
-void CheckMemLeak_Begin(BOOL log)
+void debug_init()
 {
-    if(log) {
-        gLogging = TRUE;
-        gFile = fopen("memory.log", "w");
-
-    }
-    memset(gMallocEntries, 0, sizeof(sMallocEntry*)*ARRAY_SIZE);
+    memset(gMallocEntries, 0, sizeof(t_malloc_entry*)*ARRAY_SIZE);
 }
 
 //////////////////////////////////////////////////////////////////////
-// メモリーリークチェック用解放
+// memory leak checking finish
 //////////////////////////////////////////////////////////////////////
-void CheckMemLeak_End()
+void debug_final()
 {
     int i;
 
     fprintf(stderr, "Detecting memory leak...\n");
-//FILE* f = fopen("memleak.log", "w");
     for(i=0; i<ARRAY_SIZE; i++) {
-        sMallocEntry* entry = gMallocEntries[i];
+        t_malloc_entry* entry = gMallocEntries[i];
       
         while(entry) {
 #ifdef __64bit__
@@ -126,29 +141,23 @@ void CheckMemLeak_End()
                                              , entry->mFileName, entry->mLine
                                              , entry->mFuncName, (unsigned long)entry->mMemory);
 #endif
-            //fprintf(f, "\tDetected!! at file: %s line:%d function:%s() addr:%x\n"
-                                             //, entry->mFileName, entry->mLine
-                                             //, entry->mFuncName, (unsigned int)entry->mMemory);
             entry = entry->mNextEntry;
         }
     }
-
-//fclose(f);
 
     fprintf(stderr, "done.\n");
 }
 
 //////////////////////////////////////////////////////////////////////
-// メモリーリークチェック用メモリーアロケート
+// malloc for memory leak checking
 //////////////////////////////////////////////////////////////////////
-ALLOC void* CheckMemLeak_Malloc(size_t size, const char* file_name, int line, const char* func_name)
+ALLOC void* debug_malloc(size_t size, const char* file_name, int line, const char* func_name)
 {
-    sMallocEntry* entry;
+    t_malloc_entry* entry;
     int i;
     int hash;
     
-    entry = (sMallocEntry*)malloc(sizeof(sMallocEntry));
-if(gLogging) fprintf(gFile, "mem %p malloced for debug info\n", entry);
+    entry = (t_malloc_entry*)malloc(sizeof(t_malloc_entry));
 
     xstrncpy(entry->mFileName, (char*)file_name, NAME_SIZE);
     entry->mLine = line;
@@ -163,24 +172,22 @@ if(gLogging) fprintf(gFile, "mem %p malloced for debug info\n", entry);
     entry->mNextEntry = gMallocEntries[hash];
     gMallocEntries[hash] = entry;
 
-if(gLogging) fprintf(gFile, "mem %p malloced at file %s line %d fun %s\n", entry->mMemory, file_name, line, func_name);
     return entry->mMemory;
 }
 
 //////////////////////////////////////////////////////////////////////
-// メモリーリークチェック用メモリーアロケート
+// realloc for memory leak checking
 //////////////////////////////////////////////////////////////////////
-ALLOC void* CheckMemLeak_Realloc(void* memory, size_t size, const char* file_name, int line, const char* func_name)
+ALLOC void* debug_realloc(void* memory, size_t size, const char* file_name, int line, const char* func_name)
 {
-    sMallocEntry* entry;
+    t_malloc_entry* entry;
     int hash;
 
     /// delete old entry ///
     if(memory) release_entry(memory, file_name, line, func_name);
 
     /// add new entry ///
-    entry = (sMallocEntry*)malloc(sizeof(sMallocEntry));
-if(gLogging) fprintf(gFile, "mem %p malloced for debug info\n", entry);
+    entry = (t_malloc_entry*)malloc(sizeof(t_malloc_entry));
       
     xstrncpy(entry->mFileName, (char*)file_name, NAME_SIZE);
     entry->mLine = line;
@@ -199,20 +206,18 @@ if(gLogging) fprintf(gFile, "mem %p malloced for debug info\n", entry);
 #endif
     entry->mNextEntry = gMallocEntries[hash];
     gMallocEntries[hash] = entry;
-if(gLogging) fprintf(gFile, "mem %p realloced at file %s line %d fun %s\n", entry->mMemory, file_name, line, func_name);
 
     return entry->mMemory;
 }
 
 //////////////////////////////////////////////////////////////////////
-// メモリーリークチェック用メモリーアロケート
+// strdup for memory leak checking
 //////////////////////////////////////////////////////////////////////
-ALLOC char* CheckMemLeak_Strdup(char* str, const char* file_name, int line, const char* func_name)
+ALLOC char* debug_strdup(char* str, const char* file_name, int line, const char* func_name)
 {
     char* result;
 
-    result = (char*)CheckMemLeak_Malloc(sizeof(char)*(strlen(str)+1), file_name, line, func_name);
-if(gLogging) fprintf(gFile, "mem %p strdupped at file %s line %d fun %s\n", str, file_name, line, func_name);
+    result = (char*)debug_malloc(sizeof(char)*(strlen(str)+1), file_name, line, func_name);
 
     xstrncpy(result, str, strlen(str)+1);
 
@@ -220,11 +225,10 @@ if(gLogging) fprintf(gFile, "mem %p strdupped at file %s line %d fun %s\n", str,
 }
    
 //////////////////////////////////////////////////////////////////////
-// メモリーリークチェック用メモリー解放
+// free for memory leak chekcing
 //////////////////////////////////////////////////////////////////////
-void CheckMemLeak_Free(void* memory, const char* file_name, int line, const char* func_name)
+void debug_free(void* memory, const char* file_name, int line, const char* func_name)
 {
-if(gLogging) fprintf(gFile, "mem %p freed at file %s line %d fun %s\n", memory, file_name, line, func_name);
     release_entry(memory, file_name, line, func_name);
     free(memory);
 }

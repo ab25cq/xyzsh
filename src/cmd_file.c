@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <dirent.h>
+#include <pwd.h>
 
 #if defined(HAVE_CURSES_H)
 #include <curses.h>
@@ -22,7 +23,7 @@
 #include <ncurses/ncurses.h>
 #endif
 
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 BOOL cmd_write(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -38,7 +39,7 @@ BOOL cmd_write(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else {
             if(access(fname, F_OK) == 0) {
-                err_msg("The file exists. If you want to override, add -force option to \"write\" runinfo", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("The file exists. If you want to override, add -force option to \"write\" runinfo", runinfo->mSName, runinfo->mSLine);
                 return FALSE;
             }
 
@@ -47,21 +48,21 @@ BOOL cmd_write(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
         if(sRunInfo_option(runinfo, "-error")) {
             if(!bufsiz_write(fd, SFD(gStderr).mBuf, SFD(gStderr).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             fd_clear(gStderr);
 
             if(!fd_write(nextout, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
         }
         else {
             if(!bufsiz_write(fd, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -280,12 +281,12 @@ BOOL cmd_pushd(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     vector_add(gDirStack, STRING_NEW_GC(path2, FALSE));
 
                     if(!fd_write(nextout, path2, strlen(path2))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                     if(!fd_write(nextout, "\n", 1)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -297,3 +298,79 @@ BOOL cmd_pushd(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     return TRUE;
 }
+
+BOOL cmd_expand_tilda(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mFilter) {
+        char* target = SFD(nextin).mBuf;
+        if(target[0] == '~') {
+            struct passwd* pw;
+
+            sObject* pw_dirs = HASH_NEW_STACK(10);
+            pw = getpwuid(getuid());
+            hash_put(pw_dirs, "~/", STRING_NEW_STACK(pw->pw_dir));
+
+            while((pw = getpwent()) != NULL) {
+                char home_dir[128];
+                snprintf(home_dir, 128, "~%s/", pw->pw_name);
+                hash_put(pw_dirs, home_dir, STRING_NEW_STACK(pw->pw_dir));
+            }
+
+            endpwent();
+
+            BOOL found = FALSE;
+
+            hash_it* it = hash_loop_begin(pw_dirs);
+            while(it) {
+                char* key = hash_loop_key(it);
+
+                if(strstr(target, key) == target) {
+                    sObject* item = hash_loop_item(it);
+
+                    if(!fd_write(nextout, string_c_str(item), string_length(item))) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                    if(!fd_writec(nextout, '/')) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+                    char* p = target + strlen(key);
+                    if(!fd_write(nextout, p, strlen(p))) {
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                        return FALSE;
+                    }
+
+                    found = TRUE;
+                    break;
+                }
+
+                it = hash_loop_next(it);
+            }
+
+            if(!found) {
+                if(!fd_write(nextout, target, SFD(nextin).mBufLen)) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+            }
+        }
+        else {
+            if(!fd_write(nextout, target, SFD(nextin).mBufLen)) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+        }
+
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+

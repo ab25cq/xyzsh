@@ -1,7 +1,0 @@
-
-export XYZSH_HISTFILE |chomp| if(| -f) (
-    tail -n $(export XYZSH_HISTSIZE|chomp) $(export XYZSH_HISTFILE|chomp) | write -force $(export XYZSH_HISTFILE|chomp)
-)
-
-rl::read_history $(export XYZSH_HISTFILE|chomp)
-

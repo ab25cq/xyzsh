@@ -95,14 +95,75 @@ class Help (
 object help ( Help )
 
 print <<<'EOS'
+typeof (object name)
+-
+typeof objectでオブジェクトの種別を出力します。
+
+"var"
+"array"
+"hash"
+"list"
+"native function"
+"block"
+"file dicriptor"
+"file dicriptor"
+"job"
+"object"
+"function"
+"class"
+"external program"
+"completion"
+"external object"
+"alias"
+
+出力は上のいずれかの値。
+-
+alias name|name (block)
+-
+alias name (block)はエイリアスを定義する。
+
+> alias ls ( sys::ls -al )
+> self | egrep ^ls
+ls: alias
+> ls src/main.c
+ -rw-r--r--  1 ab25cq  staff  2407  7  7 14:04 src/main.c
+
+> alias ls ( inherit -al )
+> self | egrep ^ls
+ls: alias
+> ls src/main.c
+ -rw-r--r--  1 ab25cq  staff  2407  7  7 14:04 src/main.c
+
+alias nameはエイリアスの定義を出力する。
+
+> alias ls
+sys::ls -al
+-
+expand_tilda
+-
+ファイルのパスを表す文字列を受け取り先頭のチルダをそのユーザーのディレクトリに展開するフィルター
+
+> print /home/ab25cq/abc | expand_tilda | pomch
+/home/ab25cq/abc
+
+> print ~/abc | expand_tilda | pomch
+/home/ab25cq/abc
+
+> print ~root/abc | expand_tilda | pomch
+/root/abc
+-
 defined オブジェクト
 -
 オブジェクトが定義されていたら真を返す
 
+> object ABC
+> co ABC
 > ls | var A B C
 > if(defined A) ( print yes\n ) ( print no\n )
 yes
-> if(defined D) ( print yes\n ) ( print no\n )
+> if(defined self::D) ( print yes\n ) ( print no\n )
+no
+> if(deifned ::A) (print yes\n ) ( print no \n)
 no
 -
 kanjicode
@@ -111,7 +172,7 @@ kanjicode
 
 > kanjicode   # default of xyzsh kanjicode is byte
 byte
-> kanjicode -utf8  # sett
+> kanjicode -utf8  # set
 > kanjicode
 utf8
 
@@ -187,7 +248,7 @@ ex)
 a
 b
 c
-> for i in $$(seq 1 3) ( print $i \n )
+> for i in $(seq 1 3) ( print $i \n )
 1
 2
 3
@@ -226,8 +287,9 @@ found a directory
 found a directory
 found a directory
 
-> split -target "aaaaa bbb cccccc ddd e" | each ( | if(|chomp|=~ ...) ( | print ))
+> split -target "aaaaa bbb cccccc ddd e" | each ( | if(|chomp|=~ ^...\$) ( | print ))
 bbb
+ddd
 -
 return (リターンコード)
 -
@@ -324,7 +386,21 @@ ccc
 > print "" | print
 return code is 16384
 
+> vim main.c
+#include <stdio.h>
+
+int main() {
+    printf("Hello World\n");
+    exit(0);
+}
+
 > cat main.c | while(|1 print |>) (|> join ""; )
+#include <stdio.h>
+
+int main() {
+    printf("Hello World\n");
+    exit(0);
+}
 
 > (print aaa\n; print -error error\n )
 aaa
@@ -341,6 +417,11 @@ int main() {
 }
 > gcc a.c
 > ./a.out | (|print -read-from-error | less; | less)
+ --- less ---
+EROOR
+
+ --- less ---
+OUTPUT
 -
 load ファイル名 引数1 引数2 ... 引数X
 -
@@ -411,7 +492,7 @@ return code is 8192
     | =~ "sudo make install error" && print "catch make install error\n"
 )
 -
-block 数値
+ablock 数値
 -
 実行中の関数に渡されたブロックのソースを出力する。
 数値が無ければ0が渡されたものとして処理される。
@@ -419,21 +500,21 @@ block 数値
 -run 渡されたブロックを実行する
 -number 渡されたブロックの数を返す
 
-> def fun ( block | pomch )
+> def fun ( ablock | pomch )
 > fun ( times 3 ( pwd ) )
 times 3 ( pwd )
 
-> def fun ( block -run )
+> def fun ( ablock -run )
 > fun ( times 3 ( pwd ) )
 /Users/ab25cq
 /Users/ab25cq
 /Users/ab25cq
 
-> def fun ( block -run 1 )
+> def fun ( ablock -run 1 )
 > fun ( pwd ) ( whoami ) ( sys::groups )
 ab25cq
 
-> def fun ( block -number )
+> def fun ( ablock -number )
 > fun ( pwd ) ( whoami ) ( sys::groups )
 3
 -
@@ -453,31 +534,31 @@ umaskを実行する。
 
 > touch aaa
 > ls -al aaa
--rw-r--r--  1 ab25cq  staff  0  3 11 15:02 aaa
+ -rw-r--r--  1 ab25cq  staff  0  3 11 15:02 aaa
 
 > umask 000
 > touch bbb
 > ls -al bbb
--rw-rw-rw-  1 ab25cq  staff  0  3 11 15:03 bbb
+ -rw-rw-rw-  1 ab25cq  staff  0  3 11 15:03 bbb
 
 > umask 777
 > touch ccc
 > ls -al ccc
-----------  1 ab25cq  staff  0  3 11 15:03 ccc
+ ----------  1 ab25cq  staff  0  3 11 15:03 ccc
 
 > umask 644
 > touch ddd
 > ls -al ddd
------w--w-  1 ab25cq  staff  0  3 11 15:03 ddd
+ -----w--w-  1 ab25cq  staff  0  3 11 15:03 ddd
 
 > umask 133
 > touch eee
 > ls -al eee
--rw-r--r--  1 ab25cq  staff  0  3 11 15:03 eee
+ -rw-r--r--  1 ab25cq  staff  0  3 11 15:03 eee
 -
 rehash
 -
-環境変数PATHに登録されているディレクトリをサーチして実行可能なプログラムをroot::sysオブジェクトの中に外部プログラムオブジェクトとして格納する
+環境変数PATHに登録されているディレクトリをサーチして実行可能なプログラムを::sysオブジェクトの中に外部プログラムオブジェクトとして格納する
 
 > print $PATH:$HOME/bin | export PATH
 > rehash
@@ -523,6 +604,12 @@ prompt (ブロック)
 > prompt ( print "ab25cq's terminal > " )
 ab25cq's terminal > 
 -
+rprompt (ブロック)
+-
+インタラクティブシェルの右プロンプトを設定する。ブロックの出力が右プロンプトとして扱われる。
+
+> rprompt ( pwd )
+-
 each (ブロック)
 -
 パイプで受け取った各行をコンテキストパイプとして受け取りブロックを実行する
@@ -543,19 +630,19 @@ each (ブロック)
 05eee
 
 > print "aaa\nbbb ccc\nddd eee" | split -La " " | each -La ( |chomp| less )
---- less ---
+ --- less ---
 aaa
 bbb
-------------
+ ------------
 
---- less ---
+ --- less ---
 ccc
 ddd
-------------
+ ------------
 
---- less ---
+ --- less ---
 eee
-------------
+ ------------
 
 > split -target "01aaa 02bbb 03ccc 04ddd 05eee" | each -number 2 ( | join )
 01aaa 02bbb
@@ -581,7 +668,7 @@ aaa bbb cccc
 aaa+bbb+ccc
 
 > ls | join ,
-AUTHORS,CHANGELOG,LICENSE,Makefile,Makefile.in,README,README.ja,USAGE,USAGE.ja,a.xyzsh,aaa,bbb,ccc,completion.xyzsh,config.h,config.h.in,configure,configure.in,ddd,eee,help.xyzsh,install.sh,libxyzsh.1.7.1.dylib,libxyzsh.1.dylib,libxyzsh.dylib,man,read_history.xyzsh,src,xyzsh,xyzsh.dSYM,xyzsh.xyzsh
+AUTHORS,CHANGELOG,LICENSE,Makefile,Makefile.in,README,README.ja,USAGE,USAGE.ja,a.xyzsh,aaa,bbb,ccc,completion.xyzsh,config.h,config.h.in,configure,configure.in,ddd,eee,help.xyzsh,install.sh,libxyzsh.1.7.1.dylib,libxyzsh.1.dylib,libxyzsh.dylib,man,read_history.xyzsh,src,xyzsh,xyzsh.dSYM,xyzsh.xyzsh,
 
 > print "aaa\nbbb ccc\nddd eee" | split -La " " | join -La +
 aaa
@@ -591,7 +678,7 @@ ddd+eee
 lines 行 (ブロック) 行 (ブロック), ..., 行 (ブロック)
 -
 パイプから行を取り出しそれをコンテキストパイプとしてブロックを実行する。
-ブロック数が行の数よりも少ないと、(|print)があるとみなされる。（そのまま出力する)
+ブロック数が行の数よりも少ないと、少ない分の末尾は(|print)があるとみなされる。（そのまま出力する)
 行には行番号と 
 行1..行2 
 の範囲指定が使える。行は0から始まり、-1以下は末尾から数えるものとする。
@@ -676,6 +763,10 @@ eee
 ddd
 aaa
 ccc
+
+> split -target "ddd eee aaa ccc bbb" | sort -shuffle | head -n 2
+ddd
+bbb
 -
 -n 
 -
@@ -889,11 +980,16 @@ selector
 パイプから入力を受け取り選択した行を出力する。
 
 キー操作:
+おおむねless(3)に準じます。
+
 カーソルキー -> 移動
 CTRL-D, CTRL-U -> スクロール
 a -> マーク反転
 ENTER -> 決定
-q, CTRL-c -> キャンセル
+CTRL-c -> キャンセル
+/ -> 検索
+n -> 前方検索
+N -> 後方検索
 
 戻り値: 入力文字列が無ければ262
 
@@ -918,10 +1014,22 @@ main.c
 -
 p
 -
-パイプの中身を覗く。ENTER KEYでパイプのデータの通過を許可する。ESC, qでエラーを起こし停止する。
+パイプの中身を覗く。ENTER KEYでパイプのデータの通過を許可する。CTRL-C, qでエラーを起こし停止する。
 デバッグ用のコマンドです。
 
 戻り値: 入力文字列が無ければ262
+
+キー操作
+おおむねless(3)に準じます。
+
+カーソルキー -> 移動
+CTRL-D, CTRL-U -> スクロール
+a -> マーク反転
+ENTER -> 決定
+CTRL-c -> キャンセル
+/ -> 検索
+n -> 前方検索
+N -> 後方検索
 
 -preserve-position カーソル位置とスクロールトップ位置を初期化しない
 -byte バイトコードとして処理する
@@ -1144,7 +1252,7 @@ Hello2
 クラスとの違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
 
 > def Fun ( split -target "AAA BBB CCC" | var A B C )
-> def Klass ( split -target "DDD EEE FFF" | var D E F )
+> class Klass ( split -target "DDD EEE FFF" | var D E F )
 > object a
 > a::run ( Fun )
 > a::A
@@ -1179,28 +1287,28 @@ class クラス名（ブロック）
 -option-with-argument 複数の引数(カンマ区切り) ある引数を文字列をともに取る引数として設定する。
 -copy-stackframe スタックフレーム（ローカル変数の入れ物)を新しく作る際に現在のスタックフレームの内容をコピーします。
 
-> class fun ( times 3 ( echo Hello ) )
-> fun
+> class Klass ( times 3 ( echo Hello ) )
+> Klass
 Hello
 Hello
 Hello
 
-> print "times 3 ( echo Hello )" | class fun 
-> class
+> print "times 3 ( echo Hello )" | class Klass
+> Klass
 Hello
 Hello
 Hello
 
-> class fun | pomch
+> class Klass | pomch
 times 3 ( echo Hello )
 
-> class fun ( echo Hello )
-> class fun -inherit ( inherit; echo Hello2; ) 
+> class Klass ( echo Hello )
+> class Klass -inherit ( inherit; echo Hello2; ) 
 > fun
 Hello
 Hello2
 
-> class klass -option-with-argument abc,def ( hash OPTIOINS ); klass -abc aaa -def bbb ccc
+> class Klass -option-with-argument abc,def ( hash OPTIOINS ); Klass -abc aaa -def bbb ccc
  -abc
  aaa
  -def
@@ -1211,7 +1319,7 @@ Hello2
 関数との違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
 
 > def Fun ( split -target "AAA BBB CCC" | var A B C )
-> def Klass ( split -target "DDD EEE FFF" | var D E F )
+> class Klass ( split -target "DDD EEE FFF" | var D E F )
 > object a
 > a::run ( Fun )
 > a::A
@@ -1435,6 +1543,8 @@ ary 変数名 変数名, ... , 変数名
 -
 フィルタとして使われた場合は変数にパイプのデータの内容を入力する。
 フィルタとして使われなかった場合は配列の内容を出力する。
+
+xyzshの配列は改行区切りのテキスト全体を配列として見て処理します。
 
 -new オブジェクトを生成してアドレスを出力する
 -local ローカル変数として扱う
@@ -2013,7 +2123,7 @@ combine (ブロック) (ブロック) ... (ブロック)
 -Lu 改行コードをLFとして処理する
 -La 改行コードをBELとして処理する
 
-> combine ( print aaa\nbbb\nccc\nddd\neee\n ) ( print AAA\nBBB\nCCC\n )
+> combine ( split -target "aaa bbb ccc ddd eee" ) ( split -target "AAA BBB CCC" )
 aaa
 AAA
 bbb
@@ -2034,6 +2144,8 @@ aaa
 bbb
 ccc
 ddd
+> split -target ",,,a,b,c,,," , | strip | join ,
+a,b,c
 -
 lstrip
 -
@@ -2043,6 +2155,8 @@ lstrip
 aaa
 bbb
 ccc
+> split -target ",,,a,b,c,,," , | lstrip | join ,
+a,b,c,,,
 
 -
 rstrip
@@ -2054,6 +2168,10 @@ rstrip
 aaa
 bbb
 ccc
+
+> split -target ",,,a,b,c,,," , | rstrip | join ,
+,,,a,b,c
+
 -
 substr (インデックス) (長さ)
 -
@@ -2271,7 +2389,7 @@ del インデックス
 rows インデックス (ブロック) インデックス (ブロック), ... , インデックス (ブロック)
 -
 パイプからインデックスの文字を取り出しそれをコンテキストパイプとしてブロックを実行する。
-ブロック数が行の数よりも少ないと、(|print)があるとみなされる。（そのまま出力する)
+ブロック数が行の数よりも少ないと、少ない分の末尾は(|print)があるとみなされる。（そのまま出力する)
 インデックスには文字のインデックスと
 インデックス1..インデックス2 
 の範囲指定が使える。インデックスは0から始まり、-1以下は末尾から数えるものとする。
@@ -2318,7 +2436,7 @@ yes no
 completion (オブジェクト::)コマンド名 (ブロック)
 -
 ブロックがあった場合はユーザー定義の補完を定義する。ブロックの出力結果が補完の候補となる（LF区切り)
-補完オブジェクトはroot::complにオブジェクトとして登録される
+補完オブジェクトは::complにオブジェクトとして登録される
 ARGVにはコマンド名と入力中の文字列が入っている
 コンテキストパイプには入力中の行が入っている
 コマンド名に__all__を使うとコマンド名が見つからなかった時は__all__が使われる
@@ -2400,15 +2518,72 @@ EOS | help::set_helps_ja
 ### English Help ##################################################
 
 print <<<'EOS'
+typeof (object name)
+-
+Output object kind of object of argument.
+Output is one of blow
+
+"var"
+"array"
+"hash"
+"list"
+"native function"
+"block"
+"file dicriptor"
+"file dicriptor"
+"job"
+"object"
+"function"
+"class"
+"external program"
+"completion"
+"external object"
+"alias"
+-
+alias name|name (block)
+-
+> alias ls ( sys::ls -al )
+> self | egrep ^ls
+ls: alias
+> ls src/main.c
+ -rw-r--r--  1 ab25cq  staff  2407  6 21 19:40 src/main.c
+
+> alias ls ( inherit -al )
+> self | egrep ^ls
+ls: alias
+> ls src/main.c
+ -rw-r--r--  1 ab25cq  staff  2407  6 21 19:40 src/main.c
+
+"alias name" outputs a definition of alias.
+
+> alias ls
+sys::ls -al
+-
+expand_tilda
+-
+A filter expanding tilda of path name. 
+
+> print /home/ab25cq/abc | expand_tilda | pomch
+/home/ab25cq/abc
+
+> print ~/abc | expand_tilda | pomch
+/home/ab25cq/abc
+
+> print ~root/abc | expand_tilda | pomch
+/root/abc
+-
 defined (object name)
 -
 if object is defined, return true
 
+> object ABC
+> co ABC
 > ls | var A B C
-
 > if(defined A) ( print yes\n ) ( print no\n )
 yes
-> if(defined D) ( print yes\n ) ( print no\n )
+> if(defined self::D) ( print yes\n ) ( print no\n )
+no
+> if(deifned ::A) (print yes\n ) ( print no \n)
 no
 -
 kanjicode
@@ -2417,7 +2592,7 @@ show language setting
 
 > kanjicode   # default of xyzsh kanjicode is byte
 byte
-> kanjicode -utf8  # sett
+> kanjicode -utf8  # set
 > kanjicode
 utf8
 
@@ -2496,7 +2671,7 @@ ex)
 a
 b
 c
-> for i in $$(seq 1 3) ( print $i \n )
+> for i in $(seq 1 3) ( print $i \n )
 1
 2
 3
@@ -2535,8 +2710,9 @@ found a directory
 found a directory
 found a directory
 
-> split -target "aaaaa bbb cccccc ddd e" | each ( | if(|chomp|=~ ...) ( | print ))
+> split -target "aaaaa bbb cccccc ddd e" | each ( | if(|chomp|=~ ^...\$) ( | print ))
 bbb
+ddd
 -
 return (return code)
 -
@@ -2631,7 +2807,21 @@ ccc
 > print "" | print
 return code is 16384
 
+> vim main.c
+#include <stdio.h>
+
+int main() {
+    printf("Hello World\n");
+    exit(0);
+}
+
 > cat main.c | while(|1 print |>) (|> join ""; )
+#include <stdio.h>
+
+int main() {
+    printf("Hello World\n");
+    exit(0);
+}
 
 > (print aaa\n; print -error error\n )
 aaa
@@ -2648,6 +2838,11 @@ int main() {
 }
 > gcc a.c
 > ./a.out | (|print -read-from-error | less; | less)
+ --- less ---
+EROOR
+
+ --- less ---
+OUTPUT
 -
 load (script file name) (argument1) (argument2) ... (argument X)
 -
@@ -2716,7 +2911,7 @@ return code is 8192
     | =~ "sudo make install error" && print "catch make install error\n"
 )
 -
-block (number)
+ablock (number)
 -
 On running function, output the argument block source.
 If you omit the number, assume that the number is 0.
@@ -2724,21 +2919,21 @@ If you omit the number, assume that the number is 0.
 -run Run the argument block.
 -number Output the number of argument blocks.
 
-> def fun ( block | pomch )
+> def fun ( ablock | pomch )
 > fun ( times 3 ( pwd ) )
 times 3 ( pwd )
 
-> def fun ( block -run )
+> def fun ( ablock -run )
 > fun ( times 3 ( pwd ) )
 /Users/ab25cq
 /Users/ab25cq
 /Users/ab25cq
 
-> def fun ( block -run 1 )
+> def fun ( ablock -run 1 )
 > fun ( pwd ) ( whoami ) ( sys::groups )
 ab25cq
 
-> def fun ( block -number )
+> def fun ( ablock -number )
 > fun ( pwd ) ( whoami ) ( sys::groups )
 3
 -
@@ -2771,7 +2966,7 @@ umask.
 -
 rehash
 -
-Searching the directory in PATH environment variable, store the external objects to root::sys object.
+Searching the directory in PATH environment variable, store the external objects to ::sys object.
 
 > print $PATH:$HOME/bin | export PATH
 > rehash
@@ -2809,6 +3004,12 @@ Set interactive shell prompt with block output.
 > prompt ( print "ab25cq's terminal > " )
 ab25cq's terminal > 
 -
+rprompt (block)
+-
+Set interactive shell right prompt with block output.
+
+> rprompt ( pwd )
+-
 each (block)
 -
 Run the block with each line. To get a line, use context pipe.
@@ -2827,19 +3028,19 @@ Run the block with each line. To get a line, use context pipe.
 05eee
 
 > print "aaa\nbbb ccc\nddd eee" | split -La " " | each -La ( |chomp| less )
---- less ---
+ --- less ---
 aaa
 bbb
-------------
+ ------------
 
---- less ---
+ --- less ---
 ccc
 ddd
-------------
+ ------------
 
---- less ---
+ --- less ---
 eee
-------------
+ ------------
 
 > split -target "01aaa 02bbb 03ccc 04ddd 05eee" | each -number 2 ( | join )
 01aaa 02bbb
@@ -2863,7 +3064,7 @@ aaa bbb cccc
 aaa+bbb+ccc
 
 > ls | join ,
-AUTHORS,CHANGELOG,LICENSE,Makefile,Makefile.in,README,README.ja,USAGE,USAGE.ja,a.xyzsh,aaa,bbb,ccc,completion.xyzsh,config.h,config.h.in,configure,configure.in,ddd,eee,help.xyzsh,install.sh,libxyzsh.1.7.1.dylib,libxyzsh.1.dylib,libxyzsh.dylib,man,read_history.xyzsh,src,xyzsh,xyzsh.dSYM,xyzsh.xyzsh
+AUTHORS,CHANGELOG,LICENSE,Makefile,Makefile.in,README,README.ja,USAGE,USAGE.ja,a.xyzsh,aaa,bbb,ccc,completion.xyzsh,config.h,config.h.in,configure,configure.in,ddd,eee,help.xyzsh,install.sh,libxyzsh.1.7.1.dylib,libxyzsh.1.dylib,libxyzsh.dylib,man,read_history.xyzsh,src,xyzsh,xyzsh.dSYM,xyzsh.xyzsh,
 
 > print "aaa\nbbb ccc\nddd eee" | split -La " " | join -La +
 aaa
@@ -2955,6 +3156,10 @@ eee
 ddd
 aaa
 ccc
+
+> split -target "ddd eee aaa ccc bbb" | sort -shuffle | head -n 2
+ddd
+bbb
 -
 -n 
 -
@@ -3182,6 +3387,8 @@ a -> reverse all marks
 ENTER -> select
 q, CTRL-c -> cansel
 
+Key manipulation of selector is almost same as less(3).
+
 -multiple Allow to select multi line with space-key
 -preserve-position no initialize cursor position and scroll top position
 -Lw Processing with CRLF line field
@@ -3203,8 +3410,10 @@ main.c
 -
 p
 -
-View pipe contents. Allow to pass with pressing ENTER KEY, and occure error with pressing ESC, q KEY.
+View pipe contents. Allow to pass with pressing ENTER KEY, and occure error with pressing CTRL-C, 'q' KEY.
 This is for debuging.
+
+Key manipulation of p is almost same as less(3).
 
 -preserve-position No initialize cursor position and scroll top position
 -byte assume text encode as byte code.
@@ -3442,10 +3651,8 @@ Hello2
  ccc
  ccc
 
-クラスとの違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
-
 > def Fun ( split -target "AAA BBB CCC" | var A B C )
-> def Klass ( split -target "DDD EEE FFF" | var D E F )
+> class Klass ( split -target "DDD EEE FFF" | var D E F )
 > object a
 > a::run ( Fun )
 > a::A
@@ -3484,24 +3691,24 @@ aaa
 -def
 bbb
 
-> class fun ( times 3 ( echo Hello ) )
-> fun
+> class klass ( times 3 ( echo Hello ) )
+> klass
 Hello
 Hello
 Hello
 
-> print "times 3 ( echo Hello )" | class fun 
-> class
+> print "times 3 ( echo Hello )" | class klass 
+> klass
 Hello
 Hello
 Hello
 
-> class fun | pomch
+> class klass | pomch
 times 3 ( echo Hello )
 
-> class fun ( echo Hello )
-> class fun -inherit ( inherit; echo Hello2; ) 
-> fun
+> class klass ( echo Hello )
+> class klass -inherit ( inherit; echo Hello2; ) 
+> klass
 Hello
 Hello2
 
@@ -3513,10 +3720,8 @@ Hello2
  ccc
  ccc
 
-関数との違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
-
 > def Fun ( split -target "AAA BBB CCC" | var A B C )
-> def Klass ( split -target "DDD EEE FFF" | var D E F )
+> class Klass ( split -target "DDD EEE FFF" | var D E F )
 > object a
 > a::run ( Fun )
 > a::A
@@ -4617,7 +4822,7 @@ yes no
 -
 completion (object name::)(command name) (block)
 -
-If there is a block, define the user completion in root::compl. Output of block is candidates for completion.
+If there is a block, define the user completion in ::compl. Output of block is candidates for completion.
 ARGV has a command name and an inputing string.
 Context pipe has all inputing line.
 If you use __all__ for command name, it is wild card.
@@ -4718,10 +4923,12 @@ clear_screen
 コンプレッション時のスクリーンクリア
 -
 replace_line (text) (cursor point)
+replace_line (text)
 -
 コンプレッション時のテキストの置き換え
 -
 delete_text (start index) (end index)
+delete_text (character number which is deleted from cursor point)
 -
 コンプレッション時のテキスト削除
 -
@@ -4752,6 +4959,127 @@ inhibit_completion 数値
 history
 -
 現在のヒストリを全部出力する。
+-
+keybind (キー) (editlineの関数名)
+-
+キーバインドを設定する
+
+引数が無い場合は現在のキーバインドの設定を全て出力する。
+
+-mode "emacs"か"vi"を引数に取る。"emacs"ならキーバインドをemacsに設定する。"vi"ならキーバインドをviに設定する。
+
+> el::keybind -mode vi
+> el::keybind -mode emacs
+> el::keybind ^W em-kill-region
+
+keyの例)
+I --> "I"
+コントロールキー + I --> "^I"
+メタキー(altキー) + I --> "M-I"
+
+function ex)
+"vi-paste-next" "Vi paste previous deletion to the right of the cursor"
+"vi-paste-prev" "Vi paste previous deletion to the left of the cursor"
+"vi-prev-big-word" "Vi move to the previous space delimited word"
+"vi-prev-word" "Vi move to the previous word"
+"vi-next-big-word" "Vi move to the next space delimited word"
+"vi-next-word" "Vi move to the next word"
+"vi-change-case" "Vi change case of character under the cursor and advance one character"
+"vi-change-meta" "Vi change prefix command"
+"vi-insert-at-bol" "Vi enter insert mode at the beginning of line"
+"vi-replace-char" "Vi replace character under the cursor with the next character typed"
+"vi-replace-mode" "Vi enter replace mode"
+"vi-substitute-char" "Vi replace character under the cursor and enter insert mode"
+"vi-substitute-line" "Vi substitute entire line"
+"vi-change-to-eol" "Vi change to end of line"
+"vi-insert" "Vi enter insert mode"
+"vi-add" "Vi enter insert mode after the cursor"
+"vi-add-at-eol" "Vi enter insert mode at end of line"
+"vi-delete-meta" "Vi delete prefix command"
+"vi-end-big-word" "Vi move to the end of the current space delimited word"
+"vi-end-word" "Vi move to the end of the current word"
+"vi-undo" "Vi undo last change"
+"vi-command-mode" "Vi enter command mode (use alternative key bindings)"
+"vi-zero" "Vi move to the beginning of line"
+"vi-delete-prev-char" "Vi move to previous character (backspace)"
+"vi-list-or-eof" "Vi list choices for completion or indicate end of file if empty line"
+"vi-kill-line-prev" "Vi cut from beginning of line to cursor"
+"vi-search-prev" "Vi search history previous"
+"vi-search-next" "Vi search history next"
+"vi-repeat-search-next" "Vi repeat current search in the same search direction"
+"vi-repeat-search-prev" "Vi repeat current search in the opposite search direction"
+"vi-next-char" "Vi move to the character specified next"
+"vi-prev-char" "Vi move to the character specified previous"
+"vi-to-next-char" "Vi move up to the character specified next"
+"vi-to-prev-char" "Vi move up to the character specified previous"
+"vi-repeat-next-char" "Vi repeat current character search in the same search direction"
+"vi-repeat-prev-char" "Vi repeat current character search in the opposite search direction"
+"vi-match" "Vi go to matching () {} or []"
+"vi-undo-line" "Vi undo all changes to line"
+"vi-to-column" "Vi go to specified column"
+"vi-yank-end" "Vi yank to end of line"
+"vi-yank" "Vi yank"
+"vi-comment-out" "Vi comment out current command"
+"vi-alias" "Vi include shell alias"
+"vi-to-history-line" "Vi go to specified history file line."
+"vi-histedit" "Vi edit history line with vi"
+"vi-history-word" "Vi append word from previous input line"
+"vi-redo" "Vi redo last non-motion command"
+"em-delete-or-list" "Delete character under cursor or list completions if at end of line"
+"em-delete-next-word" "Cut from cursor to end of current word"
+"em-yank" "Paste cut buffer at cursor position"
+"em-kill-line" "Cut the entire line and save in cut buffer"
+"em-kill-region" "Cut area between mark and cursor and save in cut buffer"
+"em-copy-region" "Copy area between mark and cursor to cut buffer"
+"em-gosmacs-transpose" "Exchange the two characters before the cursor"
+"em-next-word" "Move next to end of current word"
+"em-upper-case" "Uppercase the characters from cursor to end of current word"
+"em-capitol-case" "Capitalize the characters from cursor to end of current word"
+"em-lower-case" "Lowercase the characters from cursor to end of current word"
+"em-set-mark" "Set the mark at cursor"
+"em-exchange-mark" "Exchange the cursor and mark"
+"em-universal-argument" "Universal argument (argument times 4)"
+"em-meta-next" "Add 8th bit to next character typed"
+"em-toggle-overwrite" "Switch from insert to overwrite mode or vice versa"
+"em-copy-prev-word" "Copy current word to cursor"
+"em-inc-search-next" "Emacs incremental next search"
+"em-inc-search-prev" "Emacs incremental reverse search"
+"em-delete-prev-char" "Delete the character to the left of the cursor"
+"ed-end-of-file" "Indicate end of file"
+"ed-insert" "Add character to the line"
+"ed-delete-prev-word" "Delete from beginning of current word to cursor"
+"ed-delete-next-char" "Delete character under cursor"
+"ed-kill-line" "Cut to the end of line"
+"ed-move-to-end" "Move cursor to the end of line"
+"ed-move-to-beg" "Move cursor to the beginning of line"
+"ed-transpose-chars" "Exchange the character to the left of the cursor with the one under it"
+"ed-next-char" "Move to the right one character"
+"ed-prev-word" "Move to the beginning of the current word"
+"ed-prev-char" "Move to the left one character"
+"ed-quoted-insert" "Add the next character typed verbatim"
+"ed-digit" "Adds to argument or enters a digit"
+"ed-argument-digit" "Digit that starts argument"
+"ed-unassigned" "Indicates unbound character"
+"ed-tty-sigint" "Tty interrupt character"
+"ed-tty-dsusp" "Tty delayed suspend character"
+"ed-tty-flush-output" "Tty flush output characters"
+"ed-tty-sigquit" "Tty quit character"
+"ed-tty-sigtstp" "Tty suspend character"
+"ed-tty-stop-output" "Tty disallow output characters"
+"ed-tty-start-output" "Tty allow output characters"
+"ed-newline" "Execute command"
+"ed-delete-prev-char" "Delete the character to the left of the cursor"
+"ed-clear-screen" "Clear screen leaving current line at the top"
+"ed-redisplay" "Redisplay everything"
+"ed-start-over" "Erase current line and start from scratch"
+"ed-sequence-lead-in" "First character in a bound sequence"
+"ed-prev-history" "Move to the previous history line"
+"ed-next-history" "Move to the next history line"
+"ed-search-prev-history" "Search previous in history for a line matching the current"
+"ed-search-next-history" "Search next in history for a line matching the current"
+"ed-prev-line" "Move up one line"
+"ed-next-line" "Move down one line"
+"ed-command" "Editline extended command"
 EOS | help::set_helps_ja
 
     print <<<'EOS'
@@ -4768,10 +5096,12 @@ clear_screen
 clear screen on completion.
 -
 delete_text (start index) (end index)
+delete_text (character number which is deleted from cursor point)
 -
 delete editing line on completion.
 -
 replace_line (text) (cursor point)
+replace_line (text)
 -
 replace editing line on completion.
 -
@@ -4802,6 +5132,127 @@ If you set non zero number, inhibit completion.
 history
 -
 Write all histories to stdout.
+-
+keybind (key) (function name of editline)
+-
+bind editline function to the key.
+
+If there aren't any arguments, "keybind" outputs all keybind data.
+
+-mode "emacs" or "vi" you can set keybind mode emacs or vi.
+
+> el::keybind -mode vi
+> el::keybind -mode emacs
+> el::keybind ^W em-kill-region
+
+key ex)
+I --> "I"
+Control key + I--> "^I"
+Meta key(alt key) + I --> "M-I"
+
+function ex)
+"vi-paste-next" "Vi paste previous deletion to the right of the cursor"
+"vi-paste-prev" "Vi paste previous deletion to the left of the cursor"
+"vi-prev-big-word" "Vi move to the previous space delimited word"
+"vi-prev-word" "Vi move to the previous word"
+"vi-next-big-word" "Vi move to the next space delimited word"
+"vi-next-word" "Vi move to the next word"
+"vi-change-case" "Vi change case of character under the cursor and advance one character"
+"vi-change-meta" "Vi change prefix command"
+"vi-insert-at-bol" "Vi enter insert mode at the beginning of line"
+"vi-replace-char" "Vi replace character under the cursor with the next character typed"
+"vi-replace-mode" "Vi enter replace mode"
+"vi-substitute-char" "Vi replace character under the cursor and enter insert mode"
+"vi-substitute-line" "Vi substitute entire line"
+"vi-change-to-eol" "Vi change to end of line"
+"vi-insert" "Vi enter insert mode"
+"vi-add" "Vi enter insert mode after the cursor"
+"vi-add-at-eol" "Vi enter insert mode at end of line"
+"vi-delete-meta" "Vi delete prefix command"
+"vi-end-big-word" "Vi move to the end of the current space delimited word"
+"vi-end-word" "Vi move to the end of the current word"
+"vi-undo" "Vi undo last change"
+"vi-command-mode" "Vi enter command mode (use alternative key bindings)"
+"vi-zero" "Vi move to the beginning of line"
+"vi-delete-prev-char" "Vi move to previous character (backspace)"
+"vi-list-or-eof" "Vi list choices for completion or indicate end of file if empty line"
+"vi-kill-line-prev" "Vi cut from beginning of line to cursor"
+"vi-search-prev" "Vi search history previous"
+"vi-search-next" "Vi search history next"
+"vi-repeat-search-next" "Vi repeat current search in the same search direction"
+"vi-repeat-search-prev" "Vi repeat current search in the opposite search direction"
+"vi-next-char" "Vi move to the character specified next"
+"vi-prev-char" "Vi move to the character specified previous"
+"vi-to-next-char" "Vi move up to the character specified next"
+"vi-to-prev-char" "Vi move up to the character specified previous"
+"vi-repeat-next-char" "Vi repeat current character search in the same search direction"
+"vi-repeat-prev-char" "Vi repeat current character search in the opposite search direction"
+"vi-match" "Vi go to matching () {} or []"
+"vi-undo-line" "Vi undo all changes to line"
+"vi-to-column" "Vi go to specified column"
+"vi-yank-end" "Vi yank to end of line"
+"vi-yank" "Vi yank"
+"vi-comment-out" "Vi comment out current command"
+"vi-alias" "Vi include shell alias"
+"vi-to-history-line" "Vi go to specified history file line."
+"vi-histedit" "Vi edit history line with vi"
+"vi-history-word" "Vi append word from previous input line"
+"vi-redo" "Vi redo last non-motion command"
+"em-delete-or-list" "Delete character under cursor or list completions if at end of line"
+"em-delete-next-word" "Cut from cursor to end of current word"
+"em-yank" "Paste cut buffer at cursor position"
+"em-kill-line" "Cut the entire line and save in cut buffer"
+"em-kill-region" "Cut area between mark and cursor and save in cut buffer"
+"em-copy-region" "Copy area between mark and cursor to cut buffer"
+"em-gosmacs-transpose" "Exchange the two characters before the cursor"
+"em-next-word" "Move next to end of current word"
+"em-upper-case" "Uppercase the characters from cursor to end of current word"
+"em-capitol-case" "Capitalize the characters from cursor to end of current word"
+"em-lower-case" "Lowercase the characters from cursor to end of current word"
+"em-set-mark" "Set the mark at cursor"
+"em-exchange-mark" "Exchange the cursor and mark"
+"em-universal-argument" "Universal argument (argument times 4)"
+"em-meta-next" "Add 8th bit to next character typed"
+"em-toggle-overwrite" "Switch from insert to overwrite mode or vice versa"
+"em-copy-prev-word" "Copy current word to cursor"
+"em-inc-search-next" "Emacs incremental next search"
+"em-inc-search-prev" "Emacs incremental reverse search"
+"em-delete-prev-char" "Delete the character to the left of the cursor"
+"ed-end-of-file" "Indicate end of file"
+"ed-insert" "Add character to the line"
+"ed-delete-prev-word" "Delete from beginning of current word to cursor"
+"ed-delete-next-char" "Delete character under cursor"
+"ed-kill-line" "Cut to the end of line"
+"ed-move-to-end" "Move cursor to the end of line"
+"ed-move-to-beg" "Move cursor to the beginning of line"
+"ed-transpose-chars" "Exchange the character to the left of the cursor with the one under it"
+"ed-next-char" "Move to the right one character"
+"ed-prev-word" "Move to the beginning of the current word"
+"ed-prev-char" "Move to the left one character"
+"ed-quoted-insert" "Add the next character typed verbatim"
+"ed-digit" "Adds to argument or enters a digit"
+"ed-argument-digit" "Digit that starts argument"
+"ed-unassigned" "Indicates unbound character"
+"ed-tty-sigint" "Tty interrupt character"
+"ed-tty-dsusp" "Tty delayed suspend character"
+"ed-tty-flush-output" "Tty flush output characters"
+"ed-tty-sigquit" "Tty quit character"
+"ed-tty-sigtstp" "Tty suspend character"
+"ed-tty-stop-output" "Tty disallow output characters"
+"ed-tty-start-output" "Tty allow output characters"
+"ed-newline" "Execute command"
+"ed-delete-prev-char" "Delete the character to the left of the cursor"
+"ed-clear-screen" "Clear screen leaving current line at the top"
+"ed-redisplay" "Redisplay everything"
+"ed-start-over" "Erase current line and start from scratch"
+"ed-sequence-lead-in" "First character in a bound sequence"
+"ed-prev-history" "Move to the previous history line"
+"ed-next-history" "Move to the next history line"
+"ed-search-prev-history" "Search previous in history for a line matching the current"
+"ed-search-next-history" "Search next in history for a line matching the current"
+"ed-prev-line" "Move up one line"
+"ed-next-line" "Move down one line"
+"ed-command" "Editline extended command"
 EOS | help::set_helps
 )
 

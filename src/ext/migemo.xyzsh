@@ -1,0 +1,229 @@
+print "welcome to migemo.so dynamic library. You can read help type with \"migemo::help 'command name'\""\n
+
+object compl::migemo
+
+completion migemo::help (
+    migemo::self | egrep native\ function\$ | egrep -v 'run|show' | root::scan '(^.+?):' | each ( | chomp | quote | pomch )
+)
+
+migemo::run(
+    object help ( Help )
+
+    print <<<'EOS'
+match (migemo クエリー)
+-
+パイプからの入力とmigemoクエリーを比較してマッチしたなら、そのマッチした文字範囲のバイト数を返す。
+
+-quiet リターンコードだけ返し、出力は返さない
+-
+querry (migemo クエリー)
+-
+migemoクエリーの出力（正規表現）を出力する
+EOS | help::set_helps_ja
+
+    print <<<'EOS'
+match (migemo querry)
+-
+Compare migemo querry with input from pipe data and output the string ranges.
+
+-quiet no output. you can get only return code.
+-
+querry (migemo querry)
+-
+Output of migemo querry which is regex patter.
+EOS | help::set_helps
+)
+
+root::run(
+    class MigemoCompletion (
+        def common_head (
+            | each ( 
+                | chomp| length -utf8
+            ) | max | var -local max_length
+
+            print 0 | var -local point
+
+            while(true) (
+                | each ( 
+                    | chomp | rows -utf8 0..$point | pomch
+                ) | sys::sort | uniq |  length -line-num | strip | if(| != 1) (
+                    -- point;
+                    break
+                )
+
+                ++ point;
+
+                if(point | -ge $max_length) (
+                    -- point
+                    break
+                )
+            )
+
+            if(point | -ne -1) (
+                | rows -utf8 0..$point
+            )
+        )
+
+        def ascii_only (
+            | length -byte | var -local LEN
+
+            LEN | -eq $(| length -utf8)
+        )
+
+        def migemo_file_completion (
+            print $ARGV[0] | var -local inputing
+            print $ARGV[1] | var -local editing_line
+
+            print 1 | var -local AllAsciiOnly
+
+            | each (
+                if(|ascii_only) (
+                    | if(| index $inputing | = 0\n) (
+                        | print
+                    )
+                ) else (
+                    print 0 | var -local AllAsciiOnly
+                    print 0 | var -local AllFiles
+
+                    if(inputing | =~ '^.*\/$') (
+#print 0 | p > /dev/null
+                        inputing | var -local no_migemo_string
+                        print "" | var -local migemo_string
+
+                        print 1 | var -local AllFiles
+                    ) elif (inputing | =~ '^.*\/[a-zA-Z]+$') (
+#print a | p > /dev/null
+                        | if(|=~ '^.*\/[a-zA-Z]+[^a-zA-z/]+$') (
+                            (inputing; |print) | common_head | var -local same_head
+
+                            same_head | var -local no_migemo_string
+                            inputing | sub -no-regex $same_head '' | var -local migemo_string
+                        ) else (
+                            inputing | sub '^(.*\/)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                            inputing | sub '^.*\/([a-zA-Z]+)$' '\1' | var -local migemo_string
+                        )
+                    ) elif (inputing | =~ '^.*\/[^a-zA-Z]+[a-zA-Z]+$') (
+#print b | p > /dev/null
+                        inputing | sub '^(.*\/[^a-zA-Z]+)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                        inputing | sub '^.*\/[^a-zA-Z]+([a-zA-Z]+)$' '\1' | var -local migemo_string
+                    ) elif (inputing | =~ '^.*\/[^a-zA-Z]+$') (
+#print b2 | p > /dev/null
+                        inputing | var -local no_migemo_string
+                        print "" | var -local migemo_string
+                    ) elif (inputing | =~ '^[a-zA-Z]+$') (
+#print c | p > /dev/null
+                        | if(|=~ '^[a-zA-Z]+[^a-zA-z/]+$') (
+                            (inputing; |print) | common_head | var -local same_head
+
+                            same_head | var -local no_migemo_string
+                            inputing | sub -no-regex $same_head '' | var -local migemo_string
+                        ) else (
+                            print "" | var -local no_migemo_string
+                            inputing | var -local migemo_string
+                        )
+                    ) elif (inputing | =~ '^[^a-zA-Z]+[a-zA-Z]+$') (
+#print d | p > /dev/null
+                        inputing | sub '(^[^a-zA-Z]+)[a-zA-Z]+$' '\1' | var -local no_migemo_string
+                        inputing | sub '^[^a-zA-Z]+([a-zA-Z]+)$' '\1' | var -local migemo_string
+                    ) elif (inputing | =~ '^[^a-zA-Z]+$') (
+                        inputing | var -local no_migemo_string
+                        print "" | var -local migemo_string
+                    ) else (
+#print e | p > /dev/null
+                        inputing | var -local no_migemo_string
+                        print "" | var -local migemo_string
+                    )
+
+#| p > /dev/null
+                    if(AllFiles | = 1\n) (
+                        | print
+                    ) else (
+                        | if(| index $no_migemo_string | = 0\n) (
+                            | if(| sub -no-regex $no_migemo_string '' | chomp | migemo::match $migemo_string | lines 0 | = 0\n) (
+                                | print
+                            )
+                        )
+                    )
+                )
+            )  | (| common_head | var -local COMMON_HEAD; | length -line-num | var -local NUM; | print) 
+
+            if(AllAsciiOnly | = 0\n && COMMON_HEAD | chomp | -n) (
+                if(NUM | chomp | -eq 1) (
+                    rl::inhibit_completion 1
+                    rl::delete_text $(editing_line | rindex -utf8 $inputing) $(rl::point)
+                    rl::insert_text $COMMON_HEAD 
+
+                    if(COMMON_HEAD| chomp | rows -1 | != /) ( rl::insert_text " " )
+                ) else (
+                    #if(COMMON_HEAD |length -utf8 | -ge $(inputing | length -utf8)) (
+                        rl::delete_text $(editing_line | rindex -utf8 $inputing) $(rl::point)
+                        rl::insert_text $COMMON_HEAD 
+                    #)
+                )
+            ) 
+        )
+
+        def file_completion (
+            ary ARGV -index 0 | var -local inputing
+
+            | if(| rows -2..-1 | =~ '[^\\] ') ( print "" | var -local inputing)
+
+            if(inputing | index -quiet /) (
+                sys::dirname $(inputing|chomp| if (|rows -1 | = /) ( |add aaa ) else ( | print ) ) | chomp | if(|rows -1 | = /) ( | print ) (| add /) | var -local DIR
+                eval "print $DIR" | xyzsh_dequote | expand_tilda | var -local DIR2
+
+                ls -a $DIR2 | egrep -v '^\.$|^\.\.$' | if(uname |= Darwin\n && (export LANG LC_ALL) | index -quiet -ignore-case utf-8) ( 
+                    | sys::iconv -f UTF-8-MAC -t UTF-8
+                ) else ( 
+                    | print
+                ) | each (
+                    | if (|chomp | add -number 0 $DIR2/ | -d) (
+                        |chomp | xyzsh_quote | add -number 0 $DIR | add / | pomch
+                    ) else (
+                        |chomp | xyzsh_quote | add -number 0 $DIR | pomch
+                    )
+                ) | migemo_file_completion $inputing $(|print)
+
+                print $DIR | length -byte | var ::rl::omit_head_of_completion_display_matches
+            ) else (
+                if(inputing | rows 0 | = \~) (
+                    cat /etc/passwd | each ( 
+                        | split : | ary -local Field
+
+                        if(ary Field -size | -ge 7) (
+                            print \~
+                            ary Field -index 0 | chomp
+                            print /\n
+                        )
+                    )
+                ) else (
+                    ls -a | egrep -v '^\.$|^\.\.$' | if(uname |= Darwin\n && (export LANG LC_ALL) | index -quiet -ignore-case utf-8) ( 
+                        | sys::iconv -f UTF-8-MAC -t UTF-8
+                    ) else ( 
+                        | print
+                    ) | each (
+                        | if (|chomp| -d) (
+                            | chomp | xyzsh_quote | add / | pomch
+                        ) else (
+                            |chomp| xyzsh_quote | pomch
+                        )
+                    ) | migemo_file_completion $inputing $(|print) 
+                )
+            )
+
+            print "/" | var el::non_append_space_characters
+        )
+    )
+
+    if(defined MIGEMO_COMPLETION_AUTO_LOAD) (
+        if(MIGEMO_COMPLETION_AUTO_LOAD | = 1\n) (
+            MigemoCompletion
+            print "loaded migemo completion.\n"
+        )
+    ) else (
+        if(readline "Do you want to use migemo completion which is Japanese ROMAJI completion?(y/n)" ( print "yes no" | split ) | chomp |=~ -ignore-case ^y) (
+            MigemoCompletion
+            print "loaded migemo completion.\n"
+        )
+    )
+)

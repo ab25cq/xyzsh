@@ -1,6 +1,7 @@
 #include "config.h"
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 #include <stdio.h>
+#include <string.h>
 
 static void version()
 {
@@ -14,7 +15,7 @@ static void main_xyzsh_job_done(int job_num, char* job_title)
 
 int main(int argc, char** argv)
 {
-    CHECKML_BEGIN(FALSE);
+    CHECKML_BEGIN();
 /*
 printf("sObject %d\n", (int)sizeof(sObject));
 printf("string_obj %d\n", (int)sizeof(string_obj));
@@ -37,6 +38,7 @@ printf("external_obj %d\n", (int)sizeof(external_obj));
 
     char* optc = NULL;
     BOOL no_runtime_script = FALSE;
+    BOOL curses = FALSE;
     char* file = NULL;
     int i;
     for(i=1; i<argc; i++) {
@@ -47,26 +49,32 @@ printf("external_obj %d\n", (int)sizeof(external_obj));
             version();
             exit(0);
         }
+        else if(strcmp(argv[i], "-cr") == 0) {
+            curses = TRUE;
+        }
         else if(strcmp(argv[i], "-nr") == 0) {
             no_runtime_script = TRUE;
         }
         else {
-            file = argv[i];
+            if(file == NULL) file = argv[i];
         }
     }
 
     if(optc) {
-        xyzsh_init(kATOptC, no_runtime_script);
+        xyzsh_init(kATOptC, TRUE);
         xyzsh_opt_c(optc, argv, argc);
     }
     else if(file) {
-        xyzsh_init(kATOptC, no_runtime_script);
+        xyzsh_init(kATOptC, TRUE);
         (void)xyzsh_load_file(file, argv, argc, gRootObject);
     }
-    else {
-        setenv("XYZSH_RUNNING_AS_INTRACTIVE_MODE", "1", 1);
+    else if(curses) {
         xyzsh_init(kATConsoleApp, no_runtime_script);
-        xyzsh_readline_interface("", -1, argv, argc, FALSE);
+        xyzsh_readline_interface_on_curses("", -1, argv, argc, FALSE, TRUE);
+    }
+    else {
+        xyzsh_init(kATConsoleApp, no_runtime_script);
+        xyzsh_readline_interface("", -1, argv, argc, FALSE, TRUE);
         xyzsh_kill_all_jobs();
     }
 

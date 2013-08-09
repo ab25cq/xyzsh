@@ -12,13 +12,11 @@
 
     対象とするユーザーとしては、bashやperl, python, ruby, sed, awkなど一通りマスターしたけれども
     「もっと何か無いかな？」 と思っておられる方です。
-    初心者の方は最初にbashやperlなどを学んだほうがいいと思います。
-    (大抵のシステムではそちらがインストールされているので)
 
     使用に当たっては、このプログラムによって被る結果には自分で責任を持つことをお願いします。
 
-    このプログラムのラインセンスはMITラインセンスです。自由に再配布でき書き換えることもできます。
-    詳しくはwikipediaなどでMITラインセンスについて調べてください。ここでは述べません。
+    このプログラムのラインセンスはMITライセンスです。自由に再配布でき書き換えることもできます。
+    詳しくはwikipediaなどでMITライセンスについて調べてください。ここでは述べません。
 
     ネット上の配布元としては
 
@@ -29,25 +27,26 @@
 
     gitを使えば、あなたもxyzshの開発者となることができます。
     コマンドの追加やバグの修正など、改良結果のコミットは歓迎させていただきます。
-    forkして新規プロジェクトとして開発を行っても全然構いません。
 
 1.0 構文
 
-    (オブジェクト::)*コマンド (引数|-オプション|ブロック) (引数|-オプション|ブロック) ...
+    (::)(オブジェクト::オブジェクト:: ... オブジェクト) (引数|-オプション|ブロック) (引数|-オプション|ブロック) ...
 
     (例)
     > ls
     > ls -al
     > ls | sub -global a (|uc)
-    > sys::dmesg | sub -global . | less
+    > sys::dmesg | sub -global . X | less
+    > ::sys::dmesg | sub -global . X | less
 
-    コマンド名や引数には英数字以外にも記号も使うことができます。
+    オブジェクト名や引数には英数字以外にも記号も使うことができます。
+    (オブジェクト名に記号を使ってもクォートは必要ありません)
 
     xyzshで使われる特殊文字を使いたい場合は次のクォートを使ってください。
 
 1.1 クォート
 
-    xyzshで使われる特殊な文字を普通の文字列として使いたい場合、クォートする必要があります。
+    xyzshで使われる特殊な文字を引数やオプションに使いたい場合、クォートする必要があります。
 
     クォートの方法は
 
@@ -380,6 +379,22 @@
     > print "1234512345" | index $-a 2 1
     5
 
+    変数の初期化と参照を同時に行ないたい場合は以下のようにしてください。
+
+    > print ${A=1}\n; ++ A; print $A\n
+    1
+    2
+
+    A はローカル変数として登録されます。
+
+    以下のようなループで特に便利です。
+
+    > while(print ${I=0} | -lt 5) ( print HELLO\n; ++ I )
+    HELLO
+    HELLO
+    HELLO
+    HELLO
+    HELLO
 
 1.7 オブジェクト指向
 
@@ -524,7 +539,7 @@
     関数との違いはvar, ary, hash, defなどのオブジェクトの生成の登録先が違います。
 
     > def Fun ( split -target "AAA BBB CCC" | var A B C )
-    > def Klass ( split -target "DDD EEE FFF" | var D E F )
+    > class Klass ( split -target "DDD EEE FFF" | var D E F )
     > object a
     > a::run ( Fun )
     > a::A
@@ -555,30 +570,37 @@
     ブロックの出力をコマンドに貼付けます。
 
     > print $(ls)
-    main.c
-    sub.c
+    main.c sub.c
 
-    $$()によるコマンド置換は各行を一つの引数として貼付けます。
+    > print `ls`
+    main.c sub.c
 
-    > def fun ( ary -size ARGV )
+    lsの出力の各行が一つの引数として貼付けられます。
 
-    > fun $$(print aaa\nbbb\nccc\n )
-    3
-
-    行の区切りは$$a(), $$m(), $$w()を使うことによってそれぞれ、ベル、CR、CRLFと変えることができます。
+    "$(...)", "`...`"によるコマンド置換は全ての出力を一つの引数として貼付けます。
 
     > def fun ( ary -size ARGV )
 
-    > fun $$a(print aaa bbb ccc | split -La)
+    > fun $(print aaa\nbbb\nccc\n )
     3
 
-    > fun $$m(print aaa bbb ccc | split -Lm)
+    > fun "$(print aaa\nbbb\nccc\n )"
+    1
+
+    行の区切りは$a(), $m(), $w()を使うことによってそれぞれ、ベル、CR、CRLFと変えることができます。
+
+    > def fun ( ary -size ARGV )
+
+    > fun $a(print aaa bbb ccc | split -La)
     3
 
-    > fun $$w(print aaa bbb ccc | split -Lw)
+    > fun $m(print aaa bbb ccc | split -Lm)
     3
 
-    オプションを展開したい場合は$-(), $$-()を使います。
+    > fun $w(print aaa bbb ccc | split -Lw)
+    3
+
+    オプションを展開したい場合は$-()を使います。
 
     > print "1234512345" | index -count 2 1
     5
@@ -640,7 +662,8 @@
     > print dmesg\n >> ~/.xyzsh/program
     > rehash
     > dmesg
-   
+
+    全てのsys以下にある外部プログラムをルートオブジェクトに追加したい場合は"install_all_external_program_to_root_object" 関数を実行してください。
 
 2.4 サブシェル
 
@@ -787,7 +810,29 @@
     > cat <AAA
     main.c sub.c fix.c
 
-3.2 エラー出力
+3.2 エイリアス
+
+    bashのaliasとは仕様がだいぶ違います。
+
+    例えばlsをls -alとして実行したい場合は以下のように定義します。
+
+    alias ls ( sys::ls -a )
+    
+    または
+
+    alias ls ( inherit -al )
+
+    以下は無限再帰を行いエラーとなります。
+
+    alias ls ( ls -al )
+
+    サンプル
+
+    > alias ls ( inherit -al )
+    > ls src/main.c
+    -rw-r--r--  1 ab25cq  staff  2407  7  7 14:04 src/main.c
+
+3.3 エラー出力
 
     エラー出力をファイルに書き込む場合は"write"コマンドと"-error"オプションを使ってください。
 
@@ -816,34 +861,36 @@
     error-data
     data
 
-3.3 複数行のテキストの取り扱い
+3.4 複数行のテキストの取り扱い
 
     xyzshで複数行のテキストを一つの変数に入力したい場合は-Laオプションを使ってください。
     \aが行の区切りとして扱われ、結果\n,\r\n,\rなどを単なるテキストとして処理でき、複数行のテキストを扱えます。
     少し複雑なコードとなりますがpコマンドでデバッグすれば、理解できるかと思います。
 
-3.4 コマンドライン補完
+3.5 インタラクティブシェル
 
-    コマンドライン補完にはreadlineを使っているので、ほぼbashと同じように使うことができます。
+    コマンドライン補完にはeditlineを使っているので、ほぼbashと同じように使うことができます。
 
     ユーザー定義の補完も作ることができcompletion.xyzshで内部コマンドのユーザー定義補完が定義されています。
     ユーザー定義の補完はroot::complにオブジェクトとして登録されています。
 
     C-xでマクロによるコマンドの出力結果をコマンドラインに貼付けることもできます。~/.xyzsh/macroを修正してください。
 
-    括弧の対応のチェックには~/.inputrcにset blink-matching-paren onを書いておいてください。
+    elオブジェクトを使って補完のプログラム中にeditlineを操作できます。el::helpを見てください。
 
-    rlオブジェクトを使って補完のプログラム中にreadlineを操作できます。rl::helpを見てください。
+    Meta-qでコマンドラインスタックを使うことができます。
 
-3.5 ヘルプ
+    HIST_IGNORE_SPACEという環境変数に"on"を設定すると、先頭にスペースがあれば、ヒストリに追加しないようにすることができます。
+
+3.6 ヘルプ
 
     help コマンド名
 
     でコマンドの使い方を見ることができます。各コマンドのオプションなどはそちらで調べてください。
 
-3.6 C拡張ライブラリ
+3.7 C拡張ライブラリ
 
-    C拡張ライブラリはload -dynamic-libraryを使って呼び出せます。サーチパスは/usr/local/lib/xyzsh/"ファイル名"(xyzshをインストールしたディレクトリ/lib/xyzsh/"ファイル名")を探して無いなら、~/.mfiler4/lib/"ファイル名"を探し、それでもないなら、"ファイル名(絶対パス、または相対パス)"を探します。拡張子は省略してはいけません。
+    C拡張ライブラリはload -dynamic-libraryを使って呼び出せます。サーチパスは/usr/local/lib/xyzsh/"ファイル名"(xyzshをインストールしたディレクトリ/lib/xyzsh/"ファイル名")を探して無いなら、~/.xyzsh/lib/"ファイル名"を探し、それでもないなら、"ファイル名(絶対パス、または相対パス)"を探します。拡張子は省略してはいけません。
     作り方について。migemoがC拡張ライブラリとなってます。詳しくはsrc/ext/migemo.cを見てください。dl_initとdl_finalを定義する必要があります。dl_initはload -dynamic-libraryをするときに呼ばれます。dl_finalはxyzshが終了するときに呼ばれます。拡張ライブラリのコンパイルは
 
     gcc -shared src/ext/migemo.c -o src/ext/migemo.so -lmigemo -lxyzsh $(LIBS) $(CFLAGS)
@@ -852,7 +899,7 @@
 
     拡張ライブラリと同じ名前 + .xyzshのソースファイルはload時に自動的に読み込まれます。ヘルプや補完などをそこに書くことができます。
 
-3.7 xyzshの組み込みについて
+3.8 xyzshの組み込みについて
 
     xyzshのメモリ管理について。xyzshはGCとスタックとmalloc&freeの3つのオブジェクトのメモリ管理を行なってます。しかし、以下の制限があります。
     GCで作り出されるオブジェクトはマークをさせるためにgRootObjectかgXyzshObjectから辿れるようにしなければなりません。(GCで管理されてgRootObjectかgXyzshObjectから辿れるコンテナオブジェクトに格納される必要がある)。でなければ、sweepで消されてしまいます。sweepは一定回数コードを実行すると自動的に実行されます。

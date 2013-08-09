@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 static int gStackPageSize;
 static sObject** gStack;
@@ -19,7 +19,7 @@ static int gStackFrameSlot[MAX_STACK];
 
 static void object_delete(sObject* obj) 
 {
-    switch(TYPE(obj)) {
+    switch(STYPE(obj)) {
         case T_STRING:
             string_delete_on_stack(obj);
             break;
@@ -64,6 +64,9 @@ static void object_delete(sObject* obj)
 
         case T_EXTOBJ:
             SEXTOBJ(obj).mFreeFun(SEXTOBJ(obj).mObject);
+            break;
+
+        case T_INT:
             break;
 
         default:

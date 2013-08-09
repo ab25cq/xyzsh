@@ -1,5 +1,5 @@
 #include "config.h"
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
@@ -83,9 +83,17 @@ static void xyzsh_read_rc()
     xyzsh_read_rc_core(user_rc_path);
 }
 
+static void xyzsh_read_rc_mini()
+{
+    char sys_rc_path[PATH_MAX];
+    snprintf(sys_rc_path, PATH_MAX, "%sxyzsh.xyzsh", SYSCONFDIR);
+
+    xyzsh_read_rc_core(sys_rc_path);
+}
+
 void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 {
-    setenv("XYZSH_VERSION", "1.4.1", 1);
+    setenv("XYZSH_VERSION", "1.4.8", 1);
     setenv("XYZSH_DOCDIR", DOCDIR, 1);
     setenv("XYZSH_DATAROOTDIR", DOCDIR, 1);
     setenv("XYZSH_EXT_PATH", EXTDIR, 1);
@@ -142,14 +150,15 @@ void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 
     gc_init(1);
     run_init(app_type);
-    xyzsh_readline_init(FALSE);
+    load_init();
+    xyzsh_editline_init();
 
     gDirStack = VECTOR_NEW_GC(10, FALSE);
     uobject_put(gXyzshObject, "_dir_stack", gDirStack);
 
     char* term_env = getenv("TERM");
     if(term_env != NULL && strcmp(term_env, "") != 0) {
-        mcurses_init(kTKUtf8);
+        mcurses_init();
     }
 
     if(!xyzsh_rehash("init", 0)) {
@@ -160,15 +169,21 @@ void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 
     if(!no_runtime_script) {
         xyzsh_read_rc();
-        readline_read_history();
+        //readline_read_history();
     }
+    else {
+        xyzsh_read_rc_mini();
+    }
+
+    xyzsh_editline_history_init(); // must be after runtime script
 }
 
 void xyzsh_final()
 {
-    readline_write_history();
+    xyzsh_editline_final();
 
     mcurses_final();
+    load_final();
     run_final();
     gc_final();
 
@@ -176,23 +191,19 @@ void xyzsh_final()
     stack_final();
 }
 
-void err_msg(char* msg, char* sname, int line, char* command)
+void err_msg(char* msg, char* sname, int line)
 {
     char* tmp = MALLOC(strlen(sname) + 128 + strlen(msg));
-    if(command) {
-        snprintf(tmp, strlen(sname) + 128 + strlen(msg), "%s %d: [%s] %s\n", sname,  line, command, msg);
-    } else {
-        snprintf(tmp, strlen(sname) + 128 + strlen(msg), "%s %d: %s\n", sname,  line, msg);
-    }
+    snprintf(tmp, strlen(sname) + 128 + strlen(msg), "%s %d: %s\n", sname,  line, msg);
 
     string_put(gErrMsg, tmp);
     FREE(tmp);
 }
 
-void err_msg_adding(char* msg, char* sname, int line, char* command)
+void err_msg_adding(char* msg, char* sname, int line)
 {
     char* tmp = MALLOC(strlen(sname) + 128 + strlen(msg));
-    snprintf(tmp, strlen(sname) + 128 + strlen(msg), "%s %d: [%s] %s\n", sname,  line, command, msg);
+    snprintf(tmp, strlen(sname) + 128 + strlen(msg), "%s %d: %s\n", sname,  line, msg);
 
     string_push_back(gErrMsg, tmp);
     FREE(tmp);
@@ -522,17 +533,3 @@ void xyzsh_set_signal_optc()
 
     if(xyzsh_set_signal_other) xyzsh_set_signal_other();
 }
-
-char* xstrncpy(char* des, char* src, int size)
-{
-    des[size-1] = 0;
-    return strncpy(des, src, size-1);
-}
-
-char* xstrncat(char* des, char* str, int size)
-{
-    des[size-1] = 0;
-    return strncat(des, str, size-1);
-}
-
-

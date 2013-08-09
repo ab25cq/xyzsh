@@ -62,11 +62,16 @@ static char* message_completion(const char* text, int stat)
 
         sObject* messages = STRING_NEW_STACK("");
 
-        while(1) {
-            object = uobject_item(current, command->mMessages[0]);
-            if(object || current == gRootObject) break;
-            current = SUOBJECT((current)).mParent;
-            if(current == NULL) break;
+        if(command->mMessages[0][0] == 0) {
+            object = gRootObject;
+        }
+        else {
+            while(1) {
+                object = uobject_item(current, command->mMessages[0]);
+                if(object || current == gRootObject) break;
+                current = SUOBJECT((current)).mParent;
+                if(current == NULL) break;
+            }
         }
 
         string_put(messages, command->mMessages[0]);
@@ -129,6 +134,7 @@ static char* message_completion(const char* text, int stat)
             else {
                 rl_completion_append_character = ' ';
             }
+            rl_completion_suppress_quote = 1;
             return strdup(candidate);
         }
     }
@@ -188,6 +194,7 @@ static char* all_program_completion(const char* text, int stat)
     while(index < vector_count(gCompletionArray)) {
         char* candidate = vector_item(gCompletionArray, index);
         index++;
+        rl_completion_suppress_quote = 1;
 
         return strdup(candidate);
     }
@@ -256,6 +263,7 @@ static char* program_completion(const char* text, int stat)
             else {
                 rl_completion_append_character = ' ';
             }
+            rl_completion_suppress_quote = 1;
             return strdup(candidate);
         }
     }
@@ -273,9 +281,9 @@ static char* user_completion(const char* text, int stat)
 
         int i;
         for(i=0; i<vector_count(SFD(gUserCompletionNextout).mLines); i++) {
-            sObject* candidate = STRING_NEW_STACK(vector_item(SFD(gUserCompletionNextout).mLines, i));
-            string_chomp(candidate);
-            vector_add(gCompletionArray, string_c_str(candidate));
+            char* candidate = vector_item(SFD(gUserCompletionNextout).mLines, i);
+            vector_add(gCompletionArray, candidate);
+//printf("(%s)\n", candidate);
         }
 
         vector_sort(gCompletionArray, name_sort);
@@ -287,6 +295,7 @@ static char* user_completion(const char* text, int stat)
     while(index < vector_count(gCompletionArray)) {
         char* candidate = vector_item(gCompletionArray, index);
         index++;
+//printf("text (%s) candidate (%s)\n", text, candidate);
 
         if(!strncmp(text, candidate, wordlen)) {
             int l = strlen(candidate);
@@ -328,6 +337,7 @@ static char* redirect_completion(const char* text, int stat)
 
         if(!strncmp(text, candidate, wordlen)) {
             rl_completion_append_character = 0;
+            rl_completion_suppress_quote = 1;
             return strdup(candidate);
         }
     }
@@ -339,11 +349,78 @@ static char* redirect_completion(const char* text, int stat)
             extern char **environ;
 #endif
 
+static void split_prefix_of_object_and_name(sObject** object, sObject* prefix, sObject* name, char* str, sObject* current_object)
+{
+    BOOL first = TRUE;
+    char* p = str;
+    while(*p) {
+        if(*p == ':' && *(p+1) == ':') {
+            p+=2;
+
+            if(string_c_str(name)[0] == 0) {
+                if(first) {
+                    first = FALSE;
+
+                    *object = gRootObject;
+                    string_push_back(prefix, string_c_str(name));
+                    string_push_back(prefix, "::");
+                }
+            }
+            else {
+                string_push_back(prefix, string_c_str(name));
+                string_push_back(prefix, "::");
+
+                if(*object && TYPE(*object) == T_UOBJECT) {
+                    if(first) {
+                        first = FALSE;
+
+                        *object = access_object3(string_c_str(name), &current_object);
+                    }
+                    else {
+                        *object = uobject_item(*object, string_c_str(name));
+                    }
+                    string_put(name, "");
+                }
+                else {
+                    string_put(name, "");
+                    break;
+                }
+            }
+        }
+        else {
+            string_push_back2(name, *p);
+            p++;
+        }
+    }
+}
+
 static char* env_completion(const char* text, int stat_)
 {
     static int index, wordlen;
+    static int omit_head_of_string;
 
     if(stat_ == 0) {
+        /// get head of string and real variable name(=text2) ///
+        char* head_of_string = MALLOC(strlen(text) + 2);
+        char* text2 = MALLOC(strlen(text) + 2);
+
+        char* p2 = (char*)text + strlen(text);
+        while(p2 > text) {
+            if(*p2 == '$') {
+                break;
+            }
+            else {
+                p2 --;
+            }
+        }
+        memcpy(head_of_string, text, p2 - text);
+        head_of_string[p2 - text] = '$';
+        head_of_string[p2 - text + 1] = 0;
+
+        strncpy(text2, p2 + 1, strlen(text) + 2);
+//printf("head_of_string (%s) text2 (%s)\n", head_of_string, text2);
+
+        /// go ///
         gCompletionArray = VECTOR_NEW_STACK(16);
         sObject* hash = HASH_NEW_STACK(16);
 
@@ -367,16 +444,17 @@ static char* env_completion(const char* text, int stat_)
             }
             *p2 = 0;
 
-            sObject* string = STRING_NEW_STACK(env_name);
+            sObject* string = STRING_NEW_STACK((char*)head_of_string);
+            string_push_back(string, env_name);
             vector_add(gCompletionArray, string_c_str(string));
         }
 
-        if(strstr((char*)text, "::")) {
+        if(strstr((char*)text2, "::")) {
             sObject* current = gReadlineCurrentObject;
             sObject* prefix = STRING_NEW_STACK("");
             sObject* name = STRING_NEW_STACK("");
 
-            split_prefix_of_object_and_name2(&current, prefix, name, (char*)text, gReadlineCurrentObject);
+            split_prefix_of_object_and_name(&current, prefix, name, (char*)text2, gReadlineCurrentObject);
 
             if(current && TYPE(current) == T_UOBJECT) {
                 uobject_it* it = uobject_loop_begin(current);
@@ -385,7 +463,7 @@ static char* env_completion(const char* text, int stat_)
                     sObject* object = uobject_loop_item(it);
 
                     if(TYPE(object) == T_UOBJECT) {
-                        sObject* candidate = STRING_NEW_STACK("");
+                        sObject* candidate = STRING_NEW_STACK((char*)head_of_string);
                         string_push_back(candidate, string_c_str(prefix));
                         string_push_back(candidate, key);
                         string_push_back(candidate, "::");
@@ -393,7 +471,7 @@ static char* env_completion(const char* text, int stat_)
                         vector_add(gCompletionArray, string_c_str(candidate));
                     }
                     else if(TYPE(object) == T_STRING || TYPE(object) == T_VECTOR || TYPE(object) == T_HASH) {
-                        sObject* candidate = STRING_NEW_STACK("");
+                        sObject* candidate = STRING_NEW_STACK((char*)head_of_string);
                         string_push_back(candidate, string_c_str(prefix));
                         string_push_back(candidate, key);
 
@@ -414,14 +492,14 @@ static char* env_completion(const char* text, int stat_)
                     sObject* object = uobject_loop_item(it);
 
                     if(TYPE(object) == T_UOBJECT) {
-                        sObject* candidate = STRING_NEW_STACK("");
+                        sObject* candidate = STRING_NEW_STACK((char*)head_of_string);
                         string_push_back(candidate, key);
                         string_push_back(candidate, "::");
 
                         vector_add(gCompletionArray, string_c_str(candidate));
                     }
                     else if(TYPE(object) == T_STRING || TYPE(object) == T_VECTOR || TYPE(object) == T_HASH) {
-                        sObject* candidate = STRING_NEW_STACK("");
+                        sObject* candidate = STRING_NEW_STACK((char*)head_of_string);
                         string_push_back(candidate, key);
 
                         vector_add(gCompletionArray, string_c_str(candidate));
@@ -442,26 +520,194 @@ static char* env_completion(const char* text, int stat_)
 
         wordlen = strlen(text);
         index = 0;
+
+        omit_head_of_string = strlen(head_of_string);
+
+        FREE(head_of_string);
+        FREE(text2);
+    }
+
+    char buf[128];
+    snprintf(buf, 128, "%d", omit_head_of_string);
+    sObject* readline = uobject_item(gRootObject, "rl");
+    if(readline && TYPE(readline) == T_UOBJECT) {
+        uobject_put(readline, "omit_head_of_completion_display_matches", STRING_NEW_GC(buf, TRUE));
     }
 
     while(index < vector_count(gCompletionArray)) {
         char* candidate = vector_item(gCompletionArray, index);
         index++;
 
+//printf("text (%s) candidate (%s)\n", text, candidate);
         if(!strncmp(text, candidate, wordlen)) {
             int len = strlen(candidate);
-            if(len > 2 && candidate[len-2] == ':' && candidate[len-1] == ':') {
+            if(len > 2 && candidate[len-2] == ':' && candidate[len-1] == ':' || len > 1 && candidate[len-1] == '/') {
                 rl_completion_append_character = 0;
             }
             else {
                 rl_completion_append_character = ' ';
             }
+            rl_completion_suppress_quote = 1;
             return strdup(candidate);
         }
     }
 
     return NULL;
 }
+/*
+{
+    static int index, wordlen;
+    static int omit_head_of_string;
+
+    if(stat_ == 0) {
+        char* text2 = MALLOC(strlen(text) + 2);
+
+        char* p2 = (char*)text + strlen(text);
+        while(p2 > text) {
+            if(*p2 == '$') {
+                break;
+            }
+            else {
+                p2 --;
+            }
+        }
+        memcpy(text2, text, p2 - text);
+        text2[p2 - text] = '$';
+        text2[p2 - text + 1] = 0;
+
+        gCompletionArray = VECTOR_NEW_STACK(16);
+        sObject* hash = HASH_NEW_STACK(16);
+
+        char** p;
+        for(p = environ; *p; p++) {
+            char env_name[PATH_MAX];
+
+            char* p2 = env_name;
+            char* p3 = *p;
+
+            while(*p3 != 0 && *p3 != '=') {
+                *p2++ = *p3++;
+            }
+
+            char* env = getenv(*p);
+            struct stat estat;
+            if(stat(env, &estat) >= 0) {
+                if(S_ISDIR(estat.st_mode)) {
+                    *p2++ = '/';
+                }
+            }
+            *p2 = 0;
+
+            sObject* string = STRING_NEW_STACK((char*)text2);
+            string_push_back(string, env_name);
+            vector_add(gCompletionArray, string_c_str(string));
+        }
+
+        if(strstr((char*)text, "::")) {
+            sObject* current = gReadlineCurrentObject;
+            sObject* prefix = STRING_NEW_STACK("");
+            sObject* name = STRING_NEW_STACK("");
+
+            split_prefix_of_object_and_name(&current, prefix, name, (char*)text + 1, gReadlineCurrentObject);
+
+            if(current && TYPE(current) == T_UOBJECT) {
+                uobject_it* it = uobject_loop_begin(current);
+                while(it) {
+                    char* key = uobject_loop_key(it);
+                    sObject* object = uobject_loop_item(it);
+
+                    if(TYPE(object) == T_UOBJECT) {
+                        sObject* candidate = STRING_NEW_STACK((char*)text2);
+                        string_push_back(candidate, string_c_str(prefix));
+                        string_push_back(candidate, key);
+                        string_push_back(candidate, "::");
+
+                        vector_add(gCompletionArray, string_c_str(candidate));
+                    }
+                    else if(TYPE(object) == T_STRING || TYPE(object) == T_VECTOR || TYPE(object) == T_HASH) {
+                        sObject* candidate = STRING_NEW_STACK((char*)text2);
+                        string_push_back(candidate, string_c_str(prefix));
+                        string_push_back(candidate, key);
+
+                        vector_add(gCompletionArray, string_c_str(candidate));
+                    }
+
+                    it = uobject_loop_next(it);
+                }
+            }
+        }
+        else {
+            sObject* current = gReadlineCurrentObject;
+
+            while(1) {
+                uobject_it* it = uobject_loop_begin(current);
+                while(it) {
+                    char* key = uobject_loop_key(it);
+                    sObject* object = uobject_loop_item(it);
+
+                    if(TYPE(object) == T_UOBJECT) {
+                        sObject* candidate = STRING_NEW_STACK((char*)text2);
+                        string_push_back(candidate, key);
+                        string_push_back(candidate, "::");
+
+                        vector_add(gCompletionArray, string_c_str(candidate));
+                    }
+                    else if(TYPE(object) == T_STRING || TYPE(object) == T_VECTOR || TYPE(object) == T_HASH) {
+                        sObject* candidate = STRING_NEW_STACK((char*)text2);
+                        string_push_back(candidate, key);
+
+                        vector_add(gCompletionArray, string_c_str(candidate));
+                    }
+
+                    it = uobject_loop_next(it);
+                }
+                
+                if(current == gRootObject) break;
+
+                current = SUOBJECT(current).mParent;
+
+                if(current == NULL) break;
+            }
+        }
+
+        vector_sort(gCompletionArray, name_sort);
+
+        wordlen = strlen(text);
+        index = 0;
+
+        omit_head_of_string = strlen(text2);
+
+        FREE(text2);
+    }
+
+    char buf[128];
+    snprintf(buf, 128, "%d", omit_head_of_string);
+    sObject* readline = uobject_item(gRootObject, "rl");
+    if(readline && TYPE(readline) == T_UOBJECT) {
+        uobject_put(readline, "omit_head_of_completion_display_matches", STRING_NEW_GC(buf, TRUE));
+    }
+
+    while(index < vector_count(gCompletionArray)) {
+        char* candidate = vector_item(gCompletionArray, index);
+        index++;
+
+//printf("text (%s) candidate (%s)\n", text, candidate);
+        if(!strncmp(text, candidate, wordlen)) {
+            int len = strlen(candidate);
+            if(len > 2 && candidate[len-2] == ':' && candidate[len-1] == ':' || len > 1 && candidate[len-1] == '/') {
+                rl_completion_append_character = 0;
+            }
+            else {
+                rl_completion_append_character = ' ';
+            }
+            rl_completion_suppress_quote = 1;
+            return strdup(candidate);
+        }
+    }
+
+    return NULL;
+}
+*/
 
 static void get_current_completion_object(sObject** completion_object, sObject** current_object)
 {
@@ -587,9 +833,9 @@ char** readline_on_complete(const char* text, int start, int end)
         return result;
     }
     else if(SBLOCK(gReadlineBlock).mCompletionFlags & (COMPLETION_FLAGS_AFTER_REDIRECT|COMPLETION_FLAGS_AFTER_EQUAL)) {
-        rl_completion_entry_function = NULL;
+        char** result = rl_completion_matches(text, rl_filename_completion_function);
         stack_end_stack();
-        return NULL;
+        return result;
     }
     else {
         sStatment* statment = SBLOCK(gReadlineBlock).mStatments + SBLOCK(gReadlineBlock).mStatmentsNum - 1;
@@ -603,9 +849,9 @@ char** readline_on_complete(const char* text, int start, int end)
             if(statment->mCommandsNum == 1 && statment->mCommands[0].mArgsNum == 1) {
                 char* arg = statment->mCommands[0].mArgs[0];
                 if(strstr(arg, "/")) {
-                    rl_completion_entry_function = NULL;
+                    char** result = rl_completion_matches(text, rl_filename_completion_function);
                     stack_end_stack();
-                    return NULL;
+                    return result;
                 }
             }
 
@@ -684,8 +930,9 @@ char** readline_on_complete(const char* text, int start, int end)
             else if(ucompletion && TYPE(ucompletion) == T_COMPLETION) {
                 sObject* nextin = FD_NEW_STACK();
                 if(!fd_write(nextin, string_c_str(cmdline), string_length(cmdline))) {
+                    char** result = rl_completion_matches(text, rl_filename_completion_function);
                     stack_end_stack();
-                    return NULL;
+                    return result;
                 }
                 sObject* nextout = FD_NEW_STACK();
 
@@ -726,21 +973,23 @@ char** readline_on_complete(const char* text, int start, int end)
                     fprintf(stderr, "\nrun time error\n");
                     fprintf(stderr, "%s", string_c_str(gErrMsg));
                     (void)vector_pop_back(gStackFrames);
+                    char** result = rl_completion_matches(text, rl_filename_completion_function);
                     stack_end_stack();
-                    return NULL;
+                    return result;
                 }
                 (void)vector_pop_back(gStackFrames);
                 readline_signal();
 
                 eLineField lf;
                 if(fd_guess_lf(nextout, &lf)) {
-                    fd_split(nextout, lf);
+                    fd_split(nextout, lf, TRUE, FALSE, TRUE);
                 } else {
-                    fd_split(nextout, kLF);
+                    fd_split(nextout, kLF, TRUE, FALSE, TRUE);
                 }
 
                 gUserCompletionNextout = nextout;
                 char** result = rl_completion_matches(text, user_completion);
+
                 stack_end_stack();
                 return result;
             }
@@ -779,9 +1028,9 @@ char** readline_on_complete_user_castamized(const char* text, int start, int end
 
     eLineField lf;
     if(fd_guess_lf(nextout, &lf)) {
-        fd_split(nextout, lf);
+        fd_split(nextout, lf, TRUE, FALSE, TRUE);
     } else {
-        fd_split(nextout, kLF);
+        fd_split(nextout, kLF, TRUE, FALSE, TRUE);
     }
 
     gUserCompletionNextout = nextout;
@@ -799,19 +1048,13 @@ BOOL cmd_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
             int i;
             for(i=1; i<runinfo->mArgsNumRuntime; i++) {
-                sObject* object = gCompletionObject;
-                sObject* prefix = STRING_NEW_STACK("");
+                sObject* object;
                 sObject* name = STRING_NEW_STACK("");
-
-                split_prefix_of_object_and_name(&object, prefix, name, runinfo->mArgsRuntime[i]);
-
-                if(object && TYPE(object) == T_UOBJECT && string_c_str(name)[0] != 0) {
-                    uobject_put(object, string_c_str(name), COMPLETION_NEW_GC(block, FALSE));
-                }
-                else {
-                    err_msg("invalid variable name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                if(!get_object_prefix_and_name_from_argument(&object, name, runinfo->mArgsRuntime[i], gCompletionObject, runinfo->mRunningObject, runinfo)) {
                     return FALSE;
                 }
+
+                uobject_put(object, string_c_str(name), COMPLETION_NEW_GC(block, FALSE));
             }
 
             runinfo->mRCode = 0;
@@ -821,18 +1064,8 @@ BOOL cmd_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             int i;
             for(i=1; i<runinfo->mArgsNumRuntime; i++) {
                 sObject* compl;
-                if(!get_object_from_str(&compl, runinfo->mArgsRuntime[i], gCompletionObject, runinfo->mRunningObject, runinfo)) {
+                if(!get_object_from_argument(&compl, runinfo->mArgsRuntime[i], gCompletionObject, runinfo->mRunningObject, runinfo)) {
                     return FALSE;
-                }
-
-                if(compl == NULL || TYPE(compl) != T_COMPLETION) {
-                    sObject* object = gCompletionObject;
-                    sObject* prefix = STRING_NEW_STACK("");
-                    sObject* name = STRING_NEW_STACK("");
-
-                    split_prefix_of_object_and_name(&object, prefix, name, runinfo->mArgsRuntime[i]);
-
-                    compl = uobject_item(object, "__all__");;
                 }
 
                 if(compl && TYPE(compl) == T_COMPLETION) {
@@ -840,7 +1073,7 @@ BOOL cmd_completion(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         sObject* block = SCOMPLETION(compl).mBlock;
                         if(!fd_write(nextout, SBLOCK(block).mSource, strlen(SBLOCK(block).mSource))) 
                         {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -879,12 +1112,12 @@ BOOL cmd_readline_line_buffer(sObject* nextin, sObject* nextout, sRunInfo* runin
 {
     if(!runinfo->mFilter) {
         if(!fd_write(nextout, rl_line_buffer, strlen(rl_line_buffer))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
         if(!fd_write(nextout, "\n", 1)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -902,7 +1135,7 @@ BOOL cmd_readline_point(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int n = snprintf(buf, BUFSIZ, "%d\n", rl_point);
         if(!fd_write(nextout, buf, n)) {
             sCommand* command = runinfo->mCommand;
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -1019,13 +1252,13 @@ BOOL cmd_readline_history(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         char* line = (*entries)->line;
         if(!fd_write(nextout, line, strlen(line)))
         {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
         if(!fd_write(nextout, "\n", 1))
         {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -1109,6 +1342,7 @@ static BOOL shell_cmd;
 static char *
 double_quote (char *string)
 {
+//puts("double_quote");
   register int c;
   char *result, *r, *s;
 
@@ -1142,6 +1376,7 @@ double_quote (char *string)
 static char *
 single_quote (char *string)
 {
+//puts("single_quote");
   register int c;
   char *result, *r, *s;
 
@@ -1330,6 +1565,7 @@ bash_quote_filename (char *s, int rtype, char *qcp)
     mtext = bash_tilde_expand (s);
 
   cs = completion_quoting_style;
+
   if (*qcp == '"')
     cs = COMPLETE_DQUOTE;
   else if (*qcp == '\'')
@@ -1371,6 +1607,7 @@ bash_quote_filename (char *s, int rtype, char *qcp)
 static char *
 bash_dequote_filename (const char *text, int quote_char)
 {
+//puts("bash_dequote_filename");
   char *ret;
   const char *p;
   char *r;
@@ -1445,6 +1682,7 @@ static int lftp_char_is_quoted(const char *string, int eindex)
     }
   return (0);
 }
+
 void completion_display_matches_hook(char** matches, int num_matches, int max_length)
 {
 puts("");
@@ -1580,48 +1818,52 @@ void completion_no_display_matches_hook(char** matches, int num_matches, int max
 {
 }
 
-void readline_no_completion()
-{
-    rl_attempted_completion_function = 0;
-    rl_completion_entry_function = readline_filename_completion_null_generator;
-
-    rl_completer_quote_characters = "\"'";
-    rl_completer_word_break_characters = " \t\n\"'|!&;()$<>=";
-    rl_completion_append_character= ' ';
-    rl_filename_quote_characters = " \t\n\"'|!&;()$%<>[]~";
-    rl_filename_quoting_function = bash_quote_filename;
-    rl_filename_dequoting_function = (rl_dequote_func_t*)bash_dequote_filename;
-    rl_char_is_quoted_p = (rl_linebuf_func_t*)lftp_char_is_quoted;
-    rl_menu_completion_entry_function = 0;
-
-    rl_completion_suppress_quote = 1;
-
-    rl_completion_display_matches_hook = 0;
-
-    rl_bind_key('x'-'a'+1, readline_macro);
-}
-
 void readline_completion()
 {
     rl_attempted_completion_function = readline_on_complete;
     rl_completion_entry_function = readline_filename_completion_null_generator;
 
     rl_completer_quote_characters = "\"'";
-    rl_completer_word_break_characters = " \t\n\"'|!&;()$<>=";
+    rl_completer_word_break_characters = " \t\n\"'|!&;()<>=";
     rl_completion_append_character= ' ';
     rl_filename_quote_characters = " \t\n\"'|!&;()$%<>[]~";
     rl_filename_quoting_function = bash_quote_filename;
     rl_filename_dequoting_function = (rl_dequote_func_t*)bash_dequote_filename;
     rl_char_is_quoted_p = (rl_linebuf_func_t*)lftp_char_is_quoted;
+#ifndef __FREEBSD__
     rl_menu_completion_entry_function = rl_filename_completion_function;
+#endif
 
-    rl_completion_suppress_quote = 1;
+    rl_completion_suppress_quote = 0;
 
     rl_completion_display_matches_hook = completion_display_matches_hook;
 
     rl_bind_key('x'-'a'+1, readline_macro);
     rl_bind_key('\n', readline_bind_cr);
     rl_bind_key('\r', readline_bind_cr);
+}
+
+void readline_no_completion()
+{
+    rl_attempted_completion_function = 0;
+    rl_completion_entry_function = readline_filename_completion_null_generator;
+
+    rl_completer_quote_characters = "\"'";
+    rl_completer_word_break_characters = " \t\n\"'|!&;()<>=";
+    rl_completion_append_character= ' ';
+    rl_filename_quote_characters = " \t\n\"'|!&;()$%<>[]~";
+    rl_filename_quoting_function = bash_quote_filename;
+    rl_filename_dequoting_function = (rl_dequote_func_t*)bash_dequote_filename;
+    rl_char_is_quoted_p = (rl_linebuf_func_t*)lftp_char_is_quoted;
+#ifndef __FREEBSD__
+    rl_menu_completion_entry_function = 0;
+#endif
+
+    rl_completion_suppress_quote = 0;
+
+    rl_completion_display_matches_hook = 0;
+
+    rl_bind_key('x'-'a'+1, readline_macro);
 }
 
 void readline_completion_user_castamized(sObject* block)
@@ -1631,15 +1873,17 @@ void readline_completion_user_castamized(sObject* block)
     rl_completion_entry_function = readline_filename_completion_null_generator;
 
     rl_completer_quote_characters = "\"'";
-    rl_completer_word_break_characters = " \t\n\"'|!&;()$<>=";
+    rl_completer_word_break_characters = " \t\n\"'|!&;()<>=";
     rl_completion_append_character= ' ';
     rl_filename_quote_characters = " \t\n\"'|!&;()$%<>[]~";
     rl_filename_quoting_function = bash_quote_filename;
     rl_filename_dequoting_function = (rl_dequote_func_t*)bash_dequote_filename;
     rl_char_is_quoted_p = (rl_linebuf_func_t*)lftp_char_is_quoted;
+#ifndef __FREEBSD__
     rl_menu_completion_entry_function = 0;
+#endif
 
-    rl_completion_suppress_quote = 1;
+    rl_completion_suppress_quote = 0;
 
     rl_completion_display_matches_hook = 0;
 

@@ -3,7 +3,7 @@
 
 What is this software?
 
-    a shell script language under linux, OSX, cygwin, and FreeBSD.
+    An interactive shell script language on OSX, cygwin, Linux, FreeBSD. This features simple object oriented scripting with garbage collection, text processing like perl or ruby and containes manual for all inner commands with their samples. Offcourse you can type commands with completion which is based on xyzsh grammer like IDE and is defined by itself.
 
     > ls -F   docs/ main.c samples/ sub.c
         
@@ -61,7 +61,7 @@ What is this software?
     age: 23
     country: Japan
 
-    > print 1 | var -local i; ls | scan . | while(| eval "|$i print |>") (|> join ""; ++ i )
+    > ls | scan . | while(| eval "|${I=1} print |>") (|> join ""; ++ I )
     A
     UT
     HOR
@@ -86,6 +86,24 @@ What is this software?
     ory.xyzshsrcxyzshxyzsh
     .dSYMxyzsh.xyzsh
 
+    > ls | lines 0 1 | scan . | each ( | chomp | x 5 | pomch )
+    AAAAA
+    UUUUU
+    TTTTT
+    HHHHH
+    OOOOO
+    RRRRR
+    SSSSS
+    CCCCC
+    HHHHH
+    AAAAA
+    NNNNN
+    GGGGG
+    EEEEE
+    LLLLL
+    OOOOO
+    GGGGG
+
 Compiled and tested xyzsh below Operating systems
     OSX 10.8.0
     FreeBSD 7.1-RELEASE-p16
@@ -93,7 +111,7 @@ Compiled and tested xyzsh below Operating systems
     Oracle Solaris 11 Express
 
 AUTHORS
-    I am a Japanese and an English learner. I'm so sorry for my strange English and please allow me to write such a English. I'll correct this step by step with my understanding English.
+    I am an English learner. So my English is poor. If you have some times, send E-mail to me to correct my English Documents.
 
 ATTENSION
     Use this software on your own risk. Don't use this under importnat systems. I recommend that you use this on your personal systems. I can't take a responsibility on your works with xyzsh. And use this with understanding that this language is not high performance.
@@ -106,7 +124,7 @@ How to compile
     libc
     libm 
     ncurses(w)
-    readline
+    editline
     oniguruma (which is a regex library)
     iconv
 
@@ -145,7 +163,7 @@ How to compile
     --prefix --> indicate installed directory. If you use --prefix=$HOME, xyzsh will be installed $HOME/bin, $HOME/etc. As default, prefix is /usr/local.
     --with-optimize --> compiled with optimize. Fast binary will be made.
     --with-onig-dir --> indicate oniguruma installed directory.
-    --with-readline-dir --> indicate readline installed directory.
+    --with-editline-dir --> indicate editline installed directory.
     --with-debug --> give -g option to CFLAGS and add a checking memory leak system to xyzsh.
     --with-gprof-debug --> give -pg option to CFLAGS
     --with-static --> make xyzsh without dynamic linked libraries.
@@ -169,9 +187,6 @@ How to compile
     If you don't have root comission, add the path to LD_LIBRARY_PATH environment variable.
 
 with OS X
-    Before you installed xyzsh, you should compile the readline library because OSX's readline is libedit, xyzsh needs GNU readline.
-    Also you can use Macports or other compling system instead of manually compiling to install GNU readline.
-
     You don't have to be setting on ldconfig, but you need to set DYLD_LIBRARY_PATH like below
 
     export DYLD_LIBRARY_PATH=/usr/local/lib
@@ -231,11 +246,12 @@ Files
     configure --> configure program
     configure.in --> source of configure
     install.sh --> used by configure
-    src/xyzsh/xyzsh.h --> xyzsh header file
+    src/xyzsh.h --> xyzsh header file
     xyzsh.xyzsh --> xyzsh run time script
     completion.xyzsh --> xyzsh completion run time script
     src/xyzsh --> headers
     src/block.c --> code structure 
+    src/env.c --> expand env
     src/cmd_ary.c --> inner commands which is related to array 
     src/cmd_loop.c --> inner commands which is related to loop
     src/cmd_base.c --> base inner commands 
@@ -248,22 +264,32 @@ Files
     src/curses.c --> manipulating text console.
     src/debug.c --> my debug system. for expample, detecting memory leak
     src/gc.c --> xyzsh object gabage collector
-    src/hash.c --> hash container library
     src/interface.c --> related to interface code
     src/kanji.c --> treated utf-8 (or Japanese SJIS, EUCJP) code
-    src/list.c --> list container library 
     src/main.c --> main code
-    src/object.c --> etc objects
+    src/object.c --> extra objects
+    src/obj_list.c --> list container library 
+    src/obj_hash.c --> hash container library
+    src/obj_string.c --> string library
+    src/obj_vector.c --> dynamic array library
+    src/obj_nfun.c --> native function object
+    src/obj_fd.c --> file discriptor object
+    src/obj_extprog.c --> external program object
+    src/obj_completion.c --> completion object
+    src/obj_class.c --> class object
+    src/obj_fun.c --> function object
+    src/obj_user.c --> user object
     src/parser.c --> parser
     src/xyzsh.c --> xyzsh
-    src/readline.c --> readline code for interactive shell
+    src/xfunc.c --> c library function castamized by me
+    src/editline.c --> editline code for interactive shell
     src/run.c --> main engine for xyzsh
     src/stack.c --> xyzsh stack object manager
-    src/string.c --> string library
-    src/vector.c --> dynamic array library
-    src/nfun.c --> native function object
-    src/fd.c --> file discriptor object
-    src/extprog.c --> external program object
+    src/editline/*.c --> editline C sources
+    src/editline/*.h --> editline header
+    src/load.c --> load
 
 LINCENSE
-    MIT Lincense.
+    MIT LICENSE
+
+    This software contains edlitline(libedit) sources.

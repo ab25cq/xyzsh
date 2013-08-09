@@ -2,101 +2,27 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
-#include <readline/readline.h>
-#include <readline/history.h>
 #include <signal.h>
 #include <limits.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "xyzsh/xyzsh.h"
+#include <stdlib.h>
+#include <pthread.h>
+#include <sys/time.h>
+#include "xyzsh.h"
+//#include "temulator.h"
 
-static void sig_int_readline(int signo)
-{
-    rl_kill_full_line(0,0);
-    rl_reset_line_state();
-    rl_crlf();
-    rl_redisplay();
-}
-
-int readline_signal()
-{
-    xyzsh_set_signal();
-
-    struct sigaction sa2;
-    memset(&sa2, 0, sizeof(sa2));
-    sa2.sa_handler = sig_int_readline;
-    sa2.sa_flags |= SA_RESTART;
-    if(sigaction(SIGINT, &sa2, NULL) < 0) {
-        perror("sigaction2");
-        exit(1);
-    }
-    memset(&sa2, 0, sizeof(sa2));
-    sa2.sa_handler = SIG_IGN;
-    sa2.sa_flags = 0;
-    if(sigaction(SIGTSTP, &sa2, NULL) < 0) {
-        perror("sigaction2");
-        exit(1);
-    }
-    memset(&sa2, 0, sizeof(sa2));
-    sa2.sa_handler = SIG_IGN;
-    sa2.sa_flags = 0;
-    if(sigaction(SIGUSR1, &sa2, NULL) < 0) {
-        perror("sigaction2");
-        exit(1);
-    }
-    sa2.sa_handler = SIG_IGN;
-    sa2.sa_flags = 0;
-    if(sigaction(SIGQUIT, &sa2, NULL) < 0) {
-        perror("sigaction2");
-        exit(1);
-    }
-}
+#if defined(HAVE_CURSES_H)
+#include <curses.h>
+#elif defined(HAVE_NCURSES_H)
+#include <ncurses.h>
+#elif defined(HAVE_NCURSES_NCURSES_H)
+#include <ncurses/ncurses.h>
+#endif
 
 static void main_xyzsh_job_done(int job_num, char* job_title)
 {
     printf("%d: %s done.\n", job_num+1, job_title);
-}
-
-static char* prompt()
-{
-    stack_start_stack();
-    xyzsh_set_signal();
-
-    sObject* fun = FUN_NEW_STACK(NULL);
-    sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
-    vector_add(gStackFrames, stackframe);
-    //uobject_init(stackframe);
-    SFUN(fun).mLocalObjects = stackframe;
-
-    sObject* nextout = FD_NEW_STACK();
-
-    int rcode;
-    if(!run(gPrompt, gStdin, nextout, &rcode, gCurrentObject, fun)) {
-        if(rcode == RCODE_BREAK) {
-            fprintf(stderr, "invalid break. Not in a loop\n");
-        }
-        else if(rcode & RCODE_RETURN) {
-            fprintf(stderr, "invalid return. Not in a function\n");
-        }
-        else if(rcode == RCODE_EXIT) {
-            fprintf(stderr, "invalid exit. In the prompt\n");
-        }
-        else {
-            fprintf(stderr, "run time error\n");
-            fprintf(stderr, "%s", string_c_str(gErrMsg));
-        }
-    }
-    readline_signal();
-
-    mreset_tty();
-    readline_signal();
-    char* buf = readline(SFD(nextout).mBuf);
-
-    (void)vector_pop_back(gStackFrames);
-
-    stack_end_stack();
-
-    return buf;
 }
 
 BOOL xyzsh_run(int* rcode, sObject* block, char* source_name, fXyzshJobDone xyzsh_job_done_, sObject* nextin, sObject* nextout, int argc, char** argv, sObject* current_object)
@@ -200,162 +126,108 @@ BOOL xyzsh_eval(int* rcode, char* cmd, char* source_name, fXyzshJobDone xyzsh_jo
     return TRUE;
 }
 
-static void readline_insert_text(char* cmdline, int cursor_point)
+static ALLOC char* run_editline(char* text, int cursor_pos)
 {
-    (void)rl_replace_line(cmdline, 0);
-    //(void)rl_insert_text(cmdline);
+    stack_start_stack();
 
-    int n = cursor_point;
+    char* buf;
 
-    if(n < 0) n += strlen(rl_line_buffer) + 1;
-    if(n < 0) n = 0;
-    if(n > strlen(rl_line_buffer)) n = strlen(rl_line_buffer);
+    char* prompt;
+    if(gPrompt) {
+        xyzsh_set_signal();
 
-    rl_point = n;
-}
+        sObject* fun = FUN_NEW_STACK(NULL);
+        sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
+        vector_add(gStackFrames, stackframe);
+        //uobject_init(stackframe);
+        SFUN(fun).mLocalObjects = stackframe;
 
-static char* gCmdLine;
-static int gCursorPoint;
+        sObject* nextout = FD_NEW_STACK();
 
-int readline_init_text()
-{
-    readline_insert_text(gCmdLine, gCursorPoint);
-}
+        int rcode;
+        if(!run(gPrompt, gStdin, nextout, &rcode, gCurrentObject, fun)) {
+            if(rcode == RCODE_BREAK) {
+                fprintf(stderr, "invalid break. Not in a loop\n");
+            }
+            else if(rcode & RCODE_RETURN) {
+                fprintf(stderr, "invalid return. Not in a function\n");
+            }
+            else if(rcode == RCODE_EXIT) {
+                fprintf(stderr, "invalid exit. In the prompt\n");
+            }
+            else {
+                fprintf(stderr, "run time error\n");
+                fprintf(stderr, "%s", string_c_str(gErrMsg));
+            }
+        }
 
-static int gHistSize = 1000;
+        (void)vector_pop_back(gStackFrames);
 
-void readline_read_history()
-{
-    /// set history size ///
-    char* histsize_env = getenv("XYZSH_HISTSIZE");
-    if(histsize_env) {
-        gHistSize = atoi(histsize_env);
-        if(gHistSize < 0) gHistSize = 1000;
-        if(gHistSize > 50000) gHistSize = 50000;
-        char buf[256];
-        snprintf(buf, 256, "%d", gHistSize);
-        setenv("XYZSH_HISTSIZE", buf, 1);
+        prompt = SFD(nextout).mBuf;
     }
     else {
-        gHistSize = 1000;
-        char buf[256];
-        snprintf(buf, 256, "%d", gHistSize);
-        setenv("XYZSH_HISTSIZE", buf, 1);
+        prompt = " > ";
     }
 
-    /// set history file name ///
-    char* histfile = getenv("XYZSH_HISTFILE");
-    if(histfile == NULL) {
-        char* home = getenv("HOME");
+    char* rprompt;
+    if(gRPrompt) {
+        sObject* fun = FUN_NEW_STACK(NULL);
+        sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
+        vector_add(gStackFrames, stackframe);
+        //uobject_init(stackframe);
+        SFUN(fun).mLocalObjects = stackframe;
 
-        if(home) {
-            char path[PATH_MAX];
-            snprintf(path, PATH_MAX, "%s/.xyzsh/history", home);
-            setenv("XYZSH_HISTFILE", path, 1);
+        sObject* nextout2 = FD_NEW_STACK();
+
+        int rcode;
+        if(!run(gRPrompt, gStdin, nextout2, &rcode, gCurrentObject, fun)) {
+            if(rcode == RCODE_BREAK) {
+                fprintf(stderr, "invalid break. Not in a loop\n");
+            }
+            else if(rcode & RCODE_RETURN) {
+                fprintf(stderr, "invalid return. Not in a function\n");
+            }
+            else if(rcode == RCODE_EXIT) {
+                fprintf(stderr, "invalid exit. In the prompt\n");
+            }
+            else {
+                fprintf(stderr, "run time error\n");
+                fprintf(stderr, "%s", string_c_str(gErrMsg));
+            }
         }
-        else {
-            fprintf(stderr, "HOME evironment path is NULL. exited\n");
-            exit(1);
-        }
-    }
+        (void)vector_pop_back(gStackFrames);
 
-    char rc_path[PATH_MAX];
-    snprintf(rc_path, PATH_MAX, "%sread_history.xyzsh", SYSCONFDIR);
-    
-    xyzsh_read_rc_core(rc_path);
-}
-
-void readline_write_history()
-{
-    char* histfile = getenv("XYZSH_HISTFILE");
-
-    if(histfile) {
-        write_history(histfile);
+        rprompt = SFD(nextout2).mBuf;
     }
     else {
-        char* home = getenv("HOME");
-
-        if(home) {
-            char path[PATH_MAX];
-            snprintf(path, PATH_MAX, "%s/.xyzsh/history", home);
-            write_history(path);
-        }
-        else {
-            fprintf(stderr, "HOME evironment path is NULL. exited\n");
-            exit(1);
-        }
+        rprompt = NULL;
     }
+
+    mreset_tty();
+    buf = ALLOC editline(prompt, rprompt, text, cursor_pos);
+
+    stack_end_stack();
+
+    return ALLOC buf;
 }
 
-void transform_cr_to_semicolon(char* buf, ALLOC char** result)
-{
-    *result = MALLOC(sizeof(char)*strlen(buf)+1);
-    char* p = buf;
-    char* p2 = *result;
-    while(*p) {
-        if(*p == '\n') {
-            *p2++ = ';';
-            p++;
-        }
-        else if(*p == '<' && *(p+1) == '<' && *(p+2) == '<') {
-            *p2++ = *p++;
-            *p2++ = *p++;
-            *p2++ = *p++;
-
-            while(*p == ' ' || *p == '\t') {
-                *p2++ = *p++;
-            }
-
-            while(*p) {
-                if(*p >='A' && * p <= 'Z' || *p >='a' && *p <='z' || *p == '_' || *p >= '0' && *p <= '9')
-                {
-                    *p2++ = *p++;
-                }
-                else {
-                    break;
-                }
-            }
-
-            break;
-        }
-        else {
-            *p2++ = *p++;
-        }
-    }
-    *p2 = 0;
-}
 
 // EOF --> rcode == -2
 // errors --> rcode == -1
-BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_point, char* source_name, char** argv, int argc, fXyzshJobDone xyzsh_job_done_)
+BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_pos, char* source_name, char** argv, int argc, fXyzshJobDone xyzsh_job_done_)
 {
     /// start interactive shell ///
-    mreset_tty();
     xyzsh_job_done = xyzsh_job_done_;
 
-    char* buf;
-    HISTORY_STATE* history_state = history_get_history_state();
-    int history_num = history_state->length;
-
-    /// prompt ///
-    if(gPrompt) {
-        gCmdLine = cmdline;
-        gCursorPoint = cursor_point;
-        rl_startup_hook = readline_init_text;
-        buf = prompt();
-    }
-    else {
-        gCmdLine = cmdline;
-        gCursorPoint = cursor_point;
-        rl_startup_hook = readline_init_text;
-        mreset_tty();
-        readline_signal();
-        buf = readline("> ");
-    }
+    /// edit line ///
+    char* buf = ALLOC run_editline(cmdline, cursor_pos);
 
     /// run ///
     if(buf == NULL) {
         *rcode = -2;
+
+        /// wait background job
+        xyzsh_wait_background_job();
     }
     else if(*buf) {
         stack_start_stack();
@@ -393,18 +265,6 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
                     fprintf(stderr, "%s", string_c_str(gErrMsg));
                 }
 
-                /// add history ///
-                char* buf2;
-                transform_cr_to_semicolon(buf, ALLOC &buf2);
-                add_history(buf2);
-                FREE(buf2);
-
-                history_num++;
-                if(history_num > gHistSize) {
-                    HIST_ENTRY* history = remove_history(0);
-                    free(history);
-                }
-
                 if(*rcode != 0) {
                     fprintf(stderr, "return code is %d\n", *rcode);
                 }
@@ -414,30 +274,17 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
                 /// wait background job
                 xyzsh_wait_background_job();
 
-                free(buf);
+                FREE(buf);
 
                 return FALSE;
             }
             (void)vector_pop_back(gStackFrames);
-            readline_signal();
         }
         else {
             xyzsh_restore_signal_default();
 
             fprintf(stderr, "parser error\n");
             fprintf(stderr, "%s", string_c_str(gErrMsg));
-
-            /// add history ///
-            char* buf2;
-            transform_cr_to_semicolon(buf, ALLOC &buf2);
-            add_history(buf2);
-            FREE(buf2);
-
-            history_num++;
-            if(history_num > gHistSize) {
-                HIST_ENTRY* history = remove_history(0);
-                free(history);
-            }
 
             if(*rcode != 0) {
                 fprintf(stderr, "return code is %d\n", *rcode);
@@ -447,73 +294,297 @@ BOOL xyzsh_readline_interface_onetime(int* rcode, char* cmdline, int cursor_poin
             /// wait background job
             xyzsh_wait_background_job();
 
-            free(buf);
+            FREE(buf);
 
             return FALSE;
-        }
-
-        /// add history ///
-        char* buf2;
-        transform_cr_to_semicolon(buf, ALLOC &buf2);
-        add_history(buf2);
-        FREE(buf2);
-        history_num++;
-        if(history_num > gHistSize) {
-            HIST_ENTRY* history = remove_history(0);
-            free(history);
         }
 
         if(*rcode != 0) {
             fprintf(stderr, "return code is %d\n", *rcode);
         }
         stack_end_stack();
+
+        /// wait background job
+        xyzsh_wait_background_job();
+
+        FREE(buf);
     }
-
-    /// wait background job
-    xyzsh_wait_background_job();
-
-    free(buf);
 
     return TRUE;
 }
 
-void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int argc, BOOL exit_in_spite_ofjob_exist)
+struct sTEmulatorFunArg {
+    char* cmdline;
+    int cursor_point;
+    char** argv;
+    int argc;
+    BOOL exit_in_spite_ofjob_exist;
+    BOOL welcome_msg;
+};
+
+static void temulator_fun(void* arg)
 {
+    struct sTEmulatorFunArg* targ = arg;
+
     /// start interactive shell ///
-    mreset_tty();
     xyzsh_job_done = main_xyzsh_job_done;
 
+    if(targ->welcome_msg) {
+        char* version = getenv("XYZSH_VERSION");
+        printf("-+- Welcome to xyzsh %s -+-\n", version);
+        printf("run \"help\" command to see usage\n");
+    }
+
     char* buf;
-    HISTORY_STATE* history_state = history_get_history_state();
-    int history_num = history_state->length;
     BOOL first = TRUE;
     while(1) {
         /// prompt ///
-        if(gPrompt) {
-            if(first) {
-                gCmdLine = cmdline;
-                gCursorPoint = cursor_point;
-                rl_startup_hook = readline_init_text;
-                first = FALSE;
-            }
-            else {
-                rl_startup_hook = NULL;
-            }
-            buf = prompt();
+        if(first) {
+            buf = ALLOC run_editline(targ->cmdline, targ->cursor_point);
+            first = FALSE;
         }
         else {
-            mreset_tty();
-            if(first) {
-                gCmdLine = cmdline;
-                gCursorPoint = cursor_point;
-                rl_startup_hook = readline_init_text;
-                first = FALSE;
+            buf = ALLOC run_editline(NULL, -1);
+        }
+
+        /// run ///
+        if(buf == NULL) {
+            if(targ->exit_in_spite_ofjob_exist) {
+                break;
             }
             else {
-                rl_startup_hook = NULL;
+                if(vector_count(gJobs) > 0) {
+                    fprintf(stderr,"\njobs exist\n");
+                }
+                else {
+                    break;
+                }
             }
-            readline_signal();
-            buf = readline("> ");
+        }
+        else if(*buf) {
+            stack_start_stack();
+            int rcode = 0;
+            sObject* block = BLOCK_NEW_STACK();
+            int sline = 1;
+            if(parse(buf, "xyzsh", &sline, block, NULL)) {
+                xyzsh_set_signal();
+
+                sObject* fun = FUN_NEW_STACK(NULL);
+                sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
+                vector_add(gStackFrames, stackframe);
+                //uobject_init(stackframe);
+                SFUN(fun).mLocalObjects = stackframe;
+
+                sObject* argv2 = VECTOR_NEW_GC(16, FALSE);
+                int i;
+                for(i=0; i<targ->argc; i++) {
+                    vector_add(argv2, STRING_NEW_GC(targ->argv[i], FALSE));
+                }
+                uobject_put(SFUN(fun).mLocalObjects, "ARGV", argv2);
+
+                if(!run(block, gStdin, gStdout, &rcode, gCurrentObject, fun)) {
+                    if(rcode == RCODE_BREAK) {
+                        fprintf(stderr, "invalid break. Not in a loop\n");
+                    }
+                    else if(rcode & RCODE_RETURN) {
+                        fprintf(stderr, "invalid return. Not in a function\n");
+                    }
+                    else if(rcode == RCODE_EXIT) {
+                        (void)vector_pop_back(gStackFrames);
+                        stack_end_stack();
+                        FREE(buf);
+                        break;
+                    }
+                    else {
+                        fprintf(stderr, "run time error\n");
+                        fprintf(stderr, "%s", string_c_str(gErrMsg));
+                    }
+                }
+                (void)vector_pop_back(gStackFrames);
+            }
+            else {
+                fprintf(stderr, "parser error\n");
+                fprintf(stderr, "%s", string_c_str(gErrMsg));
+            }
+
+            if(rcode != 0) {
+                fprintf(stderr, "return code is %d\n", rcode);
+            }
+            stack_end_stack();
+        }
+
+        /// wait background job
+        xyzsh_wait_background_job();
+
+        FREE(buf);
+    }
+}
+
+static BOOL gSigChld = FALSE;
+static BOOL gSigWinch = FALSE;
+
+static void handler(int signo)
+{
+    switch (signo) {
+      case SIGCHLD:
+        gSigChld = TRUE;
+        break;
+      case SIGWINCH:
+        gSigWinch = TRUE;
+        break;
+    }
+}
+
+#include "temulator.h"
+
+static int is_expired(struct timeval now, struct timeval expiry)
+{
+    return now.tv_sec > expiry.tv_sec
+        || (now.tv_sec == expiry.tv_sec && now.tv_usec > expiry.tv_usec);
+}
+
+static struct timeval const slice = { 0, 1000 * 1000 / 100 };
+
+static struct timeval timeval_add(struct timeval a, struct timeval b)
+{
+    int usec = a.tv_usec + b.tv_usec;
+    a.tv_sec += b.tv_sec;
+    while (usec > 1000 * 1000) {
+        a.tv_sec += 1;
+        usec -= 1000 * 1000;
+    }
+    a.tv_usec = usec;
+    return a;
+}
+
+
+void xyzsh_readline_interface_on_curses(char* cmdline, int cursor_point, char** argv, int argc, BOOL exit_in_spite_ofjob_exist, BOOL welcome_msg)
+{
+    gSigChld = FALSE;
+    gSigWinch = FALSE;
+
+    signal(SIGCHLD, handler);
+    signal(SIGWINCH, handler);
+
+    const int maxx = mgetmaxx();
+    const int maxy = mgetmaxy();
+
+    int temulator_y = 0;
+    int temulator_x = 0;
+    int temulator_height = maxy;
+    int temulator_width = maxx;
+
+    sTEmulator* temulator = temulator_init(temulator_height, temulator_width);
+
+    struct sTEmulatorFunArg arg;
+
+    arg.cmdline = cmdline;
+    arg.cursor_point = cursor_point;
+    arg.argv = argv;
+    arg.argc = argc;
+    arg.exit_in_spite_ofjob_exist = exit_in_spite_ofjob_exist;
+    arg.welcome_msg = welcome_msg;
+
+    temulator_open(temulator, temulator_fun, &arg);
+
+    initscr();
+    start_color();
+    noecho();
+    raw();
+    nodelay(stdscr, TRUE);
+    keypad(stdscr, TRUE);
+    curs_set(0);
+    ESCDELAY=50;
+
+    temulator_init_colors();
+
+    WINDOW* term_win = newwin(temulator_height, temulator_width, temulator_y, temulator_x);
+
+    int pty = temulator->mFD;
+
+    fd_set mask, read_ok;
+    FD_ZERO(&mask);
+    FD_SET(0, &mask);
+    FD_SET(pty, &mask);
+
+    int dirty = 0;
+    struct timeval next;
+
+    gettimeofday(&next, NULL);
+    while(1) {
+        struct timeval tv = { 0, 1000 * 1000 / 100 };
+        read_ok = mask;
+
+        if(select(pty+1, &read_ok, NULL, NULL, &tv) > 0) {
+            if(FD_ISSET(pty, &read_ok)) {
+                temulator_read(temulator);
+                dirty = 1;
+            }
+        }
+
+        int key;
+        while((key = getch()) != ERR) {
+            temulator_write(temulator, key);
+            dirty = 1;
+        }
+
+        gettimeofday(&tv, NULL);
+        if(dirty && is_expired(tv, next)) {
+            temulator_draw_on_curses(temulator, term_win, temulator_y, temulator_x);
+            wrefresh(term_win);
+            dirty = 0;
+            next = timeval_add(tv, slice);
+        }
+
+        if(gSigChld) {
+            gSigChld = FALSE;
+            break;
+        }
+
+        if(gSigWinch) {
+            gSigWinch = 0;
+
+            temulator_height = mgetmaxy();
+            temulator_width = mgetmaxx();
+
+            if(temulator_width >= 10 && temulator_height >= 10) {
+                resizeterm(temulator_height, temulator_width);
+
+                wresize(term_win, temulator_height, temulator_width);
+                temulator_resize(temulator, temulator_height, temulator_width);
+
+                dirty = 1;
+            }
+        }
+    }
+
+    endwin();
+
+    temulator_final(temulator);
+}
+
+
+void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int argc, BOOL exit_in_spite_ofjob_exist, BOOL welcome_msg)
+{
+    /// start interactive shell ///
+    xyzsh_job_done = main_xyzsh_job_done;
+
+    if(welcome_msg) {
+        char* version = getenv("XYZSH_VERSION");
+        printf("-+- Welcome to xyzsh %s -+-\n", version);
+        printf("run \"help\" command to see usage\n");
+    }
+
+    char* buf;
+    BOOL first = TRUE;
+    while(1) {
+        /// prompt ///
+        if(first) {
+            buf = ALLOC run_editline(cmdline, cursor_point);
+            first = FALSE;
+        }
+        else {
+            buf = ALLOC run_editline(NULL, -1);
         }
 
         /// run ///
@@ -552,7 +623,6 @@ void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int 
                 uobject_put(SFUN(fun).mLocalObjects, "ARGV", argv2);
 
                 if(!run(block, gStdin, gStdout, &rcode, gCurrentObject, fun)) {
-                    readline_signal();
                     if(rcode == RCODE_BREAK) {
                         fprintf(stderr, "invalid break. Not in a loop\n");
                     }
@@ -560,7 +630,9 @@ void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int 
                         fprintf(stderr, "invalid return. Not in a function\n");
                     }
                     else if(rcode == RCODE_EXIT) {
+                        (void)vector_pop_back(gStackFrames);
                         stack_end_stack();
+                        FREE(buf);
                         break;
                     }
                     else {
@@ -569,22 +641,10 @@ void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int 
                     }
                 }
                 (void)vector_pop_back(gStackFrames);
-                readline_signal();
             }
             else {
                 fprintf(stderr, "parser error\n");
                 fprintf(stderr, "%s", string_c_str(gErrMsg));
-            }
-
-            /// add history ///
-            char* buf2;
-            transform_cr_to_semicolon(buf, ALLOC &buf2);
-            add_history(buf2);
-            FREE(buf2);
-            history_num++;
-            if(history_num > gHistSize) {
-                HIST_ENTRY* history = remove_history(0);
-                free(history);
             }
 
             if(rcode != 0) {
@@ -596,7 +656,7 @@ void xyzsh_readline_interface(char* cmdline, int cursor_point, char** argv, int 
         /// wait background job
         xyzsh_wait_background_job();
 
-        free(buf);
+        FREE(buf);
     }
 }
 

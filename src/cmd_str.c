@@ -1,4 +1,5 @@
 #include "config.h"
+#define _GNU_SOURCE
 #include <errno.h>
 #include <time.h>
 #include <stdlib.h>
@@ -13,6 +14,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <dirent.h>
+#include <ctype.h>
 
 #ifdef __LINUX__
 char *strcasestr(const char *haystack, const char *needle);
@@ -26,7 +28,7 @@ char *strcasestr(const char *haystack, const char *needle);
 #include <ncurses/ncurses.h>
 #endif
 
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 int get_onig_regex(regex_t** reg, sRunInfo* runinfo, char* regex)
 {
@@ -108,7 +110,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -118,7 +120,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "\\%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -134,7 +136,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     p++;
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -144,7 +146,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -154,7 +156,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "\\%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -169,7 +171,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -179,7 +181,7 @@ BOOL cmd_quote(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     int size = snprintf(buf, 32, "\\%c", *p);
 
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -282,7 +284,7 @@ BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             int size = snprintf(buf, 128, "%d\n", result);
 
             if(!fd_write(nextout, buf, size)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -295,7 +297,7 @@ BOOL cmd_length(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             int size = snprintf(buf, 128, "%d\n", len);
 
             if(!fd_write(nextout, buf, size)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -328,7 +330,7 @@ BOOL cmd_x(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             int i;
             for(i=0; i<multiple; i++) {
                 if(!fd_write(nextout, target, target_len)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -369,7 +371,7 @@ BOOL cmd_lc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         string_tolower(str, code);
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -408,7 +410,7 @@ BOOL cmd_uc(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         string_toupper(str, code);
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -446,7 +448,7 @@ BOOL cmd_chomp(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -534,7 +536,7 @@ BOOL cmd_chop(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -554,7 +556,7 @@ BOOL cmd_strip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             {
                 if(!first) {
                     if(!fd_writec(nextout, *p++)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -567,7 +569,7 @@ BOOL cmd_strip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 first = FALSE;
                 last_point = p;
                 if(!fd_writec(nextout, *p++)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -600,7 +602,7 @@ BOOL cmd_lstrip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             {
                 if(!first) {
                     if(!fd_writec(nextout, *p++)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -612,7 +614,7 @@ BOOL cmd_lstrip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             else {
                 first = FALSE;
                 if(!fd_writec(nextout, *p++)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -640,7 +642,7 @@ BOOL cmd_rstrip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             if(*p == '\n' || *p =='\r' || *p == '\t' || *p == ' ' || *p == '\a')
             {
                 if(!fd_writec(nextout, *p++)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -648,7 +650,7 @@ BOOL cmd_rstrip(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             else {
                 last_point = p;
                 if(!fd_writec(nextout, *p++)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -707,7 +709,7 @@ BOOL cmd_pomch(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
 
         if(!fd_write(nextout, string_c_str(str), string_length(str))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -734,7 +736,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     if(runinfo->mArgsNumRuntime == 2) {
         if(runinfo->mFilter) {
-            fd_split(nextin, lf);
+            fd_split(nextin, lf, TRUE, FALSE, TRUE);
         }
 
         /// go ///
@@ -748,7 +750,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(*p == '%') {
                     p++;
                     if(!fd_writec(nextout, '%')) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -773,7 +775,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         int size = asprintf(&buf, aformat, atoi(arg));
 
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -798,7 +800,7 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         int size = asprintf(&buf, aformat, atof(arg));
 
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -809,36 +811,34 @@ BOOL cmd_printf(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         snprintf(aformat, 16, "%%%c", *p);
                         p++;
 
-                        sObject* arg;
+                        char* arg;
                         if(runinfo->mFilter && strings_num < vector_count(SFD(nextin).mLines)) {
-                            arg = STRING_NEW_STACK(vector_item(SFD(nextin).mLines, strings_num));
+                            arg = vector_item(SFD(nextin).mLines, strings_num);
                         }
                         else {
-                            arg = STRING_NEW_STACK("");
+                            arg = "";
                         }
                         strings_num++;
 
-                        string_chomp(arg);
-
                         char* buf;
-                        int size = asprintf(&buf, aformat, string_c_str(arg));
+                        int size = asprintf(&buf, aformat, arg);
 
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                         free(buf);
                     }
                     else {
-                        err_msg("invalid format at printf", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("invalid format at printf", runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
                 }
             }
             else {
                 if(!fd_writec(nextout, *p++)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -911,29 +911,29 @@ BOOL cmd_add(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         if(number < len) {
             int point = str_kanjipos2pointer(code, SFD(nextin).mBuf, number) - SFD(nextin).mBuf;
             if(!fd_write(nextout, SFD(nextin).mBuf, point)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, arg, strlen(arg))) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, SFD(nextin).mBuf + point, SFD(nextin).mBufLen - point)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
         }
         else {
             if(!fd_write(nextout, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, arg, strlen(arg))) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -994,14 +994,14 @@ BOOL cmd_del(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int point = str_kanjipos2pointer(code, SFD(nextin).mBuf, index) - SFD(nextin).mBuf;
         
         if(!fd_write(nextout, SFD(nextin).mBuf, point)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
         if(index + number < len) {
             char* point = str_kanjipos2pointer(code, SFD(nextin).mBuf, index + number);
             if(!fd_write(nextout, point, strlen(point))) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -1059,7 +1059,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     buf2[len2] = 0;
                 }
                 else {
-                    err_msg("invalid range", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("invalid range", runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
 
@@ -1132,7 +1132,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 fd_clear(nextin2);
 
                                 if(!fd_write(nextin2, array[j], array[j+1] -array[j])) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(array);
                                     return FALSE;
@@ -1150,7 +1150,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 else {
                                     if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
                                     {
-                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         FREE(array);
                                         return FALSE;
@@ -1167,7 +1167,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 fd_clear(nextin2);
 
                                 if(!fd_write(nextin2, array[j], array[j+1]-array[j])) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(array);
                                     return FALSE;
@@ -1185,7 +1185,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 else {
                                     if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
                                     {
-                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         FREE(array);
                                         return FALSE;
@@ -1213,7 +1213,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     char* str = str_kanjipos2pointer(code, SFD(nextin).mBuf, num);
                     char* str2 = str_kanjipos2pointer(code, str, 1);
                     if(!fd_write(nextin2, str, str2 -str)) {
-                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -1229,7 +1229,7 @@ BOOL cmd_rows(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     else {
                         if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen)) 
                         {
-                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -1289,7 +1289,7 @@ BOOL cmd_substr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             char* str2 = str_kanjipos2pointer(code, target, index + length);
 
             if(!fd_write(nextout, str, str2 - str)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -1346,24 +1346,24 @@ BOOL cmd_substr_replace(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             char* str2 = str_kanjipos2pointer(code, target, index + length);
 
             if(!fd_write(nextout, target, str - target)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, replace, strlen(replace))) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, str2, strlen(str2))) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
         }
         else {
             if(!fd_write(nextout, replace, strlen(replace))) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -2083,7 +2083,7 @@ BOOL cmd_count(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         char buf[128];
         int size = snprintf(buf, 128, "%d\n", ret);
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -2161,7 +2161,7 @@ BOOL cmd_delete(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!delete_) {
                         if(!fd_writec(nextout, *p)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             FREE(chars);
                             FREE(rchars);
@@ -2188,7 +2188,7 @@ BOOL cmd_delete(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(found) {
                         if(!fd_writec(nextout, *p)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             FREE(chars);
                             FREE(rchars);
@@ -2244,7 +2244,7 @@ BOOL cmd_delete(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!chars_true || rchars_true) {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -2283,7 +2283,7 @@ BOOL cmd_delete(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(rchars_true) {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -2354,7 +2354,7 @@ BOOL cmd_delete(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!chars_true || rchars_true) {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -2393,7 +2393,7 @@ BOOL cmd_delete(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(rchars_true) {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -2462,7 +2462,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 while(*p) {
                     if(char_before != *p) {
                         if(!fd_writec(nextout, *p)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -2516,7 +2516,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(!squeeze_char || char_before != *p) {
                             if(!fd_writec(nextout, *p)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 FREE(chars);
                                 FREE(rchars);
@@ -2544,7 +2544,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(squeeze_char || char_before != *p) {
                             if(!fd_writec(nextout, *p)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 FREE(chars);
                                 FREE(rchars);
@@ -2578,7 +2578,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(memcmp(string_before, p, size) != 0) {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -2633,7 +2633,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(!chars_true || rchars_true || memcmp(string_before, p, size) != 0) {
                             if(!fd_write(nextout, p, size)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 int i;
                                 for(i=0; i<chars_num; i++) {
@@ -2676,7 +2676,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(rchars_true || memcmp(string_before, p, size) != 0) {
                             if(!fd_write(nextout, p, size)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 int i;
                                 for(i=0; i<chars_num; i++) {
@@ -2725,7 +2725,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(memcmp(string_before, p, size) != 0) {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -2781,7 +2781,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(!chars_true || rchars_true || memcmp(string_before, p, size) != 0) {
                             if(!fd_write(nextout, p, size)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 int i;
                                 for(i=0; i<chars_num; i++) {
@@ -2825,7 +2825,7 @@ BOOL cmd_squeeze(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(rchars_true || memcmp(string_before, p, size) != 0) {
                             if(!fd_write(nextout, p, size)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 int i;
                                 for(i=0; i<chars_num; i++) {
@@ -3154,7 +3154,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(found) {
                         if(!fd_writec(nextout, *p)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             FREE(chars);
                             FREE(rchars);
@@ -3164,7 +3164,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     else {
                         if(replace_char != -1) {
                             if(!fd_writec(nextout, replace_char)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 FREE(chars);
                                 FREE(rchars);
@@ -3226,7 +3226,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             char c = rchars[p2 - chars];
                             if(c != -1) {
                                 if(!fd_writec(nextout, c)) {
-                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     FREE(chars);
                                     FREE(rchars);
@@ -3242,7 +3242,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!found) {
                         if(!fd_writec(nextout, *p)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             FREE(chars);
                             FREE(rchars);
@@ -3307,7 +3307,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!found) {
                         if(!fd_write(nextout, replace_char, strlen(replace_char))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -3323,7 +3323,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
                     else {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -3408,7 +3408,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(matched_chars >= 0) {
                         if(!fd_write(nextout, rchars[matched_chars], strlen(rchars[matched_chars]))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -3424,7 +3424,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
                     else {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -3504,7 +3504,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!found) {
                         if(!fd_write(nextout, replace_char, strlen(replace_char))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -3520,7 +3520,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
                     else {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -3605,7 +3605,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(matched_chars >= 0) {
                         if(!fd_write(nextout, rchars[matched_chars], strlen(rchars[matched_chars]))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -3621,7 +3621,7 @@ BOOL cmd_tr(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
                     else {
                         if(!fd_write(nextout, p, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             int i;
                             for(i=0; i<chars_num; i++) {
@@ -3719,7 +3719,7 @@ BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
                     else if(c == 'z') {
                         if(!fd_writec(nextout, 'a')) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -3730,7 +3730,7 @@ BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
                     else if(c == 'Z') {
                         if(!fd_writec(nextout, 'A')) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -3741,7 +3741,7 @@ BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
                     else if(c == '9') {
                         if(!fd_writec(nextout, '1')) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -3753,7 +3753,7 @@ BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
             else {
                 if(!fd_write(nextout, target, target_len-increase_num-ignore_num)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -3765,42 +3765,42 @@ BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 char c = target[target_len -increase_num-ignore_num+i];
                 if(c >= 'a' && c <= 'y') {
                     if(!fd_writec(nextout, ++c)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                 }
                 else if(c == 'z') {
                     if(!fd_writec(nextout, 'a')) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                 }
                 else if(c >= 'A' && c <= 'Y') {
                     if(!fd_writec(nextout, ++c)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                 }
                 else if(c == 'Z') {
                     if(!fd_writec(nextout, 'A')) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                 }
                 else if(c >= '0' && c <= '8') {
                     if(!fd_writec(nextout, ++c)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                 }
                 else if(c == '9') {
                     if(!fd_writec(nextout, '0')) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -3808,14 +3808,14 @@ BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 else {
                     if(increase_num == 1) {
                         if(!fd_writec(nextout, ++c)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                     }
                     else {
                         if(!fd_writec(nextout, c)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -3827,7 +3827,7 @@ BOOL cmd_succ(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             for(i=0; i<ignore_num; i++) {
                 char c = target[target_len - ignore_num+i];
                 if(!fd_writec(nextout, c)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -3900,14 +3900,14 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             const int n = region->end[0] - region->beg[0];
 
                             if(!fd_write(nextin2, target + region->beg[0], n)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 onig_region_free(region, 1);
                                 return FALSE;
                             }
                             if(!fd_write(nextin2, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 onig_region_free(region, 1);
@@ -3921,7 +3921,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 const int size = region->end[i] - region->beg[i];
 
                                 if(!fd_write(nextin2, target + region->beg[i], size)) {
-                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_free(reg);
                                     onig_region_free(region, 1);
@@ -3930,7 +3930,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                                 if(i==region->num_regs-1) {
                                     if(!fd_write(nextin2, field, strlen(field))) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_free(reg);
                                         onig_region_free(region, 1);
@@ -3939,7 +3939,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
                                 else {
                                     if(!fd_write(nextin2, "\t", 1)) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_free(reg);
                                         onig_region_free(region, 1);
@@ -4002,14 +4002,14 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             const int n = region->end[0] - region->beg[0];
 
                             if(!fd_write(nextout, target + region->beg[0], n)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 onig_region_free(region, 1);
                                 return FALSE;
                             }
                             if(!fd_write(nextout, field, strlen(field))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 onig_region_free(region, 1);
@@ -4023,7 +4023,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 const int size = region->end[i] - region->beg[i];
 
                                 if(!fd_write(nextout, target + region->beg[i], size)) {
-                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_free(reg);
                                     onig_region_free(region, 1);
@@ -4032,7 +4032,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                                 if(i==region->num_regs-1) {
                                     if(!fd_write(nextout, field, strlen(field))) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_free(reg);
                                         onig_region_free(region, 1);
@@ -4041,7 +4041,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
                                 else {
                                     if(!fd_write(nextout, "\t", 1)) {
-                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_free(reg);
                                         onig_region_free(region, 1);
@@ -4060,7 +4060,8 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
                 }
                 else {
-                    p++;
+                    break;
+                    //p++;
                 }
 
                 onig_region_free(region, 1);
@@ -4085,7 +4086,7 @@ BOOL cmd_scan(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
         }
         else {
-            err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("invalid regex", runinfo->mSName, runinfo->mSLine);
             return FALSE;
         }
     }
@@ -4127,7 +4128,7 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         int len = str_kanjilen(code, target);
                         if(len < 0) {
-                            err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("invalid target string", runinfo->mSName, runinfo->mSLine);
                             return FALSE;
                         }
 
@@ -4161,7 +4162,7 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     while(p < start_byte + strlen(start_byte)) {
                         if(gXyzshSigInt) {
                             gXyzshSigInt = FALSE;
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -4218,19 +4219,19 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!sRunInfo_option(runinfo, "-quiet")) {
                         if(!fd_write(nextout, msg, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                         if(!fd_write(nextout, "\n", 1)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                     }
                 }
                 else {
-                    err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("invalid regex", runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
 
@@ -4253,7 +4254,7 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     int len = str_kanjilen(code, target);
                     if(len < 0) {
-                        err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("invalid target string", runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
 
@@ -4288,7 +4289,7 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     while(p < start_byte + strlen(start_byte)) {
                         if(gXyzshSigInt) {
                             gXyzshSigInt = FALSE;
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -4310,7 +4311,7 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     while(p < start_byte + strlen(start_byte)) {
                         if(gXyzshSigInt) {
                             gXyzshSigInt = FALSE;
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -4349,12 +4350,12 @@ BOOL cmd_index(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                 if(!sRunInfo_option(runinfo, "-quiet")) {
                     if(!fd_write(nextout, msg, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                     if(!fd_write(nextout, "\n", 1)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -4384,7 +4385,7 @@ static char* strstr_back(char* p, char* start, char* word, char* sname, int slin
             }
 
             if(gXyzshSigInt) {
-                err_msg("interrupt", sname, sline, command);
+                err_msg("interrupt", sname, sline);
                 gXyzshSigInt = FALSE;
                 return NULL;
             }
@@ -4428,7 +4429,7 @@ static char* strcasestr_back(char* p, char* start, char* word, char* sname, int 
 
             if(gXyzshSigInt) {
                 gXyzshSigInt = FALSE;
-                err_msg("interrupt", sname, sline, command);
+                err_msg("interrupt", sname, sline);
                 return NULL;
             }
         }
@@ -4473,7 +4474,7 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     /// get starting point ///
                     int len = str_kanjilen(code, target);
                     if(len < 0) {
-                        err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("invalid target string", runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
 
@@ -4513,7 +4514,7 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     while(p>=target) {
                         if(gXyzshSigInt) {
                             gXyzshSigInt = FALSE;
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -4569,19 +4570,19 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                     if(!sRunInfo_option(runinfo, "-quiet")) {
                         if(!fd_write(nextout, msg, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                         if(!fd_write(nextout, "\n", 1)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
                     }
                 }
                 else {
-                    err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("invalid regex", runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
             }
@@ -4596,7 +4597,7 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 /// get starting point ///
                 int len = str_kanjilen(code, target);
                 if(len < 0) {
-                    err_msg("invalid target string", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("invalid target string", runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
 
@@ -4640,7 +4641,7 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(gXyzshSigInt) {
                             gXyzshSigInt = FALSE;
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -4663,7 +4664,7 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(gXyzshSigInt) {
                             gXyzshSigInt = FALSE;
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -4702,12 +4703,12 @@ BOOL cmd_rindex(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 /// Ω–Œœ ///
                 if(!sRunInfo_option(runinfo, "-quiet")) {
                     if(!fd_write(nextout, msg, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                     if(!fd_write(nextout, "\n", 1)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -4749,7 +4750,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(result == NULL) {
                     if(!quiet) {
                         if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -4759,12 +4760,12 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                 if(!quiet) {
                     if(!fd_write(nextout, p, result - p)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
                     if(!fd_write(nextout, destination, destination_len)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -4776,7 +4777,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(!global) {
                     if(!quiet) {
                         if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -4850,7 +4851,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(!quiet) {
                             if(!fd_write(nextout, p, strlen(p))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 return FALSE;
@@ -4906,7 +4907,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             fd_clear(nextout2);
 
                             if(!fd_write(nextin2, target + region->beg[0], region->end[0]-region->beg[0])) {
-                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_region_free(region, 1);
                                 onig_free(reg);
@@ -4987,14 +4988,14 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(!quiet) {
                             if(!fd_write(nextout, p, region->beg[0]-point)) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_region_free(region, 1);
                                 onig_free(reg);
                                 return FALSE;
                             }
                             if(!fd_write(nextout, string_c_str(sub_str), string_length(sub_str))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_region_free(region, 1);
                                 onig_free(reg);
@@ -5011,7 +5012,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                             if(!quiet) {
                                 if(!fd_write(nextout, buf, 1)) {
-                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -5033,7 +5034,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(!global && !quiet) {
                             if(!fd_write(nextout, p, strlen(p))) {
-                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 return FALSE;
@@ -5044,7 +5045,7 @@ BOOL cmd_sub(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 }
             }
             else {
-                err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("invalid regex", runinfo->mSName, runinfo->mSLine);
                 return FALSE;
             }
 
@@ -5151,16 +5152,10 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(result == NULL) {
                     if(*p) {
                         if(!fd_write(nextout, p, strlen(p))) {
-                            err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
-                    }
-
-                    if(!fd_write(nextout, field, strlen(field))) {
-                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                        return FALSE;
                     }
                     break;
                 }
@@ -5168,19 +5163,25 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     split_count++;
 
                     if(!fd_write(nextout, p, result - p)) {
-                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
 
                     if(!fd_write(nextout, field, strlen(field))) {
-                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
 
                     p = result + word_len;
                 }
+            }
+
+            if(!fd_write(nextout, field, strlen(field))) {
+                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
             }
 
             if(split_count > 0) {
@@ -5225,18 +5226,11 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         if(*p) {
                             if(!fd_write(nextout, p, strlen(p))) {
-                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                 onig_free(reg);
                                 return FALSE;
                             }
-                        }
-
-                        if(!fd_write(nextout, field, strlen(field))) {
-                            err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                            onig_free(reg);
-                            return FALSE;
                         }
                         break;
                     }
@@ -5250,7 +5244,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                                 if(size > 0) {
                                     if(!fd_write(nextout, p, size)) {
-                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_region_free(region, 1);
                                         onig_free(reg);
@@ -5258,7 +5252,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                     }
 
                                     if(!fd_write(nextout, field, strlen(field))) {
-                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_region_free(region, 1);
                                         onig_free(reg);
@@ -5278,7 +5272,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                                 if(size > 0) {
                                     if(!fd_write(nextout, p, size)) {
-                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_region_free(region, 1);
                                         onig_free(reg);
@@ -5286,7 +5280,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                     }
 
                                     if(!fd_write(nextout, field, strlen(field))) {
-                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_region_free(region, 1);
                                         onig_free(reg);
@@ -5295,7 +5289,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
                                 else if(size == 0) {
                                     if(!fd_write(nextout, field, strlen(field))) {
-                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_region_free(region, 1);
                                         onig_free(reg);
@@ -5311,7 +5305,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                             if(size > 0) {
                                 if(!fd_write(nextout, p, size)) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -5319,7 +5313,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 }
 
                                 if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -5328,7 +5322,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                             }
                             else if(size == 0) {
                                 if(!fd_write(nextout, field, strlen(field))) {
-                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     onig_region_free(region, 1);
                                     onig_free(reg);
@@ -5346,7 +5340,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 const int size = region->end[i]-region->beg[i];
                                 if(size > 0) {
                                     if(!fd_write(nextout, target + region->beg[i], size)) {
-                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_region_free(region, 1);
                                         onig_free(reg);
@@ -5354,7 +5348,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                     }
 
                                     if(!fd_write(nextout, field, strlen(field))) {
-                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         onig_region_free(region, 1);
                                         onig_free(reg);
@@ -5366,6 +5360,12 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     }
 
                     onig_region_free(region, 1);
+                }
+
+                if(!fd_write(nextout, field, strlen(field))) {
+                    err_msg("singal interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
                 }
 
                 if(split_count > 0) {
@@ -5381,7 +5381,7 @@ BOOL cmd_split(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 }
             }
             else {
-                err_msg("invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("invalid regex", runinfo->mSName, runinfo->mSLine);
                 return FALSE;
             }
 

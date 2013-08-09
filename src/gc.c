@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 static int gPoolSize;
 static sObject** gPool;
@@ -19,7 +19,7 @@ sObject* gStackFrames;
 
 static void object_delete(sObject* obj)
 {
-    switch(TYPE(obj)) {
+    switch(STYPE(obj)) {
     case T_STRING:
         string_delete_on_gc(obj);
         break;
@@ -74,6 +74,12 @@ static void object_delete(sObject* obj)
     case T_EXTPROG:
         external_prog_delete_on_gc(obj);
         break;
+
+/*
+    case T_ALIAS:
+        alias_delete_on_gc(obj);
+        break;
+*/
     }
 }
 
@@ -81,7 +87,7 @@ int object_gc_children_mark(sObject* self)
 {
     int count = 0;
 
-    switch(TYPE(self)) {
+    switch(STYPE(self)) {
     case T_VECTOR:
         count += vector_gc_children_mark(self);
         break;
@@ -121,6 +127,10 @@ int object_gc_children_mark(sObject* self)
     case T_EXTOBJ:
         count += SEXTOBJ(self).mMarkFun(self);
         break;
+
+    case T_ALIAS:
+        count += alias_gc_children_mark(self);
+        break;
     }
 
     return count;
@@ -134,7 +144,7 @@ static int sweep()
         sObject* p = gPool[i];
         int j;
         for(j=0; j<SLOT_SIZE; j++) {
-           if(TYPE(p + j) != 0 && !IS_MARKED(p + j)) {
+           if(STYPE(p + j) != 0 && !IS_MARKED(p + j)) {
                 object_delete(p + j);
 
                 memset(p + j, 0, sizeof(sObject));
@@ -155,9 +165,9 @@ BOOL gc_valid_object(sObject* object)
     int i;
     for(i=0; i<gPoolSize; i++) {
         if(object >= gPool[i] && object < gPool[i] + SLOT_SIZE) {
-            ulong n = ((ulong)object - (ulong)gPool[i]) % (ulong)sizeof(sObject);
+            unsigned long n = ((unsigned long)object - (unsigned long)gPool[i]) % (unsigned long)sizeof(sObject);
             if(n == 0) {
-                if(TYPE(object) > 0 && TYPE(object) < T_TYPE_MAX) {
+                if(STYPE(object) > 0 && STYPE(object) < T_TYPE_MAX) {
                     return TRUE;
                 }
                 else {
@@ -173,6 +183,8 @@ BOOL gc_valid_object(sObject* object)
 
     return FALSE;
 }
+
+sObject* gInheritMethod2;
 
 void gc_init(int pool_size)
 {
@@ -213,6 +225,12 @@ void gc_init(int pool_size)
     uobject_root_init(gRootObject);
     gCurrentObject = gRootObject;
 
+    sObject* xyzsh_object = UOBJECT_NEW_GC(8, NULL, "xyzsh", TRUE);
+    uobject_init(xyzsh_object);
+    xyzsh_object_init(xyzsh_object);
+    gInheritMethod2 = uobject_item(xyzsh_object, "inherit");
+    uobject_put(gRootObject, "xyzsh", xyzsh_object);
+
     gCompletionObject = UOBJECT_NEW_GC(8, gRootObject, "compl", FALSE);
     uobject_init(gCompletionObject);
     uobject_put(gRootObject, "compl", gCompletionObject);
@@ -236,7 +254,7 @@ void gc_final()
         sObject* p = gPool[i];
         int j;
         for(j=0; j<SLOT_SIZE; j++) {
-            if(TYPE(p + j)) {
+            if(STYPE(p + j)) {
                 object_delete(p + j);
             }
         }

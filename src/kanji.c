@@ -1,10 +1,13 @@
 #include "config.h"
+#include "kanji.h"
+#include "debug.h"
+#include "xfunc.h"
 
 #include <wctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "xyzsh/xyzsh.h"
+#include <limits.h>
 
 char* gKanjiCodeString[6] = {
     "eucjp", "sjis", "utf8", "utf8-mac", "byte", "unknown"
@@ -51,17 +54,17 @@ int str_termlen_range(enum eKanjiCode code, char* mbs, int utfpos1, int utfpos2)
 
 BOOL is_utf8_bytes(char* mbs)
 {
-    const int size = (strlen(mbs)+1)*MB_CUR_MAX;
-    wchar_t* wcs = (wchar_t*)MALLOC(size);
-    char* mbs2 = MALLOC(size);
+    const int len = strlen(mbs) + 1;
+    wchar_t* wcs = (wchar_t*)MALLOC(sizeof(wchar_t)*len);
+    char* mbs2 = MALLOC(len * MB_LEN_MAX);
 
-    if(mbstowcs(wcs, mbs, size) < 0) {
+    if(mbstowcs(wcs, mbs, len) < 0) {
         FREE(wcs);
         FREE(mbs2);
         return FALSE;
     }
 
-    if(wcstombs(mbs2, wcs, size) < 0) {
+    if(wcstombs(mbs2, wcs, len * MB_LEN_MAX) < 0) {
         FREE(wcs);
         FREE(mbs2);
         return FALSE;
@@ -265,8 +268,9 @@ int str_termlen(enum eKanjiCode code, char* mbs)
         int result;
         wchar_t* wcs;
 
-        wcs = (wchar_t*)MALLOC(sizeof(wchar_t)*((strlen(mbs)+1)*MB_CUR_MAX));
-        if(mbstowcs(wcs, mbs, (strlen(mbs)+1)*MB_CUR_MAX) < 0) {
+        const int len = strlen(mbs) + 1;
+        wcs = (wchar_t*)MALLOC(sizeof(wchar_t)*len);
+        if(mbstowcs(wcs, mbs, len) < 0) {
             FREE(wcs);
             return -1;
         }

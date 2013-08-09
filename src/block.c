@@ -1,6 +1,6 @@
 #include "config.h"
 
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 #include <string.h>
 #include <stdio.h>
 #include <glob.h>
@@ -41,7 +41,7 @@ void sRunInfo_command_delete(sRunInfo* runinfo)
     if(runinfo->mRedirectsFileNamesRuntime) {
         int i;
         for(i=0; i<runinfo->mRedirectsNumRuntime; i++) {
-            FREE(runinfo->mRedirectsFileNamesRuntime[i]);
+            if(runinfo->mRedirectsFileNamesRuntime[i]) FREE(runinfo->mRedirectsFileNamesRuntime[i]);
         }
         FREE(runinfo->mRedirectsFileNamesRuntime);
     }
@@ -83,7 +83,7 @@ BOOL sRunInfo_option(sRunInfo* self, char* key)
     }
 }
 
-static BOOL sRunInfo_put_option(sRunInfo* self, MANAGED char* key)
+BOOL sRunInfo_put_option(sRunInfo* self, MANAGED char* key)
 {
     int hash_value = options_hash_fun(key);
 
@@ -92,6 +92,7 @@ static BOOL sRunInfo_put_option(sRunInfo* self, MANAGED char* key)
         if(p->mKey) {
             p++;
             if(p == self->mOptions + hash_value) {
+                FREE(key);
                 return FALSE;
             }
             else if(p == self->mOptions + XYZSH_OPTION_MAX) {
@@ -132,7 +133,7 @@ char* sRunInfo_option_with_argument(sRunInfo* self, char* key)
     }
 }
 
-static BOOL sRunInfo_put_option_with_argument(sRunInfo* self, MANAGED char* key, MANAGED char* argument)
+BOOL sRunInfo_put_option_with_argument(sRunInfo* self, MANAGED char* key, MANAGED char* argument)
 {
     int hash_value = options_hash_fun(key);
 
@@ -141,6 +142,8 @@ static BOOL sRunInfo_put_option_with_argument(sRunInfo* self, MANAGED char* key,
         if(p->mKey) {
             p++;
             if(p == self->mOptions + hash_value) {
+                FREE(key);
+                FREE(argument);
                 return FALSE;
             }
             else if(p == self->mOptions + XYZSH_OPTION_MAX) {
@@ -155,7 +158,7 @@ static BOOL sRunInfo_put_option_with_argument(sRunInfo* self, MANAGED char* key,
     }
 }
 
-static void sRunInfo_add_arg(sRunInfo* self, MANAGED char* buf)
+void sRunInfo_add_arg(sRunInfo* self, MANAGED char* buf)
 {
     if(self->mArgsNumRuntime+1 >= self->mArgsSizeRuntime) {
         const int arg_runtime_size = self->mArgsSizeRuntime;
@@ -168,6 +171,21 @@ static void sRunInfo_add_arg(sRunInfo* self, MANAGED char* buf)
 
     self->mArgsRuntime[self->mArgsNumRuntime++] = buf;
     self->mArgsRuntime[self->mArgsNumRuntime] = NULL;
+}
+
+void sRunInfo_init_redirect_file_name(sRunInfo* self, int redirect_number)
+{
+    if(self->mRedirectsFileNamesRuntime == NULL) {
+        const int size = sizeof(char*)*redirect_number;
+        self->mRedirectsFileNamesRuntime = MALLOC(size);
+        memset(self->mRedirectsFileNamesRuntime, 0, size);
+        self->mRedirectsNumRuntime = redirect_number;
+    }
+}
+
+void sRunInfo_add_redirect_file_name(sRunInfo* self, int redirect_index, MANAGED char* fname)
+{
+    self->mRedirectsFileNamesRuntime[redirect_index] = MANAGED fname;
 }
 
 sCommand* sCommand_new(sStatment* statment)
@@ -231,8 +249,6 @@ void add_str_to_buf(sBuf* buf, char* str, int len)
 
 static void sCommand_copy_deeply(sCommand* dest, sCommand* src)
 {
-    dest->mKind = src->mKind;
-
     dest->mArgs = MALLOC(sizeof(char*)*src->mArgsSize);
     dest->mArgsFlags = MALLOC(sizeof(int)*src->mArgsSize);
     dest->mArgsNum = src->mArgsNum;
@@ -252,7 +268,7 @@ static void sCommand_copy_deeply(sCommand* dest, sCommand* src)
         if(src->mEnvs[i].mFlags & ENV_FLAGS_KIND_ENV) {
             dest->mEnvs[i].mName = STRDUP(src->mEnvs[i].mName);
             dest->mEnvs[i].mKey = STRDUP(src->mEnvs[i].mKey);
-            dest->mEnvs[i].mKeyEnv = src->mEnvs[i].mKeyEnv;
+            dest->mEnvs[i].mInitValue = STRDUP(src->mEnvs[i].mInitValue);
         }
         else {
             dest->mEnvs[i].mBlock = block_clone_on_gc(src->mEnvs[i].mBlock, T_BLOCK, FALSE);
@@ -293,8 +309,6 @@ static void sCommand_copy_deeply(sCommand* dest, sCommand* src)
 
 static void sCommand_copy_deeply_stack(sCommand* dest, sCommand* src)
 {
-    dest->mKind = src->mKind;
-
     dest->mArgs = MALLOC(sizeof(char*)*src->mArgsSize);
     dest->mArgsFlags = MALLOC(sizeof(int)*src->mArgsSize);
     dest->mArgsNum = src->mArgsNum;
@@ -314,7 +328,7 @@ static void sCommand_copy_deeply_stack(sCommand* dest, sCommand* src)
         if(src->mEnvs[i].mFlags & ENV_FLAGS_KIND_ENV) {
             dest->mEnvs[i].mName = STRDUP(src->mEnvs[i].mName);
             dest->mEnvs[i].mKey = STRDUP(src->mEnvs[i].mKey);
-            dest->mEnvs[i].mKeyEnv = src->mEnvs[i].mKeyEnv;
+            dest->mEnvs[i].mInitValue = STRDUP(src->mEnvs[i].mInitValue);
         }
         else {
             dest->mEnvs[i].mBlock = block_clone_on_stack(src->mEnvs[i].mBlock, T_BLOCK);
@@ -365,6 +379,7 @@ void sCommand_delete(sCommand* self)
             if(self->mEnvs[i].mFlags & ENV_FLAGS_KIND_ENV) {
                 FREE(self->mEnvs[i].mName);
                 FREE(self->mEnvs[i].mKey);
+                FREE(self->mEnvs[i].mInitValue);
             }
         }
         FREE(self->mEnvs);
@@ -387,7 +402,7 @@ void sCommand_delete(sCommand* self)
     }
 }
 
-BOOL sCommand_add_arg(sCommand* self, MANAGED char* buf, int env, int glob, char* sname, int sline)
+BOOL sCommand_add_arg(sCommand* self, MANAGED char* buf, int env, int quoted_string, int quoted_head, int glob, int option, char* sname, int sline)
 {
     if(self->mArgsNum+1 >= self->mArgsSize) {
         const int arg_size = self->mArgsSize;
@@ -395,7 +410,7 @@ BOOL sCommand_add_arg(sCommand* self, MANAGED char* buf, int env, int glob, char
         int new_size = self->mArgsSize * 2;
     
         if(new_size >= XYZSH_ARG_SIZE_MAX) {
-            err_msg("argument size overflow", sname, sline, self->mArgs[0]);
+            err_msg("argument size overflow", sname, sline);
             return FALSE;
         }
 
@@ -408,7 +423,7 @@ BOOL sCommand_add_arg(sCommand* self, MANAGED char* buf, int env, int glob, char
     }
 
     self->mArgs[self->mArgsNum] = buf;
-    self->mArgsFlags[self->mArgsNum++] = (env ? XYZSH_ARGUMENT_ENV:0) | (glob ? XYZSH_ARGUMENT_GLOB:0);
+    self->mArgsFlags[self->mArgsNum++] = (env ? XYZSH_ARGUMENT_ENV:0) | (glob ? XYZSH_ARGUMENT_GLOB:0) | (option ? XYZSH_ARGUMENT_OPTION : 0) | (quoted_string ? XYZSH_ARGUMENT_QUOTED:0) | (quoted_head ? XYZSH_ARGUMENT_QUOTED_HEAD:0);
     self->mArgs[self->mArgsNum] = NULL;
 
     return TRUE;
@@ -430,7 +445,7 @@ BOOL sCommand_add_block(sCommand* self, sObject* block, char* sname, int sline)
             int new_block_size = self->mBlocksSize * 2;
 
             if(new_block_size >= XYZSH_BLOCK_SIZE_MAX) {
-                err_msg("block size overflow", sname, sline, self->mArgs[0]);
+                err_msg("block size overflow", sname, sline);
                 return FALSE;
             }
             self->mBlocks = REALLOC(self->mBlocks, sizeof(sObject*)*new_block_size);
@@ -461,7 +476,7 @@ BOOL sCommand_add_message(sCommand* self, MANAGED char* message, char* sname, in
             int new_message_size = self->mMessagesSize * 2;
 
             if(new_message_size >= XYZSH_MESSAGE_SIZE_MAX) {
-                err_msg("message size overflow", sname, sline, self->mArgs[0]);
+                err_msg("message size overflow", sname, sline);
                 return FALSE;
             }
 
@@ -478,7 +493,7 @@ BOOL sCommand_add_message(sCommand* self, MANAGED char* message, char* sname, in
     return TRUE;
 }
 
-BOOL sCommand_add_env(sCommand* self, MANAGED char* name, MANAGED char* key, BOOL key_env, BOOL double_dollar, BOOL option, char* sname, int sline)
+BOOL sCommand_add_env(sCommand* self, MANAGED char* name, MANAGED char* init_value, MANAGED char* key, BOOL key_env, BOOL key_quoted, char* sname, int sline)
 {
     if(self->mEnvsNum >= self->mEnvsSize) {
         if(self->mEnvs == NULL) {
@@ -490,23 +505,23 @@ BOOL sCommand_add_env(sCommand* self, MANAGED char* name, MANAGED char* key, BOO
             self->mEnvsSize *= 2;
 
             if(self->mEnvsSize >= XYZSH_ENV_SIZE_MAX) {
-                err_msg("environment size overflow", sname, sline, self->mArgs[0]);
+                err_msg("environment size overflow", sname, sline);
                 return FALSE;
             }
             self->mEnvs = REALLOC(self->mEnvs, sizeof(sEnv)*self->mEnvsSize);
         }
     }
 
-    self->mEnvs[self->mEnvsNum].mFlags = ENV_FLAGS_KIND_ENV | (double_dollar ? ENV_FLAGS_DOUBLE_DOLLAR: 0) | (option ? ENV_FLAGS_OPTION:0);
+    self->mEnvs[self->mEnvsNum].mFlags = ENV_FLAGS_KIND_ENV | (key_env ? ENV_FLAGS_KEY_ENV:0) | (key_quoted ? ENV_FLAGS_KEY_QUOTED_STRING:0);
     self->mEnvs[self->mEnvsNum].mName = MANAGED name;
+    self->mEnvs[self->mEnvsNum].mInitValue = MANAGED init_value;
     self->mEnvs[self->mEnvsNum].mKey = MANAGED key;
-    self->mEnvs[self->mEnvsNum].mKeyEnv = key_env;
     self->mEnvsNum++;
 
     return TRUE;
 }
 
-BOOL sCommand_add_env_block(sCommand* self, sObject* block, BOOL double_dollar, BOOL option, eLineField lf, char* sname, int sline)
+BOOL sCommand_add_env_block(sCommand* self, sObject* block, eLineField lf, char* sname, int sline)
 {
     if(self->mEnvsNum >= self->mEnvsSize) {
         if(self->mEnvs == NULL) {
@@ -518,7 +533,7 @@ BOOL sCommand_add_env_block(sCommand* self, sObject* block, BOOL double_dollar, 
             self->mEnvsSize *= 2;
 
             if(self->mEnvsSize >= XYZSH_ENV_SIZE_MAX) {
-                err_msg("environment size overflow", sname, sline, self->mArgs[0]);
+                err_msg("environment size overflow", sname, sline);
                 return FALSE;
             }
             self->mEnvs = REALLOC(self->mEnvs, sizeof(sEnv)*self->mEnvsSize);
@@ -526,7 +541,7 @@ BOOL sCommand_add_env_block(sCommand* self, sObject* block, BOOL double_dollar, 
         }
     }
 
-    self->mEnvs[self->mEnvsNum].mFlags = ENV_FLAGS_KIND_BLOCK | (double_dollar ? ENV_FLAGS_DOUBLE_DOLLAR:0) | (option ? ENV_FLAGS_OPTION:0);
+    self->mEnvs[self->mEnvsNum].mFlags = ENV_FLAGS_KIND_BLOCK;
     self->mEnvs[self->mEnvsNum].mBlock = block_clone_on_stack(block, T_BLOCK);
     self->mEnvs[self->mEnvsNum].mLineField = lf;
 
@@ -535,7 +550,7 @@ BOOL sCommand_add_env_block(sCommand* self, sObject* block, BOOL double_dollar, 
     return TRUE;
 }
 
-BOOL sCommand_add_redirect(sCommand* self, MANAGED char* name, BOOL env, BOOL glob, int redirect, char* sname, int sline)
+BOOL sCommand_add_redirect(sCommand* self, MANAGED char* name, BOOL env, BOOL quoted_string, BOOL glob, int redirect, char* sname, int sline)
 {
     if(self->mRedirectsNum >= self->mRedirectsSize) {
         if(self->mRedirectsFileNames == NULL) {
@@ -548,7 +563,7 @@ BOOL sCommand_add_redirect(sCommand* self, MANAGED char* name, BOOL env, BOOL gl
             const int redirect_size = self->mRedirectsSize;
             
             if(self->mRedirectsSize*2 >= XYZSH_REDIRECT_SIZE_MAX) {
-                err_msg("redirect size overflow", sname, sline, self->mArgs[0]);
+                err_msg("redirect size overflow", sname, sline);
                 return FALSE;
             }
 
@@ -559,8 +574,127 @@ BOOL sCommand_add_redirect(sCommand* self, MANAGED char* name, BOOL env, BOOL gl
     }
 
     self->mRedirectsFileNames[self->mRedirectsNum] = MANAGED name;
-    self->mRedirects[self->mRedirectsNum++] = redirect | (env ? REDIRECT_ENV:0) | (glob ? REDIRECT_GLOB: 0);
+    self->mRedirects[self->mRedirectsNum++] = redirect | (env ? REDIRECT_ENV:0) | (glob ? REDIRECT_GLOB: 0) | (quoted_string ? REDIRECT_QUOTED:0);
     
+    return TRUE;
+}
+
+BOOL sCommand_add_command_without_command_name(sCommand* self, sCommand* command, char* sname, int sline)
+{
+    int i;
+    for(i=1; i<command->mArgsNum; i++) {
+        if(command->mArgsFlags[i] & XYZSH_ARGUMENT_ENV) {
+            sBuf buf;
+            memset(&buf, 0, sizeof(sBuf));
+            buf.mBuf = MALLOC(64);
+            buf.mBuf[0] = 0;
+            buf.mSize = 64;
+
+            char* p = command->mArgs[i];
+            while(*p) {
+                if(*p == PARSER_MAGIC_NUMBER_ENV) {
+                    p++;
+
+                    char buf2[128];
+                    char* p2 = buf2;
+                    while(*p != PARSER_MAGIC_NUMBER_ENV) {
+                        *p2++ = *p++;
+                    }
+                    p++;
+                    *p2 = 0;
+
+                    int num = atoi(buf2) + self->mEnvsNum;
+                    snprintf(buf2, 128, "%d", num);
+
+                    add_char_to_buf(&buf, PARSER_MAGIC_NUMBER_ENV);
+                    add_str_to_buf(&buf, buf2, strlen(buf2));
+                    add_char_to_buf(&buf, PARSER_MAGIC_NUMBER_ENV);
+                }
+                else {
+                    add_char_to_buf(&buf, *p++);
+                }
+            }
+            if(!sCommand_add_arg(self, MANAGED buf.mBuf, command->mArgsFlags[i] & XYZSH_ARGUMENT_ENV, command->mArgsFlags[i] & XYZSH_ARGUMENT_QUOTED, command->mArgsFlags[i] & XYZSH_ARGUMENT_QUOTED_HEAD, command->mArgsFlags[i] & XYZSH_ARGUMENT_GLOB, command->mArgsFlags[i] & XYZSH_ARGUMENT_OPTION, sname, sline))
+            {
+                return FALSE;
+            }
+        }
+        else {
+            char* arg = STRDUP(command->mArgs[i]);
+            if(!sCommand_add_arg(self, MANAGED arg, command->mArgsFlags[i] & XYZSH_ARGUMENT_ENV, command->mArgsFlags[i] & XYZSH_ARGUMENT_QUOTED, command->mArgsFlags[i] & XYZSH_ARGUMENT_QUOTED_HEAD, command->mArgsFlags[i] & XYZSH_ARGUMENT_GLOB, command->mArgsFlags[i] & XYZSH_ARGUMENT_OPTION, sname, sline))
+            {
+                return FALSE;
+            }
+        }
+    }
+    for(i=0; i<command->mEnvsNum; i++) {
+        sEnv* env = command->mEnvs + i;
+
+        if(env->mFlags & ENV_FLAGS_KIND_ENV) {
+            if(!sCommand_add_env(self, MANAGED STRDUP(env->mName), MANAGED STRDUP(env->mInitValue), MANAGED STRDUP(env->mKey), env->mFlags & ENV_FLAGS_KEY_ENV, env->mFlags & ENV_FLAGS_KEY_QUOTED_STRING, sname, sline))
+            {
+                return FALSE;
+            }
+        }
+        else {
+            sObject* block = block_clone_on_stack(env->mBlock, T_BLOCK);
+            if(!sCommand_add_env_block(self, block, env->mLineField, sname, sline)) {
+                return FALSE;
+            }
+        }
+    }
+    for(i=0; i<command->mBlocksNum; i++) {
+        sObject* block = block_clone_on_stack(command->mBlocks[i], T_BLOCK);
+        if(!sCommand_add_block(self, block, sname, sline)) {
+            return FALSE;
+        }
+    }
+    for(i=0; i<command->mRedirectsNum; i++) {
+        int flags = command->mRedirects[i];
+        if(flags & REDIRECT_ENV) {
+            sBuf buf;
+            memset(&buf, 0, sizeof(sBuf));
+            buf.mBuf = MALLOC(64);
+            buf.mBuf[0] = 0;
+            buf.mSize = 64;
+
+            char* p = command->mRedirectsFileNames[i];
+            while(*p) {
+                if(*p == PARSER_MAGIC_NUMBER_ENV) {
+                    p++;
+
+                    char buf2[128];
+                    char* p2 = buf2;
+                    while(*p != PARSER_MAGIC_NUMBER_ENV) {
+                        *p2++ = *p++;
+                    }
+                    p++;
+                    *p2 = 0;
+
+                    int num = atoi(buf2) + self->mEnvsNum;
+                    snprintf(buf2, 128, "%d", num);
+
+                    add_char_to_buf(&buf, PARSER_MAGIC_NUMBER_ENV);
+                    add_str_to_buf(&buf, buf2, strlen(buf2));
+                    add_char_to_buf(&buf, PARSER_MAGIC_NUMBER_ENV);
+                }
+                else {
+                    add_char_to_buf(&buf, *p++);
+                }
+            }
+            if(!sCommand_add_redirect(self, MANAGED buf.mBuf, flags & REDIRECT_ENV, flags & REDIRECT_QUOTED, flags & REDIRECT_GLOB, flags & REDIRECT_KIND, sname, sline)) 
+            {
+                return FALSE;
+            }
+        }
+        else {
+            if(!sCommand_add_redirect(self, MANAGED STRDUP(command->mRedirectsFileNames[i]), flags & REDIRECT_ENV, flags & REDIRECT_QUOTED, flags & REDIRECT_GLOB, flags & REDIRECT_KIND, sname, sline))
+            {
+                return FALSE;
+            }
+        }
+    }
+
     return TRUE;
 }
 
@@ -579,17 +713,28 @@ sStatment* sStatment_new(sObject* block, int sline, char* sname)
     SBLOCK(block).mStatmentsNum++;
     self->mLine = sline;
     self->mFName = STRDUP(sname);
+    self->mFlags = 0;
 
     return self;
 }
 
 static void sStatment_copy_deeply(sStatment* dest, sStatment* source)
 {
-    dest->mCommandsNum = source->mCommandsNum;
+    if(source->mFlags & STATMENT_FLAGS_KIND_NODETREE) {
+        dest->mNodeTreeNum = source->mNodeTreeNum;
 
-    int i;
-    for(i=0; i<source->mCommandsNum; i++) {
-        sCommand_copy_deeply(dest->mCommands + i, source->mCommands + i);
+        int i;
+        for(i=0; i<source->mNodeTreeNum; i++) {
+            dest->mNodeTree[i] = ALLOC sNodeTree_clone(source->mNodeTree[i]);
+        }
+    }
+    else {
+        dest->mCommandsNum = source->mCommandsNum;
+
+        int i;
+        for(i=0; i<source->mCommandsNum; i++) {
+            sCommand_copy_deeply(dest->mCommands + i, source->mCommands + i);
+        }
     }
 
     if(source->mFName) {
@@ -605,11 +750,21 @@ static void sStatment_copy_deeply(sStatment* dest, sStatment* source)
 
 static void sStatment_copy_deeply_stack(sStatment* dest, sStatment* source)
 {
-    dest->mCommandsNum = source->mCommandsNum;
+    if(source->mFlags & STATMENT_FLAGS_KIND_NODETREE) {
+        dest->mNodeTreeNum = source->mNodeTreeNum;
 
-    int i;
-    for(i=0; i<source->mCommandsNum; i++) {
-        sCommand_copy_deeply_stack(dest->mCommands + i, source->mCommands + i);
+        int i;
+        for(i=0; i<source->mNodeTreeNum; i++) {
+            dest->mNodeTree[i] = ALLOC sNodeTree_clone(source->mNodeTree[i]);
+        }
+    }
+    else {
+        dest->mCommandsNum = source->mCommandsNum;
+
+        int i;
+        for(i=0; i<source->mCommandsNum; i++) {
+            sCommand_copy_deeply_stack(dest->mCommands + i, source->mCommands + i);
+        }
     }
 
     if(source->mFName) {
@@ -625,9 +780,17 @@ static void sStatment_copy_deeply_stack(sStatment* dest, sStatment* source)
 
 void sStatment_delete(sStatment* self)
 {
-    int i;
-    for(i=0; i<self->mCommandsNum; i++) {
-        sCommand_delete(self->mCommands + i);
+    if(self->mFlags & STATMENT_FLAGS_KIND_NODETREE) {
+        int i;
+        for(i=0; i<self->mNodeTreeNum; i++) {
+            sNodeTree_free(self->mNodeTree[i]);
+        }
+    }
+    else {
+        int i;
+        for(i=0; i<self->mCommandsNum; i++) {
+            sCommand_delete(self->mCommands + i);
+        }
     }
     if(self->mFName) FREE(self->mFName);
 }
@@ -734,6 +897,7 @@ void block_delete_on_stack(sObject* self)
     if(SBLOCK(self).mSource) FREE(SBLOCK(self).mSource);
 }
 
+
 int block_gc_children_mark(sObject* self)
 {
     int count = 0;
@@ -766,629 +930,5 @@ int block_gc_children_mark(sObject* self)
     }
 
     return count;
-}
-
-//////////////////////////////////////////////////
-// Expand variable and glob
-//////////////////////////////////////////////////
-static BOOL expand_env(ALLOC char** result, BOOL* option, char* str, sCommand* command, sRunInfo* runinfo, sObject* nextin, BOOL* expand_double_dollar, sObject* fun);
-
-static BOOL expand_variable(sCommand* command, sObject* object, sBuf* buf, sRunInfo* runinfo, sEnv* env, sObject* nextin, sObject* fun)
-{
-    /// expand key ///
-    char* key;
-    if(env->mKeyEnv) {
-        BOOL expand_double_dollar;
-        BOOL option;
-        if(!expand_env(ALLOC &key, &option, env->mKey, command, runinfo, nextin, &expand_double_dollar, fun)) {
-            return FALSE;
-        }
-
-        if(expand_double_dollar) {
-            err_msg("invalid expanding varibale block", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            FREE(key);
-            return FALSE;
-        }
-    }
-    else {
-        key = STRDUP(env->mKey);
-    }
-
-    switch(TYPE(object)) {
-        case T_STRING: {
-            add_str_to_buf(buf, string_c_str(object), string_length(object));
-            }
-            break;
-
-        case T_VECTOR:
-            if(*key == 0) {
-                int i;
-                for(i=0; i<vector_count(object); i++) {
-                    sObject* object2 = vector_item(object, i);
-                    add_str_to_buf(buf, string_c_str(object2), string_length(object2));
-                    if(i+1<vector_count(object)) add_str_to_buf(buf, " ", 1);
-                }
-            }
-            else {
-                int index = atoi(key);
-                if(index < 0) {
-                    index += vector_count(object);
-                }
-
-                if(index >= 0 && index < vector_count(object)) {
-                    object = vector_item(object, index);
-                    add_str_to_buf(buf, string_c_str(object), string_length(object));
-                }
-            }
-            break;
-
-        case T_HASH:
-            if(*key == 0) {
-                char buf[128];
-                snprintf(buf, 128, "need hash key(%s)", env->mName);
-                err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                FREE(key);
-                return FALSE;
-            }
-            else {
-                object = hash_item(object, key);
-                if(object) {
-                    add_str_to_buf(buf, string_c_str(object), string_length(object));
-                }
-            }
-            break;
-
-        default: {
-            char buf[128];
-            snprintf(buf, 128, "can't expand variable because of type(%s)", env->mName);
-            err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            FREE(key);
-            return FALSE;
-            }
-    }
-
-    FREE(key);
-    return TRUE;
-}
-
-static BOOL expand_glob(char* buf, ALLOC char** head, ALLOC char*** tails, sCommand* command, char* sname, int sline)
-{
-    glob_t result;
-    int rc = glob(buf, 0, NULL, &result);
-
-    if(rc == GLOB_NOSPACE) {
-        err_msg("read_one_argument: out of space during glob operation", sname, sline, buf);
-        globfree(&result);
-        return FALSE;
-    }
-    else if(rc == GLOB_NOMATCH) {
-        *head = STRDUP(buf);
-
-        *tails = MALLOC(sizeof(char*)*result.gl_pathc);
-        **tails = NULL;
-    }
-    else {
-        if(result.gl_pathc > 0) {
-            *head = STRDUP(result.gl_pathv[0]);
-
-            *tails = MALLOC(sizeof(char*)*result.gl_pathc);
-
-            int i;
-            for(i=1; i<result.gl_pathc; i++) {
-                (*tails)[i-1] = STRDUP(result.gl_pathv[i]);
-            }
-            (*tails)[i-1] = NULL;
-        }
-        else {
-            *head = STRDUP(buf);
-
-            *tails = MALLOC(sizeof(char*)*result.gl_pathc);
-            **tails = NULL;
-        }
-    }
-
-    globfree(&result);
-
-    return TRUE;
-}
-
-// if return is FALSE, no allocated result
-static BOOL expand_env(ALLOC char** result, BOOL* option, char* str, sCommand* command, sRunInfo* runinfo, sObject* nextin, BOOL* expand_double_dollar, sObject* fun)
-{
-    *expand_double_dollar = FALSE;
-    *option = FALSE;
-
-    sBuf buf;
-    memset(&buf, 0, sizeof(sBuf));
-    buf.mBuf = MALLOC(64);
-    buf.mBuf[0] = 0;
-    buf.mSize = 64;
-
-    char* p = str;
-    while(*p) {
-        if(*p == PARSER_MAGIC_NUMBER_ENV) {
-            p++;
-
-            char buf2[128];
-            char* p2 = buf2;
-            while(*p != PARSER_MAGIC_NUMBER_ENV) {
-                *p2++ = *p++;
-            }
-            p++;
-            *p2 = 0;
-
-            sEnv* env = command->mEnvs + atoi(buf2);
-
-            if(!*option && env->mFlags & ENV_FLAGS_OPTION) *option = TRUE;
-
-            if(env->mFlags & ENV_FLAGS_KIND_ENV) {
-                sObject* object;
-                if(!get_object_from_str(&object, env->mName, runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
-                    return FALSE;
-                }
-
-                if(object == NULL) {
-                    char* env2 = getenv(env->mName);
-
-                    if(env2) {
-                        add_str_to_buf(&buf, env2, strlen(env2));
-                    }
-                    else {
-                        FREE(buf.mBuf);
-                        char buf[128];
-                        snprintf(buf, 128, "no such as object(%s)", env->mName);
-                        err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                        return FALSE;
-                    }
-                }
-                else {
-                    if(!expand_variable(command, object, &buf, runinfo, env,nextin, fun)) {
-                        FREE(buf.mBuf);
-                        return FALSE;
-                    }
-                }
-            }
-            /// block ///
-            else {
-                int rcode;
-                sObject* nextout = FD_NEW_STACK();
-
-                if(!run(env->mBlock, nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject))
-                {
-                    err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                    runinfo->mRCode = rcode;
-                    FREE(buf.mBuf);
-                    return FALSE;
-                }
-
-                if(env->mFlags & ENV_FLAGS_DOUBLE_DOLLAR) {
-                    *expand_double_dollar = TRUE;
-
-                    if(buf.mBuf[0] != 0) {
-                        sRunInfo_add_arg(runinfo, MANAGED buf.mBuf);
-                        memset(&buf, 0, sizeof(sBuf));
-                        buf.mBuf = MALLOC(64);
-                        buf.mBuf[0] = 0;
-                        buf.mSize = 64;
-                    }
-
-                    fd_split(nextout, env->mLineField);
-                    
-                    int j;
-                    for(j=0; j<vector_count(SFD(nextout).mLines); j++) 
-                    {
-                        char* item = vector_item(SFD(nextout).mLines, j);
-                        sObject* item2 = STRING_NEW_STACK(item);
-                        string_chomp(item2);
-
-                        if(string_length(item2) > 0) {
-                            if((env->mFlags & ENV_FLAGS_OPTION) && string_c_str(item2)[0] == '-') {
-                                if(fun && (TYPE(fun) == T_NFUN && nfun_option_with_argument(fun, string_c_str(item2)) || TYPE(fun) == T_CLASS && class_option_with_argument(fun, string_c_str(item2)) || TYPE(fun) == T_FUN && fun_option_with_argument(fun, string_c_str(item2)) ))
-                                {
-                                    if(j + 1 >= vector_count(SFD(nextout).mLines)) {
-                                        FREE(buf.mBuf);
-                                        char buf[BUFSIZ];
-                                        snprintf(buf, BUFSIZ, "invalid option with argument(%s)", string_c_str(item2));
-                                        err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                                        return FALSE;
-                                    }
-
-                                    char* option = STRDUP(string_c_str(item2));
-                                    char* next_item = vector_item(SFD(nextout).mLines, j+1);
-                                    sObject* next_item2 = STRING_NEW_STACK(next_item);
-                                    string_chomp(next_item2);
-                                    char* arg = STRDUP(string_c_str(next_item2));
-
-                                    if(!sRunInfo_put_option_with_argument(runinfo, MANAGED option, MANAGED arg))
-                                    {
-                                        FREE(buf.mBuf);
-                                        char buf[BUFSIZ];
-                                        snprintf(buf, BUFSIZ, "option number max (%s)\n", arg);
-                                        err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                                        FREE(arg);
-                                        FREE(option);
-                                        return FALSE;
-                                    }
-                                    j++;
-                                }
-                                else {
-                                    char* option = STRDUP(string_c_str(item2));
-                                    if(!sRunInfo_put_option(runinfo, MANAGED option)) {
-                                        FREE(buf.mBuf);
-                                        char buf[BUFSIZ];
-                                        snprintf(buf, BUFSIZ, "option number max (%s)\n", option);
-                                        err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                                        FREE(option);
-                                        return FALSE;
-                                    }
-                                }
-                            }
-                            else {
-                                sRunInfo_add_arg(runinfo, MANAGED STRDUP(string_c_str(item2)));
-                            }
-                        }
-                    }
-                }
-                else {
-                    add_str_to_buf(&buf, SFD(nextout).mBuf, SFD(nextout).mBufLen);
-                }
-            }
-        }
-        else {
-            add_char_to_buf(&buf, *p++);
-        }
-    }
-
-    *result = buf.mBuf;
-
-    return TRUE;
-}
-
-static BOOL put_option(MANAGED char* arg, sCommand* command, sObject* fun, sObject* nextin, sObject* nextout, sRunInfo* runinfo, int* i)
-{
-    if(fun && (TYPE(fun) == T_NFUN && nfun_option_with_argument(fun, arg) || TYPE(fun) == T_CLASS && class_option_with_argument(fun,arg) || TYPE(fun) == T_FUN && fun_option_with_argument(fun, arg) ))
-    {
-        if(*i + 1 >= command->mArgsNum) {
-            char buf[BUFSIZ];
-            snprintf(buf, BUFSIZ, "invalid option with argument(%s)", arg);
-            err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            FREE(arg);
-            return FALSE;
-        }
-
-        /// environment or environment and glob ///
-        if(command->mArgsFlags[*i+1] & XYZSH_ARGUMENT_GLOB) {
-            err_msg("can't expand glob with option", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            FREE(arg);
-            return FALSE;
-        }
-        else if(command->mArgsFlags[*i+1] & XYZSH_ARGUMENT_ENV) {
-            char* expanded_str;
-            BOOL expand_double_dollar;
-            BOOL option;
-            if(!expand_env(ALLOC &expanded_str, &option, command->mArgs[*i+1], command, runinfo, nextin, &expand_double_dollar, fun)) {
-                FREE(arg);
-                return FALSE;
-            }
-
-            if(expand_double_dollar) {
-                err_msg("invalid expanding varibale block", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                FREE(expanded_str);
-                FREE(arg);
-                return FALSE;
-            }
-
-            if(!sRunInfo_put_option_with_argument(runinfo, MANAGED arg, MANAGED expanded_str))
-            {
-                char buf[BUFSIZ];
-                snprintf(buf, BUFSIZ, "option number max (%s)\n", arg);
-                err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                FREE(expanded_str);
-                FREE(arg);
-                return FALSE;
-            }
-        }
-        else {
-            if(command->mArgs[*i+1][0] == PARSER_MAGIC_NUMBER_OPTION) {
-                char buf[BUFSIZ];
-                snprintf(buf, BUFSIZ, "invalid option with argument(%s)", arg);
-                err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                FREE(arg);
-                return FALSE;
-            }
-
-            if(!sRunInfo_put_option_with_argument(runinfo, MANAGED arg, MANAGED STRDUP(command->mArgs[*i+1])))
-            {
-                char buf[BUFSIZ];
-                snprintf(buf, BUFSIZ, "option number max (%s)\n", arg);
-                err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                FREE(arg);
-                return FALSE;
-            }
-        }
-        (*i)++;
-    }
-    else {
-        if(!sRunInfo_put_option(runinfo, MANAGED arg)) {
-            char buf[BUFSIZ];
-            snprintf(buf, BUFSIZ, "option number max (%s)\n", arg);
-            err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            FREE(arg);
-            return FALSE;
-        }
-    }
-
-    return TRUE;
-}
-
-BOOL sCommand_expand_env(sCommand* command, sObject* fun, sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    BOOL external_command = fun == NULL || TYPE(fun) == T_EXTPROG;
-
-    int i;
-    for(i=0; i < command->mArgsNum; i++) {
-        /// options ///
-        if(command->mArgs[i][0] == PARSER_MAGIC_NUMBER_OPTION) {
-            if(command->mArgsFlags[i] & XYZSH_ARGUMENT_GLOB) {
-                err_msg("can't expand glob in option", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                return FALSE;
-            }
-
-            if(command->mArgsFlags[i] & XYZSH_ARGUMENT_ENV) {
-                char* expanded_str;
-                BOOL expand_double_dollar;
-                BOOL option;
-                if(!expand_env(ALLOC &expanded_str, &option, command->mArgs[i], command, runinfo, nextin, &expand_double_dollar, fun)) {
-                    return FALSE;
-                }
-
-                if(expand_double_dollar) {
-                    err_msg("invalid expanding varibale block", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                    FREE(expanded_str);
-                    return FALSE;
-                }
-
-                expanded_str[0] = '-';
-
-                if(external_command) {
-                    sRunInfo_add_arg(runinfo, MANAGED expanded_str);
-                }
-                else {
-                    if(!put_option(MANAGED expanded_str, command, fun, nextin, nextout, runinfo, &i)) {
-                        return FALSE;
-                    }
-                }
-            }
-            else {
-                if(external_command) {
-                    char* arg = MALLOC(strlen(command->mArgs[i]) + 1);
-                    arg[0] = '-';
-                    strcpy(arg + 1, command->mArgs[i] + 1);
-                    sRunInfo_add_arg(runinfo, MANAGED arg);
-                }
-                else {
-                    char* arg = MALLOC(strlen(command->mArgs[i]) + 1);
-                    arg[0] = '-';
-                    strcpy(arg + 1, command->mArgs[i] + 1);
-                    if(!put_option(MANAGED arg, command, fun, nextin, nextout, runinfo, &i)) {
-                        return FALSE;
-                    }
-                }
-            }
-        }
-        /// variable ///
-        else if(command->mArgsFlags[i] & XYZSH_ARGUMENT_ENV) {
-            /// variable and glob ///
-            if(command->mArgsFlags[i] & XYZSH_ARGUMENT_GLOB) {
-                char* expanded_str;
-                BOOL expand_double_dollar;
-                BOOL option;
-                if(!expand_env(ALLOC &expanded_str, &option, command->mArgs[i], command, runinfo, nextin, &expand_double_dollar, fun)) {
-                    return FALSE;
-                }
-
-                if(expand_double_dollar) {
-                    FREE(expanded_str);
-                    err_msg("can't expand glob with double dollar environment block", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                    return FALSE;
-                }
-                else {
-                    char* head;
-                    char** tails;
-                    if(!expand_glob(expanded_str, ALLOC &head, ALLOC &tails, command, runinfo->mSName, runinfo->mSLine))
-                    {
-                        FREE(expanded_str);
-                        return FALSE;
-                    }
-                    sRunInfo_add_arg(runinfo, MANAGED head);
-                    char** p = tails;
-                    while(*p) {
-                        sRunInfo_add_arg(runinfo, MANAGED *p);
-                        p++;
-                    }
-                    FREE(tails);
-                }
-
-                FREE(expanded_str);
-            }
-            else {
-                char* expanded_str;
-                BOOL expand_double_dollar;
-                BOOL option;
-                if(!expand_env(ALLOC &expanded_str, &option, command->mArgs[i], command, runinfo, nextin, &expand_double_dollar, fun)) {
-                    return FALSE;
-                }
-
-                if(expand_double_dollar) {
-                    if(expanded_str[0] == 0) {
-                        FREE(expanded_str);
-                    }
-                    else {
-                        sRunInfo_add_arg(runinfo, MANAGED expanded_str);
-                    }
-                }
-                else {
-                    if(option && expanded_str[0] == '-') {
-                        if(fun && (TYPE(fun) == T_NFUN && nfun_option_with_argument(fun, expanded_str) || TYPE(fun) == T_CLASS && class_option_with_argument(fun, expanded_str) || TYPE(fun) == T_FUN && fun_option_with_argument(fun, expanded_str)))
-                        {
-                            if(i + 1 >= command->mArgsNum || command->mArgsFlags[i+1] & XYZSH_ARGUMENT_GLOB || command->mArgs[i+1][0] == PARSER_MAGIC_NUMBER_OPTION)
-                            {
-                                FREE(expanded_str);
-                                char buf[BUFSIZ];
-                                snprintf(buf, BUFSIZ, "invalid option with argument(%s)", expanded_str);
-                                err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                                return FALSE;
-                            }
-
-                            char* arg;
-
-                            if(command->mArgsFlags[i+1] & XYZSH_ARGUMENT_ENV) {
-                                char* expanded_str2;
-                                BOOL expand_double_dollar2;
-                                BOOL option;
-                                if(!expand_env(ALLOC &expanded_str2, &option, command->mArgs[i+1], command, runinfo, nextin, &expand_double_dollar2, fun)) 
-                                {
-                                    return FALSE;
-                                }
-
-                                if(expand_double_dollar2) {
-                                    FREE(expanded_str);
-                                    FREE(expanded_str2);
-                                    char buf[BUFSIZ];
-                                    snprintf(buf, BUFSIZ, "invalid option with argument(%s)", expanded_str);
-                                    err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                                    return FALSE;
-                                }
-
-                                arg = expanded_str2;
-                            }
-                            else {
-                                arg = STRDUP(command->mArgs[i+1]);
-                            }
-
-                            if(!sRunInfo_put_option_with_argument(runinfo, expanded_str, MANAGED arg))
-                            {
-                                FREE(expanded_str);
-                                FREE(arg);
-                                char buf[BUFSIZ];
-                                snprintf(buf, BUFSIZ, "option number max (%s)\n", arg);
-                                err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                                return FALSE;
-                            }
-                            i++;
-                        }
-                        else {
-                            if(!sRunInfo_put_option(runinfo, MANAGED expanded_str)) {
-                                FREE(expanded_str);
-                                char buf[BUFSIZ];
-                                snprintf(buf, BUFSIZ, "option number max (%s)\n", expanded_str);
-                                err_msg(buf, runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                                return FALSE;
-                            }
-                        }
-                    }
-                    else {
-                        sRunInfo_add_arg(runinfo, MANAGED expanded_str);
-                    }
-                }
-            }
-        }
-        /// glob
-        else if(command->mArgsFlags[i] & XYZSH_ARGUMENT_GLOB) {
-            char* head;
-            char** tails;
-            if(!expand_glob(command->mArgs[i], ALLOC &head, ALLOC &tails, command, runinfo->mSName, runinfo->mSLine))
-            {
-                return FALSE;
-            }
-            sRunInfo_add_arg(runinfo, MANAGED head);
-            char** p = tails;
-            while(*p) {
-                sRunInfo_add_arg(runinfo, MANAGED *p);
-                p++;
-            }
-            FREE(tails);
-        }
-        /// normal ///
-        else {
-            sRunInfo_add_arg(runinfo, MANAGED STRDUP(command->mArgs[i]));
-        }
-    }
-
-    return TRUE;
-}
-
-BOOL sCommand_expand_env_of_redirect(sCommand* command, sObject* nextin, sRunInfo* runinfo)
-{
-    if(command->mRedirectsNum > 0) {
-        runinfo->mRedirectsFileNamesRuntime = MALLOC(sizeof(char*)*command->mRedirectsNum);
-
-        int i;
-        for(i=0; i<command->mRedirectsNum; i++) {
-            if(command->mRedirects[i] & REDIRECT_ENV) {
-                char* expanded_str;
-                BOOL expand_double_dollar;
-                BOOL option;
-                if(!expand_env(ALLOC &expanded_str, &option, command->mRedirectsFileNames[i], command, runinfo, nextin, &expand_double_dollar, NULL)) {
-                    return FALSE;
-                }
-
-                if(expand_double_dollar) {
-                    err_msg("invalid expanding varibale block", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                    FREE(expanded_str);
-                    return FALSE;
-                }
-
-                if(command->mRedirects[i] & REDIRECT_GLOB) {
-                    char* head;
-                    char** tails;
-                    if(!expand_glob(expanded_str, ALLOC &head, ALLOC &tails, command, runinfo->mSName, runinfo->mSLine))
-                    {
-                        FREE(expanded_str);
-                        return FALSE;
-                    }
-                    runinfo->mRedirectsFileNamesRuntime[i] = MANAGED head;
-                    runinfo->mRedirectsNumRuntime++;
-                    char** p = tails;
-                    while(*p) {
-                        FREE(*p);
-                        p++;
-                    }
-                    FREE(tails);
-
-                    FREE(expanded_str);
-                }
-                else {
-                    runinfo->mRedirectsFileNamesRuntime[i] = MANAGED expanded_str;
-                    runinfo->mRedirectsNumRuntime++;
-                }
-            }
-            else if(command->mRedirects[i] & REDIRECT_GLOB) {
-                char* head;
-                char** tails;
-                if(!expand_glob(command->mRedirectsFileNames[i], ALLOC &head, ALLOC &tails, command, runinfo->mSName, runinfo->mSLine))
-                {
-                    return FALSE;
-                }
-                runinfo->mRedirectsFileNamesRuntime[i] = MANAGED head;
-                runinfo->mRedirectsNumRuntime++;
-                char** p = tails;
-                while(*p) {
-                    FREE(*p);
-                    p++;
-                }
-                FREE(tails);
-            }
-            else {
-                runinfo->mRedirectsFileNamesRuntime[i] = STRDUP(command->mRedirectsFileNames[i]);
-                runinfo->mRedirectsNumRuntime++;
-            }
-        }
-    }
-    else {
-        runinfo->mRedirectsFileNamesRuntime = NULL;
-    }
-
-    return TRUE;
 }
 

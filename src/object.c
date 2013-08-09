@@ -1,5 +1,5 @@
 #include "config.h"
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -45,67 +45,7 @@ sObject* access_object3(char* name, sObject** current)
     }
 }
 
-void split_prefix_of_object_and_name(sObject** object, sObject* prefix, sObject* name, char* str)
-{
-    char* p = str;
-    while(*p) {
-        if(*p == ':' && *(p+1) == ':') {
-            p+=2;
-
-            string_push_back(prefix, string_c_str(name));
-            string_push_back(prefix, "::");
-
-            if(*object && TYPE(*object) == T_UOBJECT) {
-                *object = uobject_item(*object, string_c_str(name));
-                string_put(name, "");
-            }
-            else {
-                string_put(name, "");
-                break;
-            }
-        }
-        else {
-            string_push_back2(name, *p);
-            p++;
-        }
-    }
-}
-
-void split_prefix_of_object_and_name2(sObject** object, sObject* prefix, sObject* name, char* str, sObject* current_object)
-{
-    BOOL first = TRUE;
-    char* p = str;
-    while(*p) {
-        if(*p == ':' && *(p+1) == ':') {
-            p+=2;
-
-            string_push_back(prefix, string_c_str(name));
-            string_push_back(prefix, "::");
-
-            if(*object && TYPE(*object) == T_UOBJECT) {
-                if(first) {
-                    first = FALSE;
-
-                    *object = access_object3(string_c_str(name), &current_object);
-                }
-                else {
-                    *object = uobject_item(*object, string_c_str(name));
-                }
-                string_put(name, "");
-            }
-            else {
-                string_put(name, "");
-                break;
-            }
-        }
-        else {
-            string_push_back2(name, *p);
-            p++;
-        }
-    }
-}
-
-BOOL get_object_from_str(sObject** object, char* str, sObject* current_object, sObject* running_object, sRunInfo* runinfo) 
+BOOL get_object_from_argument(sObject** object, char* str, sObject* current_object, sObject* running_object, sRunInfo* runinfo) 
 {
     *object = current_object;
 
@@ -114,33 +54,104 @@ BOOL get_object_from_str(sObject** object, char* str, sObject* current_object, s
     sObject* name = STRING_NEW_STACK("");
     while(*p) {
         if(*p == ':' && *(p+1) == ':') {
-            if(string_c_str(name)[0] == 0) {
-                err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                return FALSE;
-            }
             p+=2;
 
-            if(first) {
-                first = FALSE;
+            if(string_c_str(name)[0] == 0) {
+                if(first) {
+                    first = FALSE;
 
-                *object = access_object(string_c_str(name), &current_object, running_object);
-
-                if(*object == NULL) {
-                    err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    return TRUE;
+                    *object = gRootObject;
+                }
+                else {
+                    err_msg("invalid object name2", runinfo->mSName, runinfo->mSLine);
+                    return FALSE;
                 }
             }
             else {
-                if(TYPE(*object) != T_UOBJECT) {
-                    err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    return TRUE;
+                if(first) {
+                    first = FALSE;
+
+                    *object = access_object(string_c_str(name), &current_object, running_object);
+
+                    if(*object == NULL || STYPE(*object) != T_UOBJECT) {
+                        err_msg("invalid object name2", runinfo->mSName, runinfo->mSLine);
+                        return FALSE;
+                    }
+                }
+                else {
+                    *object = uobject_item(*object, string_c_str(name));
+
+                    if(*object == NULL || STYPE(*object) != T_UOBJECT) {
+                        err_msg("invalid object name3", runinfo->mSName, runinfo->mSLine);
+                        return FALSE;
+                    }
                 }
 
-                *object = uobject_item(*object, string_c_str(name));
+                string_put(name, "");
+            }
+        }
+        else {
+            string_push_back2(name, *p);
+            p++;
+        }
+    }
 
-                if(*object == NULL) {
-                    err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                    return TRUE;
+    if(string_c_str(name) != 0) {
+        if(first) {
+            *object = access_object(string_c_str(name), &current_object, running_object);
+        }
+        else {
+            *object = uobject_item(*object, string_c_str(name));
+        }
+    }
+
+    if(*object == NULL) {
+        err_msg("invalid object name4", runinfo->mSName, runinfo->mSLine);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+BOOL get_object_prefix_and_name_from_argument(sObject** object, sObject* name, char* str, sObject* current_object, sObject* running_object, sRunInfo* runinfo) 
+{
+    *object = current_object;
+
+    char* p = str;
+    BOOL first = TRUE;
+    while(*p) {
+        if(*p == ':' && *(p+1) == ':') {
+            p+=2;
+
+            if(string_c_str(name)[0] == 0) {
+                if(first) {
+                    first = FALSE;
+
+                    *object = gRootObject;
+                }
+                else {
+                    err_msg("invalid object name5", runinfo->mSName, runinfo->mSLine);
+                    return FALSE;
+                }
+            }
+            else {
+                if(first) {
+                    first = FALSE;
+
+                    *object = access_object(string_c_str(name), &current_object, running_object);
+
+                    if(*object == NULL || STYPE(*object) != T_UOBJECT) {
+                        err_msg("invalid object name6", runinfo->mSName, runinfo->mSLine);
+                        return FALSE;
+                    }
+                }
+                else {
+                    *object = uobject_item(*object, string_c_str(name));
+
+                    if(*object == NULL || STYPE(*object) != T_UOBJECT) {
+                        err_msg("invalid object name7", runinfo->mSName, runinfo->mSLine);
+                        return FALSE;
+                    }
                 }
             }
 
@@ -152,28 +163,9 @@ BOOL get_object_from_str(sObject** object, char* str, sObject* current_object, s
         }
     }
 
-    if(string_c_str(name) != 0) {
-        if(first) {
-            *object = access_object(string_c_str(name), &current_object, running_object);
-
-            if(*object == NULL) {
-                err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                return TRUE;
-            }
-        }
-        else {
-            if(TYPE(*object) != T_UOBJECT) {
-                err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                return TRUE;
-            }
-
-            *object = uobject_item(*object, string_c_str(name));
-        }
-    }
-
-    if(*object == NULL) {
-        err_msg("invalid object name", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-        return TRUE;
+    if(*object == NULL || string_c_str(name) == 0) {
+        err_msg("invalid object name8", runinfo->mSName, runinfo->mSLine);
+        return FALSE;
     }
 
     return TRUE;

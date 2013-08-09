@@ -12,31 +12,62 @@ print ~/.xyzsh | if(| -e) (
     sys::chmod 700 ~/.xyzsh
 )
 
-### readline settings ###
-print 1000 | export XYZSH_HISTSIZE
-print ~/.xyzsh/history | export XYZSH_HISTFILE
-
 print ~/.xyzsh/program | if(! | -e) (
-    print "mail date crontab hostname tee find unzip diff seq env sleep ps kill killall pkill autoconf automake od nm gcc uname chgrp chmod chown sed awk make git ssh scp tar sudo gzip bash cat ls pwd cp mv rm rmdir ln vi vim grep egrep find less wc echo which whoami head tail uniq mkdir touch man" | split > ~/.xyzsh/program
+    print "mail date crontab hostname basename tee find unzip diff seq env sleep ps kill killall pkill autoconf automake od nm gcc uname chgrp chmod chown sed awk make git ssh scp tar sudo gzip bash cat ls pwd cp mv rm rmdir ln vi vim grep egrep find less wc echo which whoami head tail uniq mkdir touch man" | split > ~/.xyzsh/program
 )
 
-sys::cat ~/.xyzsh/program | each (
-    | chomp | var -local prog
+def install_external_program_to_root_object (
+    sys::cat ~/.xyzsh/program | each (
+        | chomp | var -local prog
 
-    try ( sys::run ( root::ref $prog )  | ref $prog) catch ()
+        if(! defined ::$prog) (
+            try ( 
+                ref ::sys::$prog | ref ::$prog
+            ) catch ()
+        )
+    )
+)
+
+def install_all_external_program_to_root_object (
+    ::sys::show  | ::sys::grep "external program" | scan '(.+?): external program' | each ( 
+        | chomp | var -local prog
+
+        if(! defined ::$prog || typeof ::$prog | chomp | = "external program") (
+            try (
+                ref ::sys::$prog | ref ::$prog
+            ) catch ()
+        )
+    )
+
+    print 1 | var InstallAllExternalProgram
 )
 
 def rehash -inherit (
     inherit
 
-    sys::cat ~/.xyzsh/program | each (
-        | chomp | var -local prog
-
-        try ( sys::run ( root::ref $prog )  | ref $prog) catch ()
+    if(InstallAllExternalProgram | -eq 1) (
+        install_all_external_program_to_root_object
+    ) else (
+        install_external_program_to_root_object
     )
 )
 
-prompt ( pwd | chomp | add " > " )
+print 0 | var InstallAllExternalProgram
+install_external_program_to_root_object
+
+export XYZSH_NEST_LEVEL | + 1 | export XYZSH_NEST_LEVEL
+prompt ( 
+    if(export XYZSH_NEST_LEVEL | -eq 1) (
+        pwd | chomp
+        print " > "
+    ) else (
+        pwd | chomp
+        print "("
+        export XYZSH_NEST_LEVEL | chomp
+        print ")"
+        print " > "
+    )
+)
 
 def jump (
     if(! print ~/.xyzsh/jump | -e) (
@@ -66,7 +97,7 @@ EOS > ~/.xyzsh/menu
 )
 
 # when pressing CTRL-X on cmdline, this is called
-def macro (
+def cmdline_macro (
     if(! print ~/.xyzsh/macro | -e) (
         print <<<EOS
 whoami | chomp
@@ -105,8 +136,28 @@ def min (
     MinValue
 )
 
-if(export XYZSH_RUNNING_AS_INTRACTIVE_MODE | -n) (
-    print "-+- Welcome to xyzsh $XYZSH_VERSION -+-\n"
-    print "run \"help\" command to see usage\n"
-)
+### interactive shell settings ###
+print 1000 | export XYZSH_HISTSIZE
+print ~/.xyzsh/history | export XYZSH_HISTFILE
+
+print "on" | export XYZSH_BLINK_MATCHING_PAREN
+# if you don't need to check matching paren on interactive shell, you can set "off" on this variable
+
+print 500 | export XYZSH_BLINK_MATCHING_PAREN_MILLI_SEC
+# Above function of xyzsh blink matching paren uses this value to sleep for this milli sec.
+
+print "on" | export XYZSH_MENU_SELECT
+# if you don't need to completion with menu select, you can set "off" on this variable
+
+el::keybind -mode emacs
+
+#el::keybind -mode vi
+# you can set emacs or vi keybind mode.
+
+el::keybind "^W" "ed-delete-prev-word"
+el::keybind "^R" "em-inc-search-prev"
+# This is my favorite. you can castamize key binds on interactive shell with el::keybind. Run el::help keybind to see the help.
+
+print off | export HIST_IGNORE_SPACE
+# If you enable this, you can add space at head to prohibit from appending commandline history.
 

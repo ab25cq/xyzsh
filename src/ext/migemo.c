@@ -15,7 +15,7 @@
 #include <dirent.h>
 #include <migemo.h>
 
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 static migemo* gMigemo;
 static sObject* gMigemoCache;
@@ -72,20 +72,20 @@ BOOL cmd_migemo_querry(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
         OnigUChar * p = migemo_query(gMigemo, regex);
         if(p == NULL) {
-            err_msg("migemo query failed", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("migemo query failed", runinfo->mSName, runinfo->mSLine);
             migemo_release(gMigemo, (unsigned char*) p);
             return FALSE;
         }
 
         if(!fd_write(nextout, p, strlen(p))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             migemo_release(gMigemo, (unsigned char*) p);
             return FALSE;
         }
 
         if(!fd_write(nextout, "\n", 1)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             migemo_release(gMigemo, (unsigned char*) p);
             return FALSE;
@@ -114,7 +114,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 char buf[1024];
                 int n = snprintf(buf, 1024, "0\n%d\n", (int)strlen(target));
                 if(!fd_write(nextout, buf, n)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -126,7 +126,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             if(reg == NULL) {
                 OnigUChar * p = migemo_query(gMigemo, regex);
                 if(p == NULL) {
-                    err_msg("migemo query failed", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("migemo query failed", runinfo->mSName, runinfo->mSLine);
                     migemo_release(gMigemo, (unsigned char*) p);
                     return FALSE;
                 }
@@ -154,7 +154,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 int r = onig_new(&reg, p2, p2 + strlen(p2), ONIG_OPTION_DEFAULT, ONIG_ENCODING_UTF8, ONIG_SYNTAX_DEFAULT,  &err_info);
 
                 if(r != ONIG_NORMAL && r != 0) {
-                    err_msg("regex of migemo query failed", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("regex of migemo query failed", runinfo->mSName, runinfo->mSLine);
                     onig_free(reg);
                     FREE(p2);
                     migemo_release(gMigemo, (unsigned char*) p);
@@ -174,7 +174,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     char buf[1024];
                     int n = snprintf(buf, 1024, "%d\n%d\n", region->beg[0], region->end[0]);
                     if(!fd_write(nextout, buf, n)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         onig_region_free(region, 1);
                         onig_free(reg);
@@ -187,7 +187,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     char buf[1024];
                     int n = snprintf(buf, 1024, "-1\n-1\n");
                     if(!fd_write(nextout, buf, n)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         onig_region_free(region, 1);
                         onig_free(reg);

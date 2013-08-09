@@ -22,7 +22,7 @@
 #include <ncurses/ncurses.h>
 #endif
 
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 BOOL cmd_exit(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -31,7 +31,7 @@ BOOL cmd_exit(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
     else {
         if(vector_count(gJobs) > 0) {
-            err_msg("jobs exist", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("jobs exist", runinfo->mSName, runinfo->mSLine);
             return FALSE;
         }
 
@@ -127,7 +127,7 @@ BOOL cmd_if(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 BOOL cmd_return(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     if(runinfo->mArgsNumRuntime >= 2) {
-        uchar code = atoi(runinfo->mArgsRuntime[1]);
+        unsigned char code = atoi(runinfo->mArgsRuntime[1]);
         runinfo->mRCode = RCODE_RETURN | code;
 
         return FALSE;
@@ -167,18 +167,18 @@ BOOL cmd_print(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int i;
         for(i=1; i<runinfo->mArgsNumRuntime-1; i++) {
             if(!fd_write(out, runinfo->mArgsRuntime[i], strlen(runinfo->mArgsRuntime[i]))) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(out, " ", 1)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
         }
         if(!fd_write(out, runinfo->mArgsRuntime[i], strlen(runinfo->mArgsRuntime[i]))) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -187,7 +187,7 @@ BOOL cmd_print(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     else if(runinfo->mFilter) {
         if(sRunInfo_option(runinfo, "-read-from-error")) {
             if(!fd_write(out, SFD(gStderr).mBuf, SFD(gStderr).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -195,7 +195,7 @@ BOOL cmd_print(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else {
             if(!fd_write(out, SFD(nextin).mBuf, SFD(nextin).mBufLen)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -224,7 +224,7 @@ BOOL cmd_try(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             else {
                 sObject* nextin2 = FD_NEW_STACK();
                 if(!fd_write(nextin2, string_c_str(gErrMsg), string_length(gErrMsg))) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -251,7 +251,7 @@ BOOL cmd_try(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 BOOL cmd_errmsg(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     if(!fd_write(nextout, string_c_str(gErrMsg), string_length(gErrMsg))) {
-        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
         return FALSE;
     }
@@ -263,7 +263,7 @@ BOOL cmd_errmsg(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 BOOL cmd_raise(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     if(runinfo->mArgsNumRuntime == 2) {
-        err_msg(runinfo->mArgsRuntime[1], runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg(runinfo->mArgsRuntime[1], runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
 
@@ -279,7 +279,7 @@ BOOL cmd_sweep(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int size = snprintf(buf, BUFSIZ, "%d objects deleted\n", num);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -293,12 +293,12 @@ BOOL cmd_sweep(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
             sObject* item = uobject_item(current_object, var_name);
 
-            if(!IS_USER_OBJECT(item)) {
-                err_msg("it's not user object. can't delete", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                return FALSE;
-            }
-
             if(item) {
+                if(!IS_USER_OBJECT(item)) {
+                    err_msg("it's not user object. can't delete", runinfo->mSName, runinfo->mSLine);
+                    return FALSE;
+                }
+
                 if(item != gCurrentObject || strcmp(var_name, SUOBJECT(item).mName) != 0) {
                     if(uobject_erase(current_object, var_name)) {
                         runinfo->mRCode = 0;
@@ -310,6 +310,54 @@ BOOL cmd_sweep(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     return TRUE;
 }
+
+/*
+BOOL cmd_sweep(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mArgsNumRuntime == 1) {
+        int num = gc_sweep();
+
+        char buf[BUFSIZ];
+        int size = snprintf(buf, BUFSIZ, "%d objects deleted\n", num);
+
+        if(!fd_write(nextout, buf, size)) {
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+            return FALSE;
+        }
+        runinfo->mRCode = 0;
+    }
+    else {
+        int i;
+        for(i=1; i<runinfo->mArgsNumRuntime; i++) {
+            sObject* object;
+            sObject* name = STRING_NEW_STACK("");
+            if(!get_object_prefix_and_name_from_argument(&object, name, runinfo->mArgsRuntime[i], runinfo->mCurrentObject, runinfo->mRunningObject, runinfo)) {
+                return FALSE;
+            }
+
+            if(object && STYPE(object) == T_UOBJECT) {
+                sObject* item = uobject_item(object, string_c_str(name));
+
+                if(item) {
+                    if(!IS_USER_OBJECT(item)) {
+                        err_msg("it's not user object. can't delete", runinfo->mSName, runinfo->mSLine);
+                        return FALSE;
+                    }
+
+                    if(item != gRootObject) {
+                        if(uobject_erase(object, string_c_str(name))) {
+                            runinfo->mRCode = 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return TRUE;
+}
+*/
 
 BOOL cmd_load(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -337,7 +385,7 @@ BOOL cmd_eval(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     if(runinfo->mBlocksNum > 0) {
         int rcode;
         if(!run(runinfo->mBlocks[0], nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-            err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = rcode;
             return FALSE;
         }
@@ -354,14 +402,14 @@ BOOL cmd_eval(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         snprintf(buf2, BUFSIZ, "%s %d: eval", runinfo->mSName, runinfo->mSLine);
         if(parse(buf, buf2, &sline, block, NULL)) {
             if(!run(block, nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = rcode;
                 stack_end_stack();
                 return FALSE;
             }
         }
         else {
-            err_msg_adding("parser error\n", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg_adding("parser error\n", runinfo->mSName, runinfo->mSLine);
             stack_end_stack();
             return FALSE;
         }
@@ -382,14 +430,14 @@ BOOL cmd_eval(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         if(parse(buf, buf2, &sline, block, NULL)) {
             sObject* nextin2 = FD_NEW_STACK();
             if(!run(block, nextin2, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
-                err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = rcode;
                 stack_end_stack();
                 return FALSE;
             }
         }
         else {
-            err_msg_adding("parser error\n", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg_adding("parser error\n", runinfo->mSName, runinfo->mSLine);
             stack_end_stack();
             return FALSE;
         }
@@ -418,13 +466,13 @@ BOOL cmd_msleep(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             int size = snprintf(buf, 32, "%c\033[D", c[i % 3]);
 
             if(!fd_write(nextout, buf, size)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(nextout == gStdout) {
                 if(!fd_flash(nextout, 1)) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -446,7 +494,7 @@ BOOL cmd_stackinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     int size = snprintf(buf, BUFSIZ, "slot size %d\npool size %d\nall object number %d\n", stack_slot_size(), stack_page_size(), stack_slot_size()*stack_page_size());
 
     if(!fd_write(nextout, buf, size)) {
-        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
         return FALSE;
     }
@@ -459,30 +507,34 @@ BOOL cmd_stackframe(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     char buf[BUFSIZ];
 
-    uobject_it* it = uobject_loop_begin(SFUN(runinfo->mRunningObject).mLocalObjects);
-    while(it) {
-        sObject* object2 = uobject_loop_item(it);
-        char* key = uobject_loop_key(it);
+    sObject* running_object = runinfo->mRunningObject;
 
-        char* obj_kind[T_TYPE_MAX] = {
-            NULL, "var", "array", "hash", "list", "native function", "block", "file dicriptor", "file dicriptor", "job", "object", "function", "class", "external program", "completion", "external object"
-        };
-        int size = snprintf(buf, BUFSIZ, "%s: %s\n", key, obj_kind[TYPE(object2)]);
+    if(running_object&& (STYPE(running_object) == T_FUN || STYPE(running_object) == T_CLASS)) {
+        uobject_it* it = uobject_loop_begin(SFUN(running_object).mLocalObjects);
+        while(it) {
+            sObject* object2 = uobject_loop_item(it);
+            char* key = uobject_loop_key(it);
 
-        if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-            runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-            return FALSE;
+            char* obj_kind[T_TYPE_MAX] = {
+                NULL, "var", "array", "hash", "list", "native function", "block", "file dicriptor", "file dicriptor", "job", "object", "function", "class", "external program", "completion", "external object", "alias", "int"
+            };
+            int size = snprintf(buf, BUFSIZ, "%s: %s\n", key, obj_kind[STYPE(object2)]);
+
+            if(!fd_write(nextout, buf, size)) {
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                return FALSE;
+            }
+
+            it = uobject_loop_next(it);
         }
 
-        it = uobject_loop_next(it);
-    }
-
-    if(uobject_count(SFUN(runinfo->mRunningObject).mLocalObjects) == 0) {
-        runinfo->mRCode = 1;
-    }
-    else {
-        runinfo->mRCode = 0;
+        if(uobject_count(SFUN(runinfo->mRunningObject).mLocalObjects) == 0) {
+            runinfo->mRCode = 1;
+        }
+        else {
+            runinfo->mRCode = 0;
+        }
     }
 
     return TRUE;
@@ -492,7 +544,7 @@ BOOL cmd_funinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     sObject* running_object = runinfo->mRunningObject;
 
-    if(running_object && (TYPE(running_object) == T_FUN || TYPE(running_object) == T_CLASS) && gRunInfoOfRunningObject)
+    if(running_object && (STYPE(running_object) == T_FUN || STYPE(running_object) == T_CLASS) && gRunInfoOfRunningObject)
     {
         sRunInfo* runinfo2 = gRunInfoOfRunningObject;
 
@@ -533,7 +585,7 @@ BOOL cmd_funinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int size = snprintf(buf, BUFSIZ, "source name: %s\nsource line: %d\nrun nest level: %d\ncurrent object: %s\nreciever object: %s\ncommand name: %s\n", runinfo2->mSName, runinfo2->mSLine, runinfo2->mNestLevel, current_object, reciever_object, command_name);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -551,7 +603,7 @@ BOOL cmd_gcinfo(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     int size = snprintf(buf, BUFSIZ, "free objects %d\nused objects %d\nall object number %d\nslot size %d\npool size %d\n", gc_free_objects_num(), gc_used_objects_num(), gc_slot_size()*gc_pool_size(), gc_slot_size(), gc_pool_size());
 
     if(!fd_write(nextout, buf, size)) {
-        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
         return FALSE;
     }
@@ -584,7 +636,7 @@ BOOL cmd_time(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int size = snprintf(buf, 1024, "%d sec(%d minuts %d sec)\n", sec, minuts, sec2);
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -660,7 +712,7 @@ static BOOL xyzsh_seek_external_programs(char* path, sObject* sys, char* sname, 
     else {
         char buf[BUFSIZ];
         snprintf(buf, BUFSIZ, "%s is invalid path", path);
-        err_msg(buf, sname, sline, "rehash");
+        err_msg(buf, sname, sline);
         //return FALSE;
     }
 
@@ -671,7 +723,7 @@ BOOL xyzsh_rehash(char* sname, int sline)
 {
     char* path = getenv("PATH");
     if(path == NULL) {
-        err_msg("PATH environment variables is NULL", sname, sline, "rehash");
+        err_msg("PATH environment variables is NULL", sname, sline);
         return FALSE;
     }
 
@@ -723,8 +775,7 @@ BOOL cmd_rehash(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
-
-sObject* gPrompt;
+sObject* gPrompt = NULL;
 
 BOOL cmd_prompt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -737,68 +788,83 @@ BOOL cmd_prompt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
-BOOL cmd_block(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+sObject* gRPrompt = NULL;
+
+BOOL cmd_rprompt(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    if(runinfo->mBlocksNum == 1) {
+        gRPrompt = block_clone_on_gc(runinfo->mBlocks[0], T_BLOCK, FALSE);
+        uobject_put(gXyzshObject, "_rprompt", gRPrompt);
+        runinfo->mRCode = 0;
+    }
+
+    return TRUE;
+}
+
+BOOL cmd_ablock(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
     sObject* fun = runinfo->mRunningObject;
 
-    if(sRunInfo_option(runinfo, "-number")) {
-        if(SFUN(fun).mArgBlocks) {
-            char buf[32];
-            int size = snprintf(buf, 32, "%d\n", vector_count(SFUN(fun).mArgBlocks));
+    if(fun && (STYPE(fun) == T_CLASS || STYPE(fun) == T_FUN)) {
+        if(sRunInfo_option(runinfo, "-number")) {
+            if(SFUN(fun).mArgBlocks) {
+                char buf[32];
+                int size = snprintf(buf, 32, "%d\n", vector_count(SFUN(fun).mArgBlocks));
 
-            if(!fd_write(nextout, buf, size))
-            {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                return FALSE;
+                if(!fd_write(nextout, buf, size))
+                {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+
+                runinfo->mRCode = 0;
+            }
+        }
+        else if(sRunInfo_option(runinfo, "-run")) {
+            int block_num;
+            if(runinfo->mArgsNumRuntime > 1) {
+                block_num = atoi(runinfo->mArgsRuntime[1]);
+            }
+            else {
+                block_num = 0;
             }
 
-            runinfo->mRCode = 0;
-        }
-    }
-    else if(sRunInfo_option(runinfo, "-run")) {
-        int block_num;
-        if(runinfo->mArgsNumRuntime > 1) {
-            block_num = atoi(runinfo->mArgsRuntime[1]);
+            if(SFUN(fun).mArgBlocks && block_num < vector_count(SFUN(fun).mArgBlocks)) {
+                sObject* block = vector_item(SFUN(fun).mArgBlocks, block_num);
+
+                int rcode = 0;
+                if(!run(block, nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) 
+                {
+                    err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = rcode;
+                    return FALSE;
+                }
+
+                runinfo->mRCode = 0;
+            }
         }
         else {
-            block_num = 0;
-        }
-
-        if(SFUN(fun).mArgBlocks && block_num < vector_count(SFUN(fun).mArgBlocks)) {
-            sObject* block = vector_item(SFUN(fun).mArgBlocks, block_num);
-
-            int rcode = 0;
-            if(!run(block, nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) 
-            {
-                err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                runinfo->mRCode = rcode;
-                return FALSE;
+            int block_num;
+            if(runinfo->mArgsNumRuntime > 1) {
+                block_num = atoi(runinfo->mArgsRuntime[1]);
+            }
+            else {
+                block_num = 0;
             }
 
-            runinfo->mRCode = 0;
-        }
-    }
-    else {
-        int block_num;
-        if(runinfo->mArgsNumRuntime > 1) {
-            block_num = atoi(runinfo->mArgsRuntime[1]);
-        }
-        else {
-            block_num = 0;
-        }
+            if(SFUN(fun).mArgBlocks && block_num < vector_count(SFUN(fun).mArgBlocks)) {
+                sObject* block = vector_item(SFUN(fun).mArgBlocks, block_num);
 
-        if(SFUN(fun).mArgBlocks && block_num < vector_count(SFUN(fun).mArgBlocks)) {
-            sObject* block = vector_item(SFUN(fun).mArgBlocks, block_num);
+                if(!fd_write(nextout, SBLOCK(block).mSource, strlen(SBLOCK(block).mSource)))
+                {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
 
-            if(!fd_write(nextout, SBLOCK(block).mSource, strlen(SBLOCK(block).mSource)))
-            {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
-                runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-                return FALSE;
+                runinfo->mRCode = 0;
             }
-
-            runinfo->mRCode = 0;
         }
     }
 
@@ -826,12 +892,12 @@ BOOL cmd_kanjicode(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     else {
         if(gKanjiCode == kUtf8) {
             if(!fd_write(nextout, "utf8", 4)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, "\n", 1)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -840,12 +906,12 @@ BOOL cmd_kanjicode(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else if(gKanjiCode == kByte) {
             if(!fd_write(nextout, "byte", 4)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, "\n", 1)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -854,12 +920,12 @@ BOOL cmd_kanjicode(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else if(gKanjiCode == kSjis) {
             if(!fd_write(nextout, "sjis", 4)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, "\n", 1)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -868,12 +934,12 @@ BOOL cmd_kanjicode(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else if(gKanjiCode == kEucjp) {
             if(!fd_write(nextout, "eucjp", 5)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, "\n", 1)) {
-                err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -893,13 +959,13 @@ BOOL cmd_jobs(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         sObject* job = vector_item(gJobs, i);
         int size = snprintf(buf, BUFSIZ, "[%d] %s (pgrp: %d)", i+1, SJOB(job).mName, SJOB(job).mPGroup);
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
 
         if(!fd_write(nextout, "\n", 1)) {
-            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -935,3 +1001,5 @@ BOOL cmd_fg(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     return TRUE;
 }
+
+

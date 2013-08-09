@@ -17,22 +17,22 @@
 #include <signal.h>
 #include <dirent.h>
 #include <limits.h>
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
-enum eAppType gAppType;
 sObject* gStdin;
 sObject* gStdout;
 sObject* gStderr;
 
+enum eAppType gAppType;
+eLineField gLineField;
+enum eKanjiCode gKanjiCode;
+
 sObject* gGlobalPipe;
 
-static sObject* gObjectsInPipe;
-
 static sObject* gRunningObjects;
-
 sRunInfo* gRunInfoOfRunningObject;
 
-sObject* gDynamicLibraryFinals;
+static sObject* gObjectsInPipe;
 
 BOOL contained_in_pipe(sObject* object)
 {
@@ -51,61 +51,21 @@ BOOL add_object_to_objects_in_pipe(sObject* object, sRunInfo* runinfo, sCommand*
 {
     vector_add(gObjectsInPipe, object);
 
+/*
     if(vector_count(gObjectsInPipe) > XYZSH_OBJECTS_IN_PIPE_MAX) {
-        err_msg("overflow objects in pipe", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg("overflow objects in pipe", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
+*/
 
     return TRUE;
 }
 
-eLineField gLineField;
-enum eKanjiCode gKanjiCode;
-
+//////////////////////////////////////////////////
+/// job
+//////////////////////////////////////////////////
 void (*xyzsh_job_done)(int job_num, char* job_title);
-
 sObject* gJobs;
-
-void run_init(enum eAppType app_type)
-{
-    gAppType = app_type;
-    gStdin = FD_NEW_STACK();
-    gStdout = FD_NEW_STACK();
-    gStderr = FD_NEW_STACK();
-    gJobs = VECTOR_NEW_GC(16, FALSE);
-    uobject_put(gXyzshObject, "_jobs", gJobs);
-
-    xyzsh_job_done = NULL;
-
-    gLineField = kLF;
-    gKanjiCode = kByte;
-
-    gRunInfoOfRunningObject = NULL;
-
-    gGlobalPipe = FD_NEW_STACK();
-
-    gObjectsInPipe = VECTOR_NEW_GC(10, FALSE);
-    uobject_put(gXyzshObject, "_objects_in_pipe", gObjectsInPipe);
-
-    gRunningObjects = VECTOR_NEW_GC(10, FALSE);
-    uobject_put(gXyzshObject, "_running_block", gRunningObjects);
-
-    gDynamicLibraryFinals = HASH_NEW_MALLOC(10);
-}
-
-void run_final()
-{
-    hash_it* it = hash_loop_begin(gDynamicLibraryFinals);
-    while(it) {
-        int (*func)() = hash_loop_item(it);
-        if(func() != 0) {
-            fprintf(stderr, "false in finalize");
-        }
-
-        it = hash_loop_next(it);
-    }
-    hash_delete_on_malloc(gDynamicLibraryFinals);
-}
 
 sObject* job_new_on_gc(char* name, pid_t pgroup, struct termios tty)
 {
@@ -125,12 +85,171 @@ void job_delete_on_gc(sObject* self)
     if(SJOB(self).mName) FREE(SJOB(self).mName);
 }
 
+BOOL forground_job(int num)
+{
+    if(num>=0 && num < vector_count(gJobs)) {
+        sObject* job = vector_item(gJobs, num);
+
+        tcsetattr(STDIN_FILENO, TCSANOW, SJOB(job).mTty);
+        if(tcsetpgrp(0, SJOB(job).mPGroup) < 0) {
+            perror("tcsetpgrp(fg)");
+            return FALSE;
+        }
+        
+        if(kill(SJOB(job).mPGroup, SIGCONT) < 0) {
+            perror("kill(fg)");
+            return FALSE;
+        }
+
+        /// wait ///
+        int status = 0;
+        pid_t pid = waitpid(SJOB(job).mPGroup, &status, WUNTRACED);
+
+        if(pid < 0) {
+            perror("waitpid(run_wait_cprogs)");
+            return FALSE;
+        }
+
+        /// exited normally ///
+        if(WIFEXITED(status)) {
+            if(xyzsh_job_done) xyzsh_job_done(num, SJOB(job).mName);
+
+            vector_erase(gJobs, num);
+
+            /// forground xyzsh ///
+            mreset_tty();
+            if(tcsetpgrp(0, getpgid(0)) < 0) {
+                perror("tcsetpgrp");
+                return FALSE;
+            }
+        }
+        /// exited from signal ///
+        else if(WIFSIGNALED(status)) {
+            if(xyzsh_job_done) xyzsh_job_done(num, SJOB(job).mName);
+
+            vector_erase(gJobs, num);
+
+            /// froground xyzsh ///
+            if(tcsetpgrp(0, getpgid(0)) < 0) {
+                perror("tcsetpgrp");
+                return FALSE;
+            }
+        }
+        /// stopped from signal ///
+        else if(WIFSTOPPED(status)) {
+            tcgetattr(STDIN_FILENO, SJOB(job).mTty);
+
+            /// forground xyzsh ///
+            if(tcsetpgrp(0, getpgid(0)) < 0) {
+                perror("tcsetpgrp");
+                return FALSE;
+            }
+        }
+
+        return TRUE;
+    }
+
+    err_msg("invalid job number", "fg", 1);
+    return FALSE;
+}
+
+BOOL background_job(int num)
+{
+    if(num>=0 && num < vector_count(gJobs)) {
+        sObject* job = vector_item(gJobs, num);
+        
+        if(kill(SJOB(job).mPGroup, SIGCONT) < 0) {
+            perror("kill(bg)");
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+void xyzsh_wait_background_job()
+{
+    int status;
+    pid_t pid = waitpid(-1, &status, WNOHANG);
+
+    if(pid >= 0) {
+        int i;
+        for(i=0; i<vector_count(gJobs); i++) {
+            sObject* job = vector_item(gJobs, i);
+
+            if(pid == SJOB(job).mPGroup) {
+                if(xyzsh_job_done) xyzsh_job_done(i, SJOB(job).mName);
+
+                vector_erase(gJobs, i);
+                break;
+            }
+        }
+    }
+}
+
+void xyzsh_kill_all_jobs()
+{
+    int i;
+    for(i=0; i<vector_count(gJobs); i++) {
+        sObject* job = vector_item(gJobs, i);
+
+        kill(SJOB(job).mPGroup, SIGKILL);
+    }
+
+    vector_clear(gJobs);
+}
+
+static void make_job_title(sRunInfo* runinfo, char* title, int title_num)
+{
+    title[0] = 0;
+
+    sStatment* statment = runinfo->mStatment;
+    sCommand* command_ = runinfo->mCommand;
+
+    int i;
+    for(i=0; i<statment->mCommandsNum; i++) {
+        sCommand* command = statment->mCommands + i;
+
+        if(command == command_) {
+            int j;
+            for(j=0; j<runinfo->mArgsNumRuntime; j++) {
+                char* arg = runinfo->mArgsRuntime[j];
+
+                xstrncat(title, arg, title_num);
+                if(j+1 < runinfo->mArgsNumRuntime) {
+                    xstrncat(title, " ", title_num);
+                }
+            }
+            break;
+        }
+        else {
+            int j;
+            for(j=0; j<command->mArgsNum; j++) {
+                char* arg = command->mArgs[j];
+
+                xstrncat(title, arg, title_num);
+
+                if(j+1 < command->mArgsNum) {
+                    xstrncat(title, " ", title_num);
+                }
+            }
+        }
+
+        if(i+1 < statment->mCommandsNum) {
+            xstrncat(title, "|", title_num);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// run external program
+///////////////////////////////////////////////////////////////////////////////
 static BOOL nextout_reader(sObject* nextout, int* pipeoutfds, sRunInfo* runinfo, char* program)
 {
     char buf[BUFSIZ+1];
     while(1) {
         if(gXyzshSigInt) {
-            err_msg("signal interrupt1", runinfo->mSName, runinfo->mSLine, program);
+            err_msg("signal interrupt1", runinfo->mSName, runinfo->mSLine);
             gXyzshSigInt = FALSE;
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
@@ -150,7 +269,7 @@ static BOOL nextout_reader(sObject* nextout, int* pipeoutfds, sRunInfo* runinfo,
         }
 
         if(!fd_write(nextout, buf, size)) {
-            err_msg("signal interrupt3", runinfo->mSName, runinfo->mSLine, program);
+            err_msg("signal interrupt3", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -209,58 +328,6 @@ static void nextin_writer(pid_t pid, sObject* nextin, int* pipeinfds, int* pipeo
     *nextin_reader_pid = pid2;
 }
 
-static void make_job_title(sRunInfo* runinfo, char* title, int title_num)
-{
-    title[0] = 0;
-
-    sStatment* statment = runinfo->mStatment;
-    sCommand* command_ = runinfo->mCommand;
-
-    int i;
-    for(i=0; i<statment->mCommandsNum; i++) {
-        sCommand* command = statment->mCommands + i;
-
-        if(command == command_) {
-            int j;
-            for(j=0; j<runinfo->mArgsNumRuntime; j++) {
-                char* arg = runinfo->mArgsRuntime[j];
-
-                xstrncat(title, arg, title_num);
-                if(j+1 < runinfo->mArgsNumRuntime) {
-                    xstrncat(title, " ", title_num);
-                }
-            }
-            break;
-        }
-        else {
-            int j;
-            for(j=0; j<command->mArgsNum; j++) {
-                char* arg = command->mArgs[j];
-
-                char buf[16];
-                buf[0] = PARSER_MAGIC_NUMBER_ENV;
-                buf[1] = 0;
-
-                if(arg[0] == PARSER_MAGIC_NUMBER_OPTION || strstr(arg, buf)) {
-                    if(j+1 < command->mArgsNum) {
-                        xstrncat(title, " ", title_num);
-                    }
-                }
-                else {
-                    xstrncat(title, arg, title_num);
-                    if(j+1 < command->mArgsNum) {
-                        xstrncat(title, " ", title_num);
-                    }
-                }
-            }
-        }
-
-        if(i+1 < statment->mCommandsNum) {
-            xstrncat(title, "|", title_num);
-        }
-    }
-}
-
 static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2, sRunInfo* runinfo, char* program)
 {
     if(nextin_reader_pid != -1) {
@@ -275,7 +342,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
                     kill(nextin_reader_pid, SIGCONT);
                 }
                 else if(WIFSIGNALED(status)) {
-                    err_msg("signal interrupt4", runinfo->mSName, runinfo->mSLine, program);
+                    err_msg("signal interrupt4", runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
                 else {
@@ -289,7 +356,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
 
             if(WIFSIGNALED(status) || WIFSTOPPED(status))
             {
-                err_msg("signal interrupt5", runinfo->mSName, runinfo->mSLine, program);
+                err_msg("signal interrupt5", runinfo->mSName, runinfo->mSLine);
                 return FALSE;
             }
         }
@@ -307,7 +374,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
                     kill(pid, SIGCONT);
                 }
                 else if(WIFSIGNALED(status)) {
-                    err_msg("signal interrupt6", runinfo->mSName, runinfo->mSLine, program);
+                    err_msg("signal interrupt6", runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
                 else {
@@ -320,7 +387,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
             pid = waitpid(pid, &status, WUNTRACED);
 
             if(WIFSTOPPED(status)) {
-                err_msg("signal interrupt7", runinfo->mSName, runinfo->mSLine, program);
+                err_msg("signal interrupt7", runinfo->mSName, runinfo->mSLine);
 
                 kill(pid, SIGKILL);
                 pid = waitpid(pid, &status, WUNTRACED);
@@ -345,12 +412,12 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
 
                     char buf[BUFSIZ];
                     snprintf(buf, BUFSIZ, "command not found");
-                    err_msg(buf, runinfo->mSName, runinfo->mSLine, program);
+                    err_msg(buf, runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
             }
             else if(WIFSIGNALED(status)) {  // a xyzsh external program which is not a last command can't be stopped by CTRL-Z
-                err_msg("signal interrupt8", runinfo->mSName, runinfo->mSLine, program);
+                err_msg("signal interrupt8", runinfo->mSName, runinfo->mSLine);
 
                 if(tcsetpgrp(0, getpgid(0)) < 0) {
                     perror("tcsetpgrp(xyzsh)");
@@ -419,7 +486,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
 
                         char buf[BUFSIZ];
                         snprintf(buf, BUFSIZ, "command not found");
-                        err_msg(buf, runinfo->mSName, runinfo->mSLine, program);
+                        err_msg(buf, runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
                 }
@@ -521,7 +588,7 @@ static BOOL run_external_command(char* program, sObject* nextin, sObject* nextou
     if(nextin == gStdin && SFD(gStdin).mBufLen == 0) {
         nextin2 = 0;
     }
-    else if(TYPE(nextin) == T_FD2) {
+    else if(STYPE(nextin) == T_FD2) {
         nextin2 = SFD2(nextin).mFD;
     }
     else {
@@ -535,7 +602,7 @@ static BOOL run_external_command(char* program, sObject* nextin, sObject* nextou
         nextout2 = 1;
         nexterr2 = 2;
     }
-    else if(TYPE(nextout) == T_FD2) {
+    else if(STYPE(nextout) == T_FD2) {
         nextout2 = SFD2(nextout).mFD;
 
         if(pipe(pipeerrfds) < 0) {
@@ -592,6 +659,15 @@ if(1) {
             if(gAppType != kATOptC) { (void)setpgid(pid, getpgid(getpid())); }
         }
 
+        /// set environment variables ////
+        char buf[128];
+
+        snprintf(buf, 128, "%d", mgetmaxx());
+        setenv("COLUMNS", buf, 1);
+
+        snprintf(buf, 128, "%d", mgetmaxy());
+        setenv("LINES", buf, 1);
+
         xyzsh_restore_signal_default();
         sigchld_block(0);
 
@@ -621,10 +697,10 @@ if(1) {
         /// Therefore xyzsh can't waitpid and deadlock.
         /// Avoid this, xyzsh is ready for a writer process to write buffer to the xyzsh.
         pid_t nextin_reader_pid = -1;
-        if(TYPE(nextin) != T_FD2 && nextin2 != 0) {
+        if(STYPE(nextin) != T_FD2 && nextin2 != 0) {
             nextin_writer(pgroup, nextin, pipeinfds, pipeoutfds, pipeerrfds, runinfo, program, &nextin_reader_pid);
         }
-        if(TYPE(nextout) != T_FD2 && nextout2 != 1) {
+        if(STYPE(nextout) != T_FD2 && nextout2 != 1) {
             (void)close(pipeoutfds[1]);
             if(!nextout_reader(nextout, pipeoutfds, runinfo, program)) {
                 // wait everytime
@@ -649,6 +725,9 @@ if(1) {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// run an object
+///////////////////////////////////////////////////////////////////////////////
 BOOL run_function(sObject* fun, sObject* nextin, sObject* nextout, sRunInfo* runinfo, char** argv, int argc, sObject** blocks, int blocks_num)
 {
     sObject* local_objects = SFUN(fun).mLocalObjects;
@@ -716,18 +795,23 @@ BOOL run_function(sObject* fun, sObject* nextin, sObject* nextout, sRunInfo* run
         }
         else {
             char buf[BUFSIZ];
-            err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine);
+
             runinfo->mRCode = rcode;
-            SFUN(fun).mLocalObjects = local_objects;
+
             (void)vector_pop_back(gStackFrames);
+
+            SFUN(fun).mLocalObjects = local_objects;
+            SFUN(fun).mArgBlocks = arg_blocks;
             gRunInfoOfRunningObject = runinfo2;
+
             return FALSE;
         }
     }
 
-    (void)vector_pop_back(gStackFrames);
-
     runinfo->mRCode = rcode;
+
+    (void)vector_pop_back(gStackFrames);
 
     SFUN(fun).mLocalObjects = local_objects;
     SFUN(fun).mArgBlocks = arg_blocks;
@@ -741,7 +825,7 @@ static BOOL run_block(sObject* block, sObject* nextin, sObject* nextout, sRunInf
     int rcode = 0;
     if(!run(block, nextin, nextout, &rcode, runinfo->mCurrentObject, runinfo->mRunningObject)) {
         sCommand* command = runinfo->mCommand;
-        err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+        err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine);
         runinfo->mRCode = rcode;
         return FALSE;
     }
@@ -749,9 +833,63 @@ static BOOL run_block(sObject* block, sObject* nextin, sObject* nextout, sRunInf
     return TRUE;
 }
 
+static BOOL run_alias(sObject* alias, sObject* nextin, sObject* nextout, sRunInfo* runinfo)
+{
+    sObject* block = block_clone_on_stack(SALIAS(alias).mBlock, T_BLOCK);
+
+    sCommand* last_command = NULL;
+    if(SBLOCK(block).mStatmentsNum > 0) {
+        sStatment* statment = SBLOCK(block).mStatments + SBLOCK(block).mStatmentsNum -1;
+
+        if(statment->mCommandsNum > 0) {
+            last_command = statment->mCommands + statment->mCommandsNum -1;
+        }
+    }
+
+    if(last_command) {
+        sCommand* command = runinfo->mCommand;
+
+        if(!sCommand_add_command_without_command_name(last_command, command, runinfo->mSName, runinfo->mSLine)) {
+            return FALSE;
+        }
+    }
+
+    sObject* local_objects = SALIAS(alias).mLocalObjects;
+    sRunInfo* runinfo2 = gRunInfoOfRunningObject;
+    gRunInfoOfRunningObject = runinfo;
+
+    sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
+    vector_add(gStackFrames, stackframe);
+    //uobject_init(stackframe);
+    SALIAS(alias).mLocalObjects = stackframe;
+
+    sObject* arg_blocks = SALIAS(alias).mArgBlocks;
+    SALIAS(alias).mArgBlocks = VECTOR_NEW_GC(16, FALSE);
+
+    int rcode = 0;
+    if(!run(block, nextin, nextout, &rcode, runinfo->mCurrentObject, alias)) {
+        sCommand* command = runinfo->mCommand;
+        err_msg_adding("run time error", runinfo->mSName, runinfo->mSLine);
+
+        (void)vector_pop_back(gStackFrames);
+        SALIAS(alias).mLocalObjects = local_objects;
+        SALIAS(alias).mArgBlocks = arg_blocks;
+        gRunInfoOfRunningObject = runinfo2;
+
+        return FALSE;
+    }
+
+    (void)vector_pop_back(gStackFrames);
+    SALIAS(alias).mLocalObjects = local_objects;
+    SALIAS(alias).mArgBlocks = arg_blocks;
+    gRunInfoOfRunningObject = runinfo2;
+
+    return TRUE;
+}
+
 BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
-    switch(TYPE(object)) {
+    switch(STYPE(object)) {
         case T_NFUN: 
             if(gAppType == kATConsoleApp)
             {
@@ -768,7 +906,7 @@ BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* ru
             }
             if(runinfo->mRCode == RCODE_NFUN_INVALID_USSING) {
                 sCommand* command = runinfo->mCommand;
-                err_msg("invalid command using", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("invalid command using", runinfo->mSName, runinfo->mSLine);
                 return FALSE;
             }
             break;
@@ -802,28 +940,24 @@ BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* ru
             }
             break;
 
+        case T_ALIAS:
+            if(!run_alias(object, nextin, nextout, runinfo)) {
+                return FALSE;
+            }
+            break;
+
         case T_STRING: {
             char* str = string_c_str(object);
             int size = strlen(str);
             if(!fd_write(nextout, str, size)) {
                 sCommand* command = runinfo->mCommand;
-                if(command) {
-                    err_msg("signal interrupt9", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                }
-                else {
-                    err_msg("signal interrupt9", runinfo->mSName, runinfo->mSLine, "");
-                }
+                err_msg("signal interrupt9", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
             if(!fd_write(nextout, "\n", 1)) {
                 sCommand* command = runinfo->mCommand;
-                if(command) {
-                    err_msg("signal interrupt10", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                }
-                else {
-                    err_msg("signal interrupt10", runinfo->mSName, runinfo->mSLine, "");
-                }
+                err_msg("signal interrupt10", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -865,23 +999,13 @@ BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* ru
                 char* key = hash_loop_key(it);
                 if(!fd_write(nextout, key, strlen(key))) {
                     sCommand* command = runinfo->mCommand;
-                    if(command) {
-                        err_msg("signal interrupt9", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                    }
-                    else {
-                        err_msg("signal interrupt9", runinfo->mSName, runinfo->mSLine, "");
-                    }
+                    err_msg("signal interrupt9", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(!fd_write(nextout, "\n", 1)) {
                     sCommand* command = runinfo->mCommand;
-                    if(command) {
-                        err_msg("signal interrupt10", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                    }
-                    else {
-                        err_msg("signal interrupt10", runinfo->mSName, runinfo->mSLine, "");
-                    }
+                    err_msg("signal interrupt10", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -920,12 +1044,7 @@ BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* ru
         default: {
             char buf[BUFSIZ];
             sCommand* command = runinfo->mCommand;
-            if(command) {
-                err_msg("can't run this object", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            }
-            else {
-                err_msg("can't run this object", runinfo->mSName, runinfo->mSLine, "");
-            }
+            err_msg("can't run this object", runinfo->mSName, runinfo->mSLine);
             }
             return FALSE;
     }
@@ -933,6 +1052,9 @@ BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* ru
     return TRUE;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// statment tree
+///////////////////////////////////////////////////////////////////////////////
 static BOOL stdin_read_out()
 {
     char buf[BUFSIZ+1];
@@ -969,19 +1091,19 @@ static BOOL ready_for_redirect(sObject** nextout, sObject** nextin, int* opened_
                 if(fd < 0) {
                     char buf[BUFSIZ];
                     snprintf(buf, BUFSIZ, "redirect: error with openning %s file", runinfo->mRedirectsFileNamesRuntime[i]);
-                    err_msg(buf, runinfo->mSName, runinfo->mSLine, "");
+                    err_msg(buf, runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
 
                 if(!bufsiz_read(fd, ALLOC &result, &result_len, &result_size)) {
                     char buf[BUFSIZ];
                     snprintf(buf, BUFSIZ, "redirect: error with reading %s file", runinfo->mRedirectsFileNamesRuntime[i]);
-                    err_msg(buf, runinfo->mSName, runinfo->mSLine, "");
+                    err_msg(buf, runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
                 (void)close(fd);
 
-                ASSERT(TYPE(*nextin) == T_FD);
+                ASSERT(STYPE(*nextin) == T_FD);
                 fd_put(*nextin, MANAGED result, result_size, result_len);
                 break;
 
@@ -991,7 +1113,7 @@ static BOOL ready_for_redirect(sObject** nextout, sObject** nextin, int* opened_
                     if(fd < 0) {
                         char buf[BUFSIZ];
                         snprintf(buf, BUFSIZ, "redirect: error with openning %s file", runinfo->mRedirectsFileNamesRuntime[i]);
-                        err_msg(buf, runinfo->mSName, runinfo->mSLine, "");
+                        err_msg(buf, runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
                     *nextout = FD2_NEW_STACK(fd);
@@ -1006,7 +1128,7 @@ static BOOL ready_for_redirect(sObject** nextout, sObject** nextin, int* opened_
                     if(fd < 0) {
                         char buf[BUFSIZ];
                         snprintf(buf, BUFSIZ, "redirect: error with openning %s file", runinfo->mRedirectsFileNamesRuntime[i]);
-                        err_msg(buf, runinfo->mSName, runinfo->mSLine, "");
+                        err_msg(buf, runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
                     *nextout = FD2_NEW_STACK(fd);
@@ -1014,6 +1136,24 @@ static BOOL ready_for_redirect(sObject** nextout, sObject** nextin, int* opened_
                     *opened_fd = fd;
                 }
                 break;
+        }
+    }
+
+    if(*nextout == NULL) {
+        if(last_program) {
+            if(statment->mFlags & STATMENT_FLAGS_GLOBAL_PIPE_OUT) {
+                fd_clear(gGlobalPipe);
+                *nextout = gGlobalPipe;
+            }
+            else if(statment->mFlags & STATMENT_FLAGS_GLOBAL_PIPE_APPEND) {
+                *nextout = gGlobalPipe;
+            }
+            else {
+                *nextout = pipeout;
+            }
+        }
+        else {
+            *nextout = FD_NEW_STACK();
         }
     }
 
@@ -1025,16 +1165,109 @@ static void redirect_finish(int opend_fd)
     (void)close(opend_fd);
 }
 
-static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout, sRunInfo* runinfo, sObject* current_object)
+static BOOL inherit_method(sRunInfo* runinfo, sObject** object, sCommand* command)
 {
-    /// error check ///
-    if(statment->mFlags & STATMENT_FLAGS_BACKGROUND) {
-        if(gAppType == kATOptC) {
-            err_msg("can't make a job background on script mode. you can make a job background on interactive shell", runinfo->mSName, runinfo->mSLine, NULL);
+    sObject* running_object = runinfo->mRunningObject;
+
+    if(running_object) {
+        switch(STYPE(running_object)) {
+        case T_ALIAS: {
+            sObject* parent = SALIAS(running_object).mParent;
+
+            if(parent) {
+                *object = parent;
+            }
+            }
+            break;
+
+        case T_FUN:  {
+            sObject* parent = SFUN(running_object).mParent;
+
+            if(parent) {
+                if(STYPE(parent) == T_NFUN || STYPE(parent) == T_FUN) {
+                    *object = parent;
+                }
+            }
+            }
+            break;
+
+        case T_CLASS: {
+            sObject* parent = SFUN(running_object).mParent;
+
+            if(parent) {
+                if(STYPE(parent) == T_CLASS) {
+                    *object = parent;
+                }
+            }
+            }
+            break;
+
+        case T_NFUN:
+        case T_BLOCK:
+            err_msg("There is not a parent object", runinfo->mSName, runinfo->mSLine);
+            return FALSE;
+
+        default:
+            fprintf(stderr, "unexpected error in cmd_inherit\n");
+            exit(1);
+        }
+    }
+
+    return TRUE;
+}
+
+BOOL get_object_from_command_name(sCommand* command, sObject* current_object, sObject** object, sObject** reciever, sRunInfo* runinfo)
+{
+    *reciever = current_object;
+
+    /// message passing with object prefix ///
+    if(command->mMessagesNum > 0) {
+        /// search for object ///
+        if(command->mMessages[0][0] == 0) {
+            *object = gRootObject;
+        }
+        else {
+            *object = access_object(command->mMessages[0], reciever, runinfo->mRunningObject);
+        }
+
+        int i = 1;
+        while(i < command->mMessagesNum) {
+            if(*object && STYPE(*object) == T_UOBJECT) {
+                *reciever = *object;
+                *object = uobject_item(*object, command->mMessages[i++]);
+            }
+            else {
+                err_msg("invalid message passing", runinfo->mSName, runinfo->mSLine);
+                return FALSE;
+            }
+        }
+
+        if(*object && STYPE(*object) == T_UOBJECT) {
+            *reciever = *object;
+            *object = uobject_item(*object, command->mArgs[0]);
+        }
+        else {
+            err_msg("invalid message passing", runinfo->mSName, runinfo->mSLine);
+            return FALSE;
+        }
+    }
+    /// message passing without object prefix ///
+    else {
+        *object = access_object(command->mArgs[0], reciever, runinfo->mRunningObject);
+    }
+
+    /// inherit object ///
+    if(*object == gInheritMethod || *object == gInheritMethod2) {
+        if(!inherit_method(runinfo, object, command)) {
             return FALSE;
         }
     }
 
+    return TRUE;
+}
+
+static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout, sRunInfo* runinfo, sObject* current_object)
+{
     /// head of statment ///
     sObject* nextin;
     if(statment->mFlags & STATMENT_FLAGS_CONTEXT_PIPE) {
@@ -1042,12 +1275,7 @@ static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout
         if(pipein == gStdin && SFD(gStdin).mBufLen == 0 && !isatty(0)) {
             if(!stdin_read_out()) {
                 sCommand* command = runinfo->mCommand;
-                if(command) {
-                    err_msg("signal interrupt11", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                }
-                else {
-                    err_msg("signal interrupt11", runinfo->mSName, runinfo->mSLine, "");
-                }
+                err_msg("signal interrupt11", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -1064,9 +1292,9 @@ static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout
             nextin = FD_NEW_STACK();
             eLineField lf;
             if(fd_guess_lf(pipein, &lf)) {
-                fd_split(pipein, lf);
+                fd_split(pipein, lf, FALSE, FALSE, FALSE);
             } else {
-                fd_split(pipein, kLF);
+                fd_split(pipein, kLF, FALSE, FALSE, FALSE);
             }
             if(line_number < 0) line_number += vector_count(SFD(pipein).mLines)+1;
             if(line_number < 0) line_number = 0;
@@ -1076,12 +1304,7 @@ static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout
                 char* line = vector_item(SFD(pipein).mLines, i);
                 if(!fd_write(nextin, line, strlen(line))) {
                     sCommand* command = runinfo->mCommand;
-                    if(command) {
-                        err_msg("signal interrupt12", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                    }
-                    else {
-                        err_msg("signal interrupt12", runinfo->mSName, runinfo->mSLine, "");
-                    }
+                    err_msg("signal interrupt12", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
@@ -1093,12 +1316,7 @@ static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout
         nextin = FD_NEW_STACK();
         if(!fd_write(nextin, SFD(gGlobalPipe).mBuf, SFD(gGlobalPipe).mBufLen)) {
             sCommand* command = runinfo->mCommand;
-            if(command) {
-                err_msg("signal interrupt12", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            }
-            else {
-                err_msg("signal interrupt12", runinfo->mSName, runinfo->mSLine, "");
-            }
+            err_msg("signal interrupt12", runinfo->mSName, runinfo->mSLine);
             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
             return FALSE;
         }
@@ -1119,213 +1337,60 @@ static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout
 
         sRunInfo_command_new(runinfo);
 
-        /// expand env ///
-        if(!sCommand_expand_env_of_redirect(command, pipein, runinfo))
-        {
-            sRunInfo_command_delete(runinfo);
-            return FALSE;
-        }
-
+        /// run a command ///
         sObject* nextout = NULL;
-
         int opened_fd = -1;
-        if(!ready_for_redirect(&nextout, &nextin, &opened_fd, pipeout, last_program, statment, command, runinfo)) {
-            sRunInfo_command_delete(runinfo);
-            return FALSE;;
-        }
-        
-        ASSERT(TYPE(nextin) == T_FD);
-
-        if(nextout == NULL) {
-            if(last_program) {
-                if(statment->mFlags & STATMENT_FLAGS_GLOBAL_PIPE_OUT) {
-                    fd_clear(gGlobalPipe);
-                    nextout = gGlobalPipe;
-                }
-                else if(statment->mFlags & STATMENT_FLAGS_GLOBAL_PIPE_APPEND) {
-                    nextout = gGlobalPipe;
-                }
-                else {
-                    nextout = pipeout;
-                }
-            }
-            else {
-                nextout = FD_NEW_STACK();
-            }
-        }
 
         if(command->mArgsNum > 0) {
-            if(command->mArgsFlags[0] & XYZSH_ARGUMENT_ENV) {
-                err_msg("a command name must be determined staticaly. Instead of this, use eval inner command.", runinfo->mSName, runinfo->mSLine, NULL);
+            sObject* reciever;
+            sObject* object;
+            if(!get_object_from_command_name(command, current_object, &object, &reciever, runinfo)) {
+                sRunInfo_command_delete(runinfo);
+                return FALSE;
+            }
+            
+            /// expand env ///
+            if(!sCommand_expand_env(command, object, pipein, runinfo))
+            {
                 sRunInfo_command_delete(runinfo);
                 return FALSE;
             }
 
-            /// message passing ///
-            if(command->mMessagesNum > 0) {
-                sObject* reciever = current_object;
-                sObject* object = access_object(command->mMessages[0], &reciever, runinfo->mRunningObject);
-                int i = 1;
-                while(i < command->mMessagesNum) {
-                    if(object && TYPE(object) == T_UOBJECT) {
-                        reciever = object;
-                        object = uobject_item(object, command->mMessages[i++]);
-                    }
-                    else {
-                        err_msg("invalid message passing", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                        sRunInfo_command_delete(runinfo);
-                        return FALSE;
-                    }
-                }
+            /// redirect ///
+            if(!ready_for_redirect(&nextout, &nextin, &opened_fd, pipeout, last_program, statment, command, runinfo)) {
+                sRunInfo_command_delete(runinfo);
+                return FALSE;;
+            }
+            
+            ASSERT(STYPE(nextin) == T_FD);
 
-                if(object && TYPE(object) == T_UOBJECT) {
-                    reciever = object;
-                    object = uobject_item(object, command->mArgs[0]);
-
-                    if(object == gInheritObject) {
-                        sObject* running_object = runinfo->mRunningObject;
-
-                        if(runinfo->mRunningObject) {
-                            switch(TYPE(running_object)) {
-                            case T_FUN:  {
-                                sObject* parent = SFUN(running_object).mParent;
-
-                                if(parent) {
-                                    if(TYPE(parent) == T_NFUN || TYPE(parent) == T_FUN) {
-                                        object = parent;
-                                    }
-                                }
-                                }
-                                break;
-
-                            case T_CLASS: {
-                                sObject* parent = SFUN(running_object).mParent;
-
-                                if(parent) {
-                                    if(TYPE(parent) == T_CLASS) {
-                                        object = parent;
-                                    }
-                                }
-                                }
-                                break;
-
-                            case T_NFUN:
-                            case T_BLOCK:
-                                err_msg("There is not a parent object", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                                sRunInfo_command_delete(runinfo);
-                                return FALSE;
-
-                            default:
-                                fprintf(stderr, "unexpected error in cmd_inherit\n");
-                                exit(1);
-                            }
-                        }
-                    }
-
-                    /// expand env ///
-                    if(!sCommand_expand_env(command, object, pipein, nextout, runinfo))
-                    {
-                        sRunInfo_command_delete(runinfo);
-                        return FALSE;
-                    }
-
-                    if(object) {
-                        runinfo->mRecieverObject = reciever;
-                        if(!run_object(object, nextin, nextout, runinfo)) {
-                            sRunInfo_command_delete(runinfo);
-                            return FALSE;
-                        }
-                    }
-                    else {
-                        err_msg("there is not this object", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                        sRunInfo_command_delete(runinfo);
-                        return FALSE;
-                    }
-                }
-                else {
-                    err_msg("invalid message passing", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
+            /// run object ///
+            if(object) {
+                runinfo->mRecieverObject = reciever;
+                if(!run_object(object, nextin, nextout, runinfo)) {
                     sRunInfo_command_delete(runinfo);
                     return FALSE;
                 }
             }
-            /// normal function ///
             else {
-                sObject* reciever = current_object;
-                sObject* object = access_object(command->mArgs[0], &reciever, runinfo->mRunningObject);
-
-                if(object == gInheritObject) {
-                    sObject* running_object = runinfo->mRunningObject;
-
-                    if(runinfo->mRunningObject) {
-                        switch(TYPE(running_object)) {
-                        case T_FUN:  {
-                            sObject* parent = SFUN(running_object).mParent;
-
-                            if(parent) {
-                                if(TYPE(parent) == T_NFUN || TYPE(parent) == T_FUN) {
-                                    object = parent;
-                                }
-                            }
-                            }
-                            break;
-
-                        case T_CLASS: {
-                            sObject* parent = SFUN(running_object).mParent;
-
-                            if(parent) {
-                                if(TYPE(parent) == T_CLASS) {
-                                    object = parent;
-                                }
-                            }
-                            }
-                            break;
-
-                        case T_NFUN:
-                        case T_BLOCK:
-                            err_msg("There is not a parent object", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                            sRunInfo_command_delete(runinfo);
-                            return FALSE;
-
-                        default:
-                            fprintf(stderr, "unexpected error in cmd_inherit\n");
-                            exit(1);
-                        }
-                    }
-                }
-
-                if(object) {
-                    /// expand env ///
-                    if(!sCommand_expand_env(command, object, pipein, nextout, runinfo))
-                    {
-                        sRunInfo_command_delete(runinfo);
-                        return FALSE;
-                    }
-
-                    runinfo->mRecieverObject = reciever;
-                    if(!run_object(object, nextin, nextout, runinfo)) {
+                /// run external object ///
+                if(command->mMessagesNum == 0) {
+                    if(!run_external_command(runinfo->mArgsRuntime[0], nextin, nextout, runinfo)) {
                         sRunInfo_command_delete(runinfo);
                         return FALSE;
                     }
                 }
                 else {
-                    /// expand env ///
-                    if(!sCommand_expand_env(command, NULL, pipein, nextout, runinfo))
-                    {
-                        sRunInfo_command_delete(runinfo);
-                        return FALSE;
-                    }
-
-                    if(!run_external_command(runinfo->mArgsRuntime[0], nextin, nextout, runinfo)) {
-                        sRunInfo_command_delete(runinfo);
-                        return FALSE;
-                    }
+                    err_msg("there is not this object", runinfo->mSName, runinfo->mSLine);
+                    sRunInfo_command_delete(runinfo);
+                    return FALSE;
                 }
             }
         }
 
         if(opened_fd != -1) redirect_finish(opened_fd);
 
-        if(TYPE(nextout) == T_FD2) {
+        if(STYPE(nextout) == T_FD2) {
             nextin = FD_NEW_STACK();
         }
         else {
@@ -1343,6 +1408,9 @@ static BOOL statment_tree(sStatment* statment, sObject* pipein, sObject* pipeout
     return TRUE;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// run 
+///////////////////////////////////////////////////////////////////////////////
 BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject* current_object, sObject* running_object)
 {
     vector_add(gRunningObjects, running_object); // for marking on gc
@@ -1354,10 +1422,10 @@ BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject*
     if(nest_level == 50) {
         if(SBLOCK(block).mStatmentsNum > 0) {
             sStatment* statment = SBLOCK(block).mStatments + 0;
-            err_msg("stack over flow", statment->mFName, statment->mLine, "system");
+            err_msg("stack over flow", statment->mFName, statment->mLine);
         }
         else {
-            err_msg("stack over flow", "xyzsh", 0, "system");
+            err_msg("stack over flow", "xyzsh", 0);
         }
         nest_level--;
 
@@ -1383,24 +1451,48 @@ BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject*
         runinfo.mStatment = statment;
         runinfo.mNestLevel = nest_level;
 
-        if(!statment_tree(statment, pipein, pipeout, &runinfo, current_object)) {
-            fd_clear(gStdout);
-            fd_clear(gStderr);
+        if(statment->mFlags & STATMENT_FLAGS_KIND_NODETREE) {
+            runinfo.mCurrentObject = current_object;
+            if(!node_tree(statment, pipein, pipeout, &runinfo, current_object)) {
+                fd_clear(gStdout);
+                fd_clear(gStderr);
 
-            *rcode = runinfo.mRCode;
+                *rcode = runinfo.mRCode;
 
-            stack_end_stack();
-            nest_level--;
+                stack_end_stack();
+                nest_level--;
 
-            if(nest_level == 0) {
-                vector_clear(gObjectsInPipe);
+                if(nest_level == 0) {
+                    vector_clear(gObjectsInPipe);
+                }
+
+                if(!(n++ % 32)) (void)gc_sweep();
+
+                (void)vector_pop_back(gRunningObjects);
+                (void)vector_pop_back(gRunningObjects);
+                return FALSE;
             }
+        }
+        else {
+            if(!statment_tree(statment, pipein, pipeout, &runinfo, current_object)) {
+                fd_clear(gStdout);
+                fd_clear(gStderr);
 
-            if(!(n++ % 32)) (void)gc_sweep();
+                *rcode = runinfo.mRCode;
 
-            (void)vector_pop_back(gRunningObjects);
-            (void)vector_pop_back(gRunningObjects);
-            return FALSE;
+                stack_end_stack();
+                nest_level--;
+
+                if(nest_level == 0) {
+                    vector_clear(gObjectsInPipe);
+                }
+
+                if(!(n++ % 32)) (void)gc_sweep();
+
+                (void)vector_pop_back(gRunningObjects);
+                (void)vector_pop_back(gRunningObjects);
+                return FALSE;
+            }
         }
 
         /// flash stdout and stderr ///
@@ -1410,7 +1502,7 @@ BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject*
                 fd_clear(gStderr);
 
                 sCommand* command = runinfo.mCommand;
-                err_msg("signal interrupt13", runinfo.mSName, runinfo.mSLine, command->mArgs[0]);
+                err_msg("signal interrupt13", runinfo.mSName, runinfo.mSLine);
                 *rcode = RCODE_SIGNAL_INTERRUPT;
                 stack_end_stack();
                 nest_level--;
@@ -1430,7 +1522,7 @@ BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject*
                 fd_clear(gStderr);
 
                 sCommand* command = runinfo.mCommand;
-                err_msg("signal interrupt14", runinfo.mSName, runinfo.mSLine, command->mArgs[0]);
+                err_msg("signal interrupt14", runinfo.mSName, runinfo.mSLine);
                 *rcode = RCODE_SIGNAL_INTERRUPT;
                 stack_end_stack();
                 nest_level--;
@@ -1448,7 +1540,7 @@ BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject*
         if(gXyzshSigUser) {
             gXyzshSigUser = FALSE;
             sCommand* command = runinfo.mCommand;
-            err_msg("command not found", runinfo.mSName, runinfo.mSLine, ""); //command->mArgs[0]);
+            err_msg("command not found", runinfo.mSName, runinfo.mSLine);
             stack_end_stack();
             nest_level--;
             fd_clear(gStdout);
@@ -1464,7 +1556,7 @@ BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject*
         else if(runinfo.mRCode == 128+SIGINT || gXyzshSigInt) {
             gXyzshSigInt = FALSE;
             sCommand* command = runinfo.mCommand;
-            err_msg("signal interrupt15", runinfo.mSName, runinfo.mSLine, command->mArgs[0]);
+            err_msg("signal interrupt15", runinfo.mSName, runinfo.mSLine);
             *rcode = RCODE_SIGNAL_INTERRUPT;
             stack_end_stack();
             nest_level--;
@@ -1511,309 +1603,31 @@ BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject*
     return TRUE;
 }
 
-BOOL forground_job(int num)
+void run_init(enum eAppType app_type)
 {
-    if(num>=0 && num < vector_count(gJobs)) {
-        sObject* job = vector_item(gJobs, num);
+    gAppType = app_type;
+    gStdin = FD_NEW_STACK();
+    gStdout = FD_NEW_STACK();
+    gStderr = FD_NEW_STACK();
+    gJobs = VECTOR_NEW_GC(16, FALSE);
+    uobject_put(gXyzshObject, "_jobs", gJobs);
 
-        tcsetattr(STDIN_FILENO, TCSANOW, SJOB(job).mTty);
-        if(tcsetpgrp(0, SJOB(job).mPGroup) < 0) {
-            perror("tcsetpgrp(fg)");
-            return FALSE;
-        }
-        
-        if(kill(SJOB(job).mPGroup, SIGCONT) < 0) {
-            perror("kill(fg)");
-            return FALSE;
-        }
+    xyzsh_job_done = NULL;
 
-        /// wait ///
-        int status = 0;
-        pid_t pid = waitpid(SJOB(job).mPGroup, &status, WUNTRACED);
+    gLineField = kLF;
+    gKanjiCode = kByte;
 
-        if(pid < 0) {
-            perror("waitpid(run_wait_cprogs)");
-            return FALSE;
-        }
+    gRunInfoOfRunningObject = NULL;
 
-        /// exited normally ///
-        if(WIFEXITED(status)) {
-            if(xyzsh_job_done) xyzsh_job_done(num, SJOB(job).mName);
+    gGlobalPipe = FD_NEW_STACK();
 
-            vector_erase(gJobs, num);
+    gObjectsInPipe = VECTOR_NEW_GC(10, FALSE);
+    uobject_put(gXyzshObject, "_objects_in_pipe", gObjectsInPipe);
 
-            /// forground xyzsh ///
-            mreset_tty();
-            if(tcsetpgrp(0, getpgid(0)) < 0) {
-                perror("tcsetpgrp");
-                return FALSE;
-            }
-        }
-        /// exited from signal ///
-        else if(WIFSIGNALED(status)) {
-            if(xyzsh_job_done) xyzsh_job_done(num, SJOB(job).mName);
-
-            vector_erase(gJobs, num);
-
-            /// froground xyzsh ///
-            if(tcsetpgrp(0, getpgid(0)) < 0) {
-                perror("tcsetpgrp");
-                return FALSE;
-            }
-        }
-        /// stopped from signal ///
-        else if(WIFSTOPPED(status)) {
-            tcgetattr(STDIN_FILENO, SJOB(job).mTty);
-
-            /// forground xyzsh ///
-            if(tcsetpgrp(0, getpgid(0)) < 0) {
-                perror("tcsetpgrp");
-                return FALSE;
-            }
-        }
-
-        return TRUE;
-    }
-
-    err_msg("invalid job number", "fg", 1, "fg");
-    return FALSE;
+    gRunningObjects = VECTOR_NEW_GC(10, FALSE);
+    uobject_put(gXyzshObject, "_running_block", gRunningObjects);
 }
 
-BOOL background_job(int num)
+void run_final()
 {
-    if(num>=0 && num < vector_count(gJobs)) {
-        sObject* job = vector_item(gJobs, num);
-        
-        if(kill(SJOB(job).mPGroup, SIGCONT) < 0) {
-            perror("kill(bg)");
-            return FALSE;
-        }
-    }
-
-    return TRUE;
 }
-
-void xyzsh_wait_background_job()
-{
-    int status;
-    pid_t pid = waitpid(-1, &status, WNOHANG);
-
-    if(pid >= 0) {
-        int i;
-        for(i=0; i<vector_count(gJobs); i++) {
-            sObject* job = vector_item(gJobs, i);
-
-            if(pid == SJOB(job).mPGroup) {
-                if(xyzsh_job_done) xyzsh_job_done(i, SJOB(job).mName);
-
-                vector_erase(gJobs, i);
-                break;
-            }
-        }
-    }
-}
-
-void xyzsh_kill_all_jobs()
-{
-    int i;
-    for(i=0; i<vector_count(gJobs); i++) {
-        sObject* job = vector_item(gJobs, i);
-
-        kill(SJOB(job).mPGroup, SIGKILL);
-    }
-
-    vector_clear(gJobs);
-}
-
-// TRUE: Success. result is malloced.
-// FALSE: signal interrupt. set RCODE_SIGNAL_INTERRUPT on rcode and err message. result is not malloced.
-BOOL bufsiz_read(int fd, ALLOC char** result, int* result_len, int* result_size)
-{
-    int source_size = BUFSIZ * 8;
-    int source_len = 0;
-    char* source = MALLOC(BUFSIZ*8);
-    source[0] = 0;
-
-    char buf[BUFSIZ+1];
-    while(TRUE) {
-        int size = read(fd, buf, BUFSIZ);
-        if(size < 0) {
-            FREE(source);
-            return FALSE;
-        }
-        buf[size] = 0;
-        if(size < BUFSIZ) {
-            if(source_len + size + 1 >= source_size) {
-                source_size *= 2;
-                source = REALLOC(source, source_size);
-            }
-            strcat(source, buf);
-            source_len += size;
-            break;
-        }
-        else {
-            if(source_len + size + 1 >= source_size) {
-                source_size *= 2;
-                source = REALLOC(source, source_size);
-            }
-            strcat(source, buf);
-            source_len += size;
-        }
-    }
-
-    *result = source;
-    *result_len = source_len;
-    *result_size = source_size;
-    
-    return TRUE;
-}
-
-BOOL load_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runinfo, char** argv, int argc)
-{
-    int fd = open(fname, O_RDONLY);
-    if(fd < 0) {
-        err_msg("open error", runinfo->mSName, runinfo->mSLine, fname);
-        return FALSE;
-    }
-
-    char* buf;
-    int buf_len;
-    int buf_size;
-    if(!bufsiz_read(fd, ALLOC &buf, &buf_len, &buf_size)) {
-        sCommand* command = runinfo->mCommand;
-        err_msg("signal interrupt16", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-        runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
-        close(fd);
-        return FALSE;
-    }
-    (void)close(fd);
-
-    stack_start_stack();
-    int rcode = 0;
-    sObject* block = BLOCK_NEW_STACK();
-    int sline = 1;
-    if(parse(buf, fname, &sline, block, NULL)) {
-        FREE(buf);
-
-        sObject* fun = FUN_NEW_STACK(NULL);
-        sObject* stackframe = UOBJECT_NEW_GC(8, gXyzshObject, "_stackframe", FALSE);
-        vector_add(gStackFrames, stackframe);
-        //uobject_init(stackframe);
-        SFUN(fun).mLocalObjects = stackframe;
-
-        sObject* argv2 = VECTOR_NEW_GC(16, FALSE);
-        int i;
-        for(i=0; i<argc; i++) {
-            vector_add(argv2, STRING_NEW_GC(argv[i], FALSE));
-        }
-        uobject_put(SFUN(fun).mLocalObjects, "ARGV", argv2);
-
-        if(!run(block, nextin, nextout, &rcode, runinfo->mCurrentObject, fun))
-        {
-            if(rcode == RCODE_EXIT) {
-            }
-            else {
-                runinfo->mRCode = rcode;
-
-                (void)vector_pop_back(gStackFrames);
-                stack_end_stack();
-                return FALSE;
-            }
-        }
-        (void)vector_pop_back(gStackFrames);
-    }
-    else {
-        FREE(buf);
-        sCommand* command = runinfo->mCommand;
-        err_msg_adding("parser error", runinfo->mSName, runinfo->mSLine, "parser");
-        stack_end_stack();
-        return FALSE;
-    }
-
-    stack_end_stack();
-
-    return TRUE;
-}
-
-#if defined(__CYGWIN__) && defined(HAVE_MIGEMO_H)
-int migemo_dl_final();
-int migemo_dl_init();
-#endif
-
-BOOL load_so_file(char* fname, sObject* nextin, sObject* nextout, sRunInfo* runinfo)
-{
-    sCommand* command = runinfo->mCommand;
-
-    char path[PATH_MAX];
-    snprintf(path, PATH_MAX, "%s%s", EXTDIR, fname);
-
-    if(access(path, X_OK) != 0) {
-        char* home = getenv("HOME");
-        if(home) {
-            snprintf(path, PATH_MAX, "%s/.xyzsh/lib/%s", home, fname);
-            if(access(path, X_OK) != 0) {
-                xstrncpy(path, fname, PATH_MAX);
-            }
-        }
-        else {
-            xstrncpy(path, fname, PATH_MAX);
-        }
-    }
-
-#if defined(__CYGWIN__) && defined(HAVE_MIGEMO_H)
-    if(hash_item(gDynamicLibraryFinals, path) == NULL) {
-        if(strstr(path, "migemo")) {
-            if(migemo_dl_init() != 0) {
-                err_msg("false in initialize the dynamic library", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-                return FALSE;
-            }
-            hash_put(gDynamicLibraryFinals, path, migemo_dl_final);
-        }
-
-        char path2[PATH_MAX];
-        snprintf(path2, PATH_MAX, "%s.xyzsh", path);
-        if(access(path2, F_OK) == 0) {
-            if(!load_file(path2, nextin, nextout, runinfo, NULL, 0)) {
-                return FALSE;
-            }
-        }
-    }
-#else
-    if(hash_item(gDynamicLibraryFinals, path) == NULL) {
-        void* handle = dlopen(path, RTLD_LAZY);
-        if(handle == NULL) {
-            err_msg(dlerror(), runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            return FALSE;
-        }
-
-        int (*init_func)() = dlsym(handle, "dl_init");
-        int (*final_func)() = dlsym(handle, "dl_final");
-        if(init_func == NULL || final_func == NULL) {
-            err_msg("not found dl_init or dl_final", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            dlclose(handle);
-            return FALSE;
-        }
-
-        if(init_func(NULL) != 0) {
-            err_msg("false in initialize the dynamic library", runinfo->mSName, runinfo->mSLine, command->mArgs[0]);
-            dlclose(handle);
-            return FALSE;
-        }
-
-        hash_put(gDynamicLibraryFinals, path, final_func);
-
-        //dlclose(handle);
-
-        char path2[PATH_MAX];
-        snprintf(path2, PATH_MAX, "%s.xyzsh", path);
-        if(access(path2, F_OK) == 0) {
-            if(!load_file(path2, nextin, nextout, runinfo, NULL, 0)) {
-                return FALSE;
-            }
-        }
-    }
-#endif
-
-    return TRUE;
-}
-

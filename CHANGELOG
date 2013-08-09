@@ -1,4 +1,431 @@
 
+2013 2013 8月6日 version 1.4.8
+
+    1. 動的ライブラリのSOのバージョンが間違ってました。修正。
+
+2013 6th of August 2013 version 1.4.8
+
+    1. Modified dynamic library so version.
+
+2013 2013 8月5日 version 1.4.7
+
+    1. gitのソースツリーにmigemo.soが混じってました。修正。
+
+2013 5th of August 2013 version 1.4.7
+
+    1. Removed migemo.so.
+
+2013 version 1.4.6
+
+    1. 数値を計算する式を入れました。: のあとに式を書いてください。
+
+    2. コマンドラインスタックを入れました。Meta-qで使えます。
+
+    3. 先頭にスペースがあれば、ヒストリに追加しないようにするオプションを追加しました。(print 1 | export HIST_IGNORE_SPACE)
+
+2013 version 1.4.6
+
+    1. Added expression for numerical calcuration. Use : at head of statment. See USAGE.
+
+    2. Added "commandline stack". You can use it when pressing meta-q.
+
+    3. Added "HIST_IGNORE_SPACE" environmental variable. If you enable this, you can add space at head to prohibit from appending commandline history.
+
+2013 19th of July version 1.4.5
+
+    1. Have been fixed a compile error on linux.
+
+    2. Have been fixed a bug which is that xyzsh can't expand option with variable on external command. ex) ./configure --prefix=$HOME
+
+2013 ６月19日 version 1.4.5
+
+    1. Linuxでのコンパイルエラーを修正。
+
+    2. 外部コマンドにオプション＋変数の引数があると巧く展開されていませんでした。
+
+2013 16th of July version 1.4.4
+
+    1. CTRL-W is binded as "ed-delete-prev-word".
+
+    2. Added "keybind" method to "el" and "rl" objects.
+
+    3. Added "install_all_external_program_to_root_object" function on xyzsh.xyzsh. See USAGE.
+
+    4. Changed presedence on rehash. Native function of xyzsh take precedence from external program of sys:: object.
+
+    5. Added XYZSH_BLINK_MATCHING_PAREN_MILLI_SEC. You can specify milli sec on blink matching paren.
+
+    6. Removed limit of object number in pipe.
+
+    7. Fixed bug of selector or p. It sometimes occures segmentation fault.
+
+    8. Fixed bug of "selector". "selector" couldn't draw a line which contains some control characters.
+
+    10. Fixed bug on completion with double quote or single quote.
+
+    11. It leaves in minimum on editline castamize.
+
+    12. Defined a terminal emulator library. You can embed xyzsh for Windows System Aplication.
+
+    13. Changed a working of the movement that a newline follows the backslash. It is the same as bash and POSIX shell.
+
+    14. Added backquote command expansion. 
+
+    15. Removed "co" inner command.
+
+    16. Added "alias", inner command. See help or USAGE
+
+    17. Added "xyzsh" object which contains all xyzsh inner command
+
+    18. Added "typeof" inner command to see the object kind of argument object.
+
+2013 7月16日 version 1.4.4
+
+    1. CTRL-Wを後方単語削除にバインドしました。
+
+    2. el, rlオブジェクトにkeybindメソッドを追加。
+
+    3. "install_all_external_program_to_root_object"関数を追加。USAGE.jaを見てください。全ての外部プログラムをrootオブジェクトに追加することができるようになっています。
+
+    4. sysオブジェクトの外部プログラムとxyzsh内部関数が衝突した場合xyzsh内部関数を優先するように変更。
+
+    5. XYZSH_BLINK_MATCHING_PAREN_MILLI_SECを追加。括弧のチェック時、指定ミリ秒だけ止まります。
+
+    6. パイプの中にあるオブジェクトの数の制限が無くなりました。
+
+    7. pやselectorを使用中にたまに落ちることがあったバグを修正。
+
+    9. selectorがコントロールキャラクターを含む行を表示できなかったバグを修正。
+
+    10. シングルクォートとダブルクォートの補完がおかしいバグを修正。
+
+    11. editlineのカスタマイズを最小限にとどめました。
+
+    12. ウィンドウシステム上のアプリケーションに組み込めるようになりました。
+
+    13. バックスラッシュに改行が続いた場合の動きをPOSIXに合わせました。
+
+    14. バッククォートのコマンド展開を入れました。ネストは不可。
+
+    15. co内部コマンドの廃止。
+
+    16. "alias"内部コマンドを追加。USAGE.jaかヘルプを見てください。
+
+    17. ルートオブジェクトに"xyzsh"オブジェクトを追加。全ての内部コマンドが入っています。
+
+    18. "typeof" 内部コマンドが追加されています。
+
+2013 2nd of June version 1.4.3
+
+    1. Changed manipulation of p or selector. You can manipulate p or selector like less(3).
+
+    2. Fixed a bug on command line argument.
+
+    > vim a.xyzsh
+    ARGV
+
+    > sys::xyzsh a.xyzsh A B C
+    error
+
+    3. Changed view of selector and p.
+
+    4. Fixed bug with sudo completion and fixed bug of completion inner command.
+
+    5. Fixed bug with scan inner command.
+
+    6. Change used library of line editor from readline to editline for MIT License.
+
+    7. Removed $$(...) because "$(...)" is the same working. Changed working of $(...). It is almost the same to bash.
+
+    8. Changed command name of block to ablock.
+
+    9. Changed command name of macro to cmdline_macro
+
+    10. Changed the way xyzsh complete single quote and double quote. It works not on completion.xyzsh but on xyzsh completion system.
+
+    11. Added "rprompt" innser command. You can add right side prompt on interactive shell with "rprompt" innser command.
+
+2013 6月2日 version 1.4.3
+
+    1. pとselectorの操作を変更。less(3)みたいにした。
+
+    2. コマンドライン引数にバグがあったので修正。
+
+    > vim a.xyzsh
+    ARGV
+
+    > sys::xyzsh a.xyzsh A B C
+    error
+
+    3. pとselectorの表示を変更。
+
+    4. sudoの補完にバグがあったので修正。
+
+    5. scan内部コマンドにバグがあったので修正。
+
+    6. ライセンスのためにreadlineからeditlineに使用ライブラリを修正。
+
+    7. $(...)の動きを変更。 $$(...)は廃止されて、$(...)で改行区切りで複数の引数として解釈されます。出力をそのまま貼付けたい場合は"$(...)"などとクォートで包むとそうなるようになりました。(bashと似た動き)。
+
+    8. block内部コマンドがablockと名前が変わりました。
+
+    9. macro関数がcmdline_macro関数と名前が変わりました。
+
+    10. シングルクォートとダブルクォートの補完の仕方が変わりました。completion.xyzshでしていましたが、システム側でするようになりました。
+
+    11. rprompt内部コマンドを追加。インタラクティブシェルで右プロンプトを使えるようになりました。
+
+2013 1st of April version 1.4.2
+
+    1. Wrote help of migemo::querry.
+
+    2. Changed access flag of dl_open from X_OK to R_OK
+
+    3. Removed checking system of overritten global object name by local object name.
+
+    You can write this on your resposibirities from this version.
+
+    > split -target "AAA BBB CCC" | var -local head ls tail; head; ls; tail
+    AAA
+    BBB
+    CCC
+
+    4. Added new feature of initializing variable. See below sample.
+
+    > print ${A=1}\n; ++ A; print $A\n
+    1
+    2
+
+    A is local variable.
+
+    This may be useful on loop like below.
+
+    > while(print ${I=0} | -lt 5) ( print HELLO\n; ++ I )
+    HELLO
+    HELLO
+    HELLO
+    HELLO
+    HELLO
+
+    5. Fixed bug with completion like below.
+
+    > /u[TAB]
+    usr/
+
+    > /u[TAB]
+    usr/
+
+    Xyzsh can't complete in this case
+
+    6. Fixed bug with completion like below.
+
+    > ls ~/.xyz[TAB]
+
+    > ls /Users/ab25cq/.xyz
+
+    7. Added expand_tilda inner command.
+
+    > print /home/ab25cq/abc | expand_tilda | pomch
+    /home/ab25cq/abc
+
+    > print ~/abc | expand_tilda | pomch
+    /home/ab25cq/abc
+
+    > print ~root/abc | expand_tilda | pomch
+    /root/abc
+
+    8. Fixed variable completion bug.
+
+    > ls $HOME/[TAB]
+
+    > ls | var rl::abc rl::def
+
+    > echo "$rl::abc $rl::[TAB]"
+
+    9. Fixed completion with quoting bug.
+
+    > touch a\ a
+
+    > ls "a\ [TAB]
+
+    > ls 'a [TAB]
+
+    > ls a\ [TAB]
+
+    10. Fixed memory allocation bug with fd_writec
+
+    > pkill [TAB]
+    Segmentation Fault
+
+    11. You can add varialbe to object anywhere from this version.
+
+    > object obj; split -target "AAA BBB CCC" | var obj::A obj::B obj::C
+
+    > print "$obj::A $obj::B $obj::C"
+    AAA BBB CCC
+
+    > obj::A
+    AAA
+
+    > obj::B
+    BBB
+
+    > obj::C
+    CCC
+
+    12. You can use :: on head of object prefix.
+
+    > object obj; split -target "aaa bbb ccc" | var obj::a obj::b obj::c
+    > ::obj::a
+    aaa
+    > echo $::obj::a
+    aaa
+
+    13. Change working with lines, split, each,p,combine and join inner command on linefield of last line.
+
+    > print "a,b,c," | split ,
+    a
+    b
+    c
+    
+    > print "a,b,c" | split ,
+    a
+    b
+    c
+    > print "a,b,c" | split , | join ,
+    a,b,c
+    > print "a,b,c,,," | split , | join ,
+    a,b,c,,,
+    > print a,b,c | split , | chomp | each ( | print ) | p
+    a
+    b
+    c[EOF]
+
+2013 4月1日 1.4.2
+
+    1. migemo::querryのヘルプを書いた。
+
+    2. dl_openのアクセスフラグをX_OKからR_OKに直した。
+
+    3. グローバルオブジェクトをローカルオブジェクトが上書きする場合エラーを吐いていたが、それを無くした。
+       逆に色々問題が出ていた。自分の責任で書いてください。
+
+    > split -target "AAA BBB CCC" | var -local head ls tail; head; ls; tail
+    AAA
+    BBB
+    CCC
+
+    4. 変数の初期化の仕方に新しい機能を入れた。下のサンプルを見てください。
+
+    > print ${A=1}\n; ++ A; print $A\n
+    1
+    2
+
+    A is local variable.
+
+    This may be useful on loop like below.
+
+    > while(print ${I=0} | -lt 5) ( print HELLO\n; ++ I )
+    HELLO
+    HELLO
+    HELLO
+    HELLO
+    HELLO
+
+    5. 補完のバグを修正。
+
+    > /u[TAB]
+    usr/
+
+    > /u[TAB]
+    usr/
+
+    Xyzsh can't complete in this case
+
+    6. もう一つ補完のバグを修正。
+
+    > ls ~/.xyz[TAB]
+
+    > ls /Users/ab25cq/.xyz
+
+    7. expand_tildaという内部コマンドを追加。
+
+    > print /home/ab25cq/abc | expand_tilda | pomch
+    /home/ab25cq/abc
+
+    > print ~/abc | expand_tilda | pomch
+    /home/ab25cq/abc
+
+    > print ~root/abc | expand_tilda | pomch
+    /root/abc
+
+    8. 変数の補完のバグを修正。
+
+    > ls $HOME/[TAB]
+
+    > ls | var rl::abc rl::def
+
+    > echo "$rl::abc $rl::[TAB]"
+
+    9. クォートに関する補完のバグを修正。
+
+    > touch a\ a
+
+    > ls "a\ [TAB]
+
+    > ls 'a [TAB]
+
+    > ls a\ [TAB]
+
+    10. セグフォすることがあったメモリアロケーションに関するバグを修正。(fd_writec)
+
+    > pkill [TAB]
+    Segmentation Fault
+
+    11. オブジェクトの外から属性を追加できるように変更。
+
+    > object obj; split -target "AAA BBB CCC" | var obj::A obj::B obj::C
+
+    > print "$obj::A $obj::B $obj::C"
+    AAA BBB CCC
+
+    > obj::A
+    AAA
+
+    > obj::B
+    BBB
+
+    > obj::C
+    CCC
+
+    12. オブジェクトのプリフィックスの最初に::を使うとルートオブジェクトから辿れるようになってます。
+
+    > object obj; split -target "aaa bbb ccc" | var obj::a obj::b obj::c
+    > ::obj::a
+    aaa
+    > echo $::obj::a
+    aaa
+
+    13. lines, split, each, p , join,combineの動きが変わっています。最後の行に改行がある場合、無い場合の動きが変わっています。splitとjoinが不可逆になっています。
+
+    > print "a,b,c," | split ,
+    a
+    b
+    c
+    
+    > print "a,b,c" | split ,
+    a
+    b
+    c
+    > print "a,b,c" | split , | join ,
+    a,b,c
+    > print "a,b,c,,," | split , | join ,
+    a,b,c,,,
+    > print a,b,c | split , | chomp | each ( | print ) | p
+    a
+    b
+    c[EOF]
+
 2013 16th of March version 1.4.1
     
     1. "readline" inner command can do completion with output of argument block.

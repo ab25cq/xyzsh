@@ -23,7 +23,7 @@
 #include <ncurses/ncurses.h>
 #endif
 
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 BOOL cmd_condition_n(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -661,7 +661,7 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     char buf[1024];
                     int size = snprintf(buf, 1024, "%d\n", point);
                     if(!fd_write(nextout, buf, size)) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         onig_region_free(region, 1);
                         onig_free(reg);
@@ -677,7 +677,7 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         char buf[1024];
                         int size = snprintf(buf, 1024, "%d\n", point);
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_region_free(region, 1);
                             onig_free(reg);
@@ -688,7 +688,7 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                         size = snprintf(buf, 1024, "%d\n", point);
                         if(!fd_write(nextout, buf, size)) {
-                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             onig_region_free(region, 1);
                             onig_free(reg);
@@ -705,7 +705,7 @@ BOOL cmd_condition_re(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         }
         else {
             onig_free(reg);
-            err_msg("=~: invalid regex", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+            err_msg("=~: invalid regex", runinfo->mSName, runinfo->mSLine);
             return FALSE;
         }
     }

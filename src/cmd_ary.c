@@ -22,7 +22,7 @@
 #include <ncurses/ncurses.h>
 #endif
 
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 BOOL cmd_join(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 {
@@ -41,7 +41,7 @@ BOOL cmd_join(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     }
 
     if(runinfo->mFilter) {
-        fd_split(nextin, lf);
+        fd_split(nextin, lf, FALSE, TRUE, FALSE);
 
         char* field;
         if(runinfo->mArgsNumRuntime >= 2) {
@@ -57,27 +57,34 @@ BOOL cmd_join(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 sObject* line = STRING_NEW_STACK(vector_item(SFD(nextin).mLines, i));
                 string_chomp(line);
                 if(!fd_write(nextout, string_c_str(line), string_length(line))) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
                 if(!fd_write(nextout, field, strlen(field))) {
-                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                     return FALSE;
                 }
             }
 
             sObject* line = STRING_NEW_STACK(vector_item(SFD(nextin).mLines, i));
-            string_chomp(line);
+            BOOL chomp = string_chomp(line);
             if(!fd_write(nextout, string_c_str(line), string_length(line))) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
+            if(chomp) {
+                if(!fd_write(nextout, field, strlen(field))) {
+                    err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
+                    runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
+                    return FALSE;
+                }
+            }
 
             if(!fd_write(nextout, "\n", 1)) {
-                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                 runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                 return FALSE;
             }
@@ -118,7 +125,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             runinfo->mRCode = 0;
         }
 
-        fd_split(nextin, lf);
+        fd_split(nextin, lf, FALSE, FALSE, FALSE);
 
         if(vector_count(SFD(nextin).mLines) > 0) {
             int i;
@@ -138,7 +145,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         buf2[len2] = 0;
                     }
                     else {
-                        err_msg("invalid range", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("invalid range", runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
 
@@ -174,7 +181,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                                 char* str = vector_item(SFD(nextin).mLines, j);
                                 if(!fd_write(nextin2,str,strlen(str))) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     return FALSE;
                                 }
@@ -190,7 +197,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 else {
                                     if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen))
                                     {
-                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         return FALSE;
                                     }
@@ -207,7 +214,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                                 char* str = vector_item(SFD(nextin).mLines, j);
                                 if(!fd_write(nextin2, str, strlen(str))) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     return FALSE;
                                 }
@@ -224,7 +231,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                                 else {
                                     if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen))
                                     {
-                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                         return FALSE;
                                     }
@@ -247,7 +254,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     if(num >= 0 && num < vector_count(SFD(nextin).mLines)) {
                         char* str = vector_item(SFD(nextin).mLines, num);
                         if(!fd_write(nextin2, str, strlen(str))){
-                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -256,7 +263,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         switch(lf) {
                             case kCRLF:
                                 if(!fd_write(nextin2, "\r\n", 2)) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     return FALSE;
                                 }
@@ -264,7 +271,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                             case kCR:
                                 if(!fd_writec(nextin2, '\r')) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     return FALSE;
                                 }
@@ -272,7 +279,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                             case kLF:
                                 if(!fd_writec(nextin2, '\n')) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     return FALSE;
                                 }
@@ -280,7 +287,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                             case kBel:
                                 if(!fd_writec(nextin2, '\a')) {
-                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                                    err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                                     runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                                     return FALSE;
                                 }
@@ -300,7 +307,7 @@ BOOL cmd_lines(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     else {
                         if(!fd_write(nextout, SFD(nextin2).mBuf, SFD(nextin2).mBufLen))
                         {
-                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                            err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                             runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                             return FALSE;
                         }
@@ -486,7 +493,7 @@ BOOL cmd_sort(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
     if(runinfo->mFilter) {
         if(sRunInfo_option(runinfo, "-shuffle")) {
-            fd_split(nextin, lf);
+            fd_split(nextin, lf, TRUE, FALSE, FALSE);
 
             if(vector_count(SFD(nextin).mLines) > 0) {
                 int* shuffle_num = MALLOC(sizeof(int)*vector_count(SFD(nextin).mLines));
@@ -506,7 +513,7 @@ BOOL cmd_sort(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 for(i=0; i<vector_count(SFD(nextin).mLines); i++) {
                     char* line = vector_item(SFD(nextin).mLines, i);
                     if(!fd_write(nextout, line, strlen(line))) {
-                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -521,7 +528,7 @@ BOOL cmd_sort(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
             }
         } 
         else if(runinfo->mBlocksNum == 1) {
-            fd_split(nextin, lf);
+            fd_split(nextin, lf, TRUE, FALSE, FALSE);
 
             if(vector_count(SFD(nextin).mLines) > 0) {
                 sObject* nextin2 = FD_NEW_STACK();
@@ -533,7 +540,7 @@ BOOL cmd_sort(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 for(i=0; i<vector_count(SFD(nextin).mLines); i++) {
                     char* line = vector_item(SFD(nextin).mLines, i);
                     if(!fd_write(nextout, line, strlen(line))) {
-                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }
@@ -583,7 +590,7 @@ BOOL cmd_combine(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 return FALSE;
             }
 
-            fd_split(nextout2[i], lf);
+            fd_split(nextout2[i], lf, FALSE, FALSE, FALSE);
         }
 
         int n = 0;
@@ -593,7 +600,7 @@ BOOL cmd_combine(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(n < vector_count(SFD(nextout2[i]).mLines)) {
                     char* line = vector_item(SFD(nextout2[i]).mLines, n);
                     if(!fd_write(nextout, line, strlen(line))) {
-                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine, runinfo->mArgs[0]);
+                        err_msg("signal interrupt", runinfo->mSName, runinfo->mSLine);
                         runinfo->mRCode = RCODE_SIGNAL_INTERRUPT;
                         return FALSE;
                     }

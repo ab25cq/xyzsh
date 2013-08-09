@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "xyzsh/xyzsh.h"
+#include "xyzsh.h"
 
 sObject* vector_new_on_gc(int first_size, BOOL user_object)
 {

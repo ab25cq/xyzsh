@@ -8,24 +8,22 @@
 
     Ofcourse, on interactive shell, it helps you to type with completion.
 
-    Taget users are who has mastered bash, sed/awk, perl, python, ruby and want to seek somemore. If you don't master these tools, you should learn these tools before using xyzsh because these tools are installed on many systems.
-
     I can't take resposbility on your works with xyzsh. I recommend that you use this on your personal systems.
 
-    This program linces is MIT Linsence.
+    This program linces is MIT Lisence.
 
     You can get this on the internet belows
 
     Stable version http://sourceforge.jp/projects/xyzsh
     Develop version http://sourceforge.jp/projects/xyzsh/scm/git/xyzsh/
 
-    You can be a xyzsh developer using git. I will welcome to your pull requests or your forked new xyzsh projects.
+    You can be a xyzsh developer using git. I will welcome to your pull requests.
 
 1.0 statment
 
-    (object::)*command (argument|-option|block)*
+    (::)object::object::,...,::object (argument|-option|block)*
 
-    You can use non alphabet characters for command name or argument.
+    You can use non alphabet characters for object name.
 
     ex)
 
@@ -86,7 +84,7 @@
     > ls | ( | less; | sub -global . X )
 
     () is subshell which can treat a block as one command. | less is that less gets ls output using context pipe.
-    Context pipe is a pipe which is changed its content reponding to a command.
+    Context pipe is a pipe which is changed its content responding to a command.
     In this case, a context pipe gets output of ls.
 
 1.3 statment sparator and return code
@@ -308,6 +306,23 @@
     > print "1234512345" | index $-a 2 1
     5
 
+    If you want to reffer and initialize a variable at the same time, use below.
+
+    > print ${A=1}\n; ++ A; print $A\n
+    1
+    2
+
+    $A is a local variable.
+
+    This may be useful on loop like below.
+
+    > while(print ${I=0} | -lt 5) ( print HELLO\n; ++ I )
+    HELLO
+    HELLO
+    HELLO
+    HELLO
+    HELLO
+
 1.7 Object Oriented Programing
 
     Object Oriented Programing of xyzsh likes a file system.
@@ -439,30 +454,42 @@
     Command replacement pastes output of block to command line
 
     > print $(ls)
-    main.c
-    sub.c
+    main.c sub.c
 
-    You can use $$() for expanding each line as one argument.
+    > print `ls`
+    main.c sub.c
 
-    > def fun ( ary -size ARGV )
-
-    > fun $$(print aaa\nbbb\nccc\n )
-    3
-
-    You can use $a(), $$m() and $$w() for changing the termination of line.
+    You can use $(...) or `...` for expanding each line as one argument.
 
     > def fun ( ary -size ARGV )
 
-    > fun $$a(print aaa bbb ccc | split -La)
+    > fun $(print aaa\nbbb\nccc\n )
     3
 
-    > fun $$m(print aaa bbb ccc | split -Lm)
+    If you want to paste all output as one argument, you can use "$(...)"
+
+    > print "$(split -target "aaa bbb ccc")"
+    aaa
+    bbb
+    ccc
+
+    > fun "$(print aaa\nbbb\nccc\n )"
+    1
+
+    You can use $a(), $m() and $w() for changing the termination of line.
+
+    > def fun ( ary -size ARGV )
+
+    > fun $a(print aaa bbb ccc | split -La)
     3
 
-    > fun $$w(print aaa bbb ccc | split -Lw)
+    > fun $m(print aaa bbb ccc | split -Lm)
     3
 
-    If you want to reffer option by command replacement, use $-() or $$-()
+    > fun $w(print aaa bbb ccc | split -Lw)
+    3
+
+    If you want to reffer option by command replacement, use $-().
 
     > print "1234512345" | index -count 2 1
     5
@@ -528,7 +555,8 @@
     > print dmesg\n >> ~/.xyzsh/program
     > rehash
     > dmesg
-   
+
+    If you want to entry all external programs for root object, you can run "install_all_external_program_to_root_object" function.
 
 2.4 subshell
 
@@ -670,6 +698,28 @@
     > cat <AAA
     main.c sub.c fix.c
 
+3.2 alias
+
+    alias of xyzsh is not the same as alias of bash.
+
+    If you want to define "ls" alias as "ls -al", define like below.
+
+    alias ls ( sys::ls -al )
+    
+    or
+
+    alias ls ( inherit -al )
+
+    Below definition occurses an error on runtime.
+
+    alias ls ( ls -al )
+
+    For expample of alias
+
+    > alias ls ( inherit -al )
+    > ls src/main.c
+    -rw-r--r--  1 ab25cq  staff  2407  7  7 14:04 src/main.c
+
 3.2 error output
 
     To write error output to file, use "write" inner command and "-error" option.
@@ -705,17 +755,20 @@
     With -La option, text processing inner commands treat \a as a line field, then you can treat \n,\r\n,\r as normal text to pocess multi line.
    It makes code complicated, but you may be able to write code debugging with p inner command.
 
-3.4 Command line completion
+3.4 Interactive shell
 
-    xyzsh uses readline for command line completion, and you can almost use it like bash.
+    xyzsh uses editline for command line completion, and you can almost use it like bash.
 
     You can make your original completion, see completion.xyzsh. User completion definitions are defined in root::compl as objects.
 
     You can use macro with typing C-x. It can paste the result of xyzsh one line script to command line. Edit ~/.xyzsh/macro for your original macro.
 
-    To check maching paren on commandline, add "set blink-maching-paren on" to ~/.inputrc.
+    You can manipulate editline with el object on completion program. See el::help.
 
-    You can manipulate readline with rl object on completion program. See rl::help.
+    You can use "commandline stack" when pressing Meta-q
+    
+    You can set "HIST_IGNORE_SPACE" environmental variable as "on".
+    If you enable this, you can add space at head to prohibit from appending commandline history.
 
 3.5 help
 
@@ -725,7 +778,7 @@
 
 3.6 C extension library
 
-    About how to load C language extension library. Searched path is 3 step. First searched it from /usr/local/xyzsh/(pathname) or (installed prefix path)/(pathname), next searched it from ~/lib/(pathname), and finaly searched it from (absolute pathname or relative pathname). You can't ommit the file name extesion.
+    About how to load C language extension library. Searched path is 3 step. First searched it from /usr/local/xyzsh/(pathname) or (installed prefix path)/(pathname), next searched it from ~/.xyzsh/lib/(pathname), and finaly searched it from (absolute pathname or relative pathname). You can't ommit the file name extesion.
     About how to make C language extension library. I made migemo C extension. See src/ext/migemo.c. You need to define dl_init and dl_final. dl_init is called on "load -dynamic-library" command called. dl_final is called on xyzsh exited. You can compile the C extension source like below
 
     gcc -shared src/ext/migemo.c -o src/ext/migemo.so -lmigemo -lxyzsh $(LIBS) $(CFLAGS)
