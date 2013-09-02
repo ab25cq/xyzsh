@@ -882,6 +882,8 @@
 
     HIST_IGNORE_SPACEという環境変数に"on"を設定すると、先頭にスペースがあれば、ヒストリに追加しないようにすることができます。
 
+    Migemoのファイル名補完はload -dynamic-library migemo.soを実行すると有効になります
+
 3.6 ヘルプ
 
     help コマンド名
