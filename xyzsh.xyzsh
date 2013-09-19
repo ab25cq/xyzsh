@@ -52,8 +52,8 @@ def rehash -inherit (
     )
 )
 
-print 0 | var InstallAllExternalProgram
-install_external_program_to_root_object
+print 1 | var InstallAllExternalProgram
+install_all_external_program_to_root_object
 
 export XYZSH_NEST_LEVEL | + 1 | export XYZSH_NEST_LEVEL
 prompt ( 

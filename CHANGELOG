@@ -1,4 +1,12 @@
 
+2013 9月19日 version 1.5.0
+
+    1. 全ての外部プログラムをルートオブジェクトに登録するのをデフォルトにしました。
+
+2013 19th of September version 1.5.0
+
+    1. Now installing all external object to root object is default.
+
 2013 9月19日 version 1.4.9
 
     1. マニュアルの修正。migemoのファイル名補完について書きました。
