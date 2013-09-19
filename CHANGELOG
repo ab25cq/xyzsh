@@ -1,5 +1,13 @@
 
-2013 2013 8月6日 version 1.4.8
+2013 9月19日 version 1.4.9
+
+    1. マニュアルの修正。migemoのファイル名補完について書きました。
+
+2013 19th of September version 1.4.9
+
+    1. Modified USAGE.ja
+
+2013 8月6日 version 1.4.8
 
     1. 動的ライブラリのSOのバージョンが間違ってました。修正。
 
