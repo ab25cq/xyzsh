@@ -1,4 +1,12 @@
 
+2013 9月22日 version 1.5.1
+
+    1. 従来通り、install_all_external_program_to_rootを実行すると全ての外部プログラムをルートオブジェクトに登録するようにしました。
+
+2013 22th of September version 1.5.1
+
+    1. Don't install all external program to root object. If you want to do so, you can run install_all_external_program_to_root command.
+
 2013 9月19日 version 1.5.0
 
     1. 全ての外部プログラムをルートオブジェクトに登録するのをデフォルトにしました。
