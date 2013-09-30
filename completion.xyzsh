@@ -268,37 +268,11 @@ completion sys::__all__ (
     ARGV | var -local Program inputing
 
     | file_completion $ARGV[1]
-
-    ### option completion ###
-    if(inputing | rows 0 | = -) (
-        man $Program |> || raise "not found manual"
-        |> sys::col -b | selector | scan '-\S+|--\S+' | var -local Option
-
-        if(Option | chomp | -z) (
-            raise "Please select a line which contains a option name"
-        ) else (
-            rl::delete_text $(| rindex -byte $inputing) $(rl::point)
-            rl::insert_text $Option" "
-        )
-    )
 )
 
 completion __all__ (
     ARGV | var -local Program inputing
 
     | file_completion $ARGV[1]
-
-    ### option completion ###
-    if(inputing | rows 0 | = -) (
-        man $Program |> || raise "not found manual"
-        |> sys::col -b | selector | scan '-\S+|--\S+' | var -local Option
-
-        if(Option | chomp | -z) (
-            raise "Please select a line which contains a option name"
-        ) else (
-            rl::delete_text $(| rindex -byte $inputing) $(rl::point)
-            rl::insert_text $Option" "
-        )
-    )
 )
 

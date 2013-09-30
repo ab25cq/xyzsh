@@ -3,9 +3,13 @@
 
     1. OSXで濁点を含む名前のディレクトリでプロンプトがおかしくなるのを修正。
 
+    2. 外部プログラムのオプションの補完を無くしました。
+
 2013 30th of September version 1.5.2
 
     1. Fixed a bug with prompt on OSX.
+
+    2. Removed the option completion with external program.
 
 2013 9月22日 version 1.5.1
 
