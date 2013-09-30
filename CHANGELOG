@@ -1,4 +1,12 @@
 
+2013 9月30日 version 1.5.2
+
+    1. OSXで濁点を含む名前のディレクトリでプロンプトがおかしくなるのを修正。
+
+2013 30th of September version 1.5.2
+
+    1. Fixed a bug with prompt on OSX.
+
 2013 9月22日 version 1.5.1
 
     1. 従来通り、install_all_external_program_to_rootを実行すると全ての外部プログラムをルートオブジェクトに登録するようにしました。

@@ -67,6 +67,10 @@ prompt (
         export XYZSH_NEST_LEVEL | chomp
         print ")"
         print " > "
+    ) | if(uname |= Darwin\n && (export LANG LC_ALL) | index -quiet -ignore-case utf-8) ( 
+        | sys::iconv -f UTF8-MAC -t UTF-8
+    ) else ( 
+        | print 
     )
 )
 
