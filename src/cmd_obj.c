@@ -402,17 +402,6 @@ BOOL cmd_inherit(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     sObject* running_object = runinfo->mRunningObject;
     if(runinfo->mRunningObject) {
         switch(STYPE(running_object)) {
-        case T_ALIAS: {
-            sObject* parent = SALIAS(running_object).mParent;
-
-            if(parent) {
-                if(!run_object(parent, nextin, nextout, runinfo)) {
-                    return FALSE;
-                }
-            }
-            }
-            break;
-
         case T_FUN:  {
             sObject* parent = SFUN(running_object).mParent;
 
@@ -1584,7 +1573,7 @@ BOOL cmd_alias(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
             if(sRunInfo_option(runinfo, "-local")) {
                 sObject* object = SFUN(runinfo->mRunningObject).mLocalObjects;
-                sObject* new_alias = ALIAS_NEW_GC(block, TRUE, NULL);
+                sObject* new_alias = ALIAS_NEW_GC(block, TRUE);
                 uobject_put(object, name, new_alias);
             }
             else {
@@ -1594,10 +1583,7 @@ BOOL cmd_alias(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     return FALSE;
                 }
 
-                sObject* parent = uobject_item(object, string_c_str(name2));
-                if(STYPE(parent) == T_ALIAS) parent = SALIAS(parent).mParent;
-
-                sObject* new_alias = ALIAS_NEW_GC(block, TRUE, parent);
+                sObject* new_alias = ALIAS_NEW_GC(block, TRUE);
 
                 uobject_put(object, string_c_str(name2), new_alias);
             }
@@ -1617,7 +1603,7 @@ BOOL cmd_alias(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
                 if(sRunInfo_option(runinfo, "-local")) {
                     sObject* object = SFUN(runinfo->mRunningObject).mLocalObjects;
-                    sObject* new_alias = ALIAS_NEW_GC(block, TRUE, NULL);
+                    sObject* new_alias = ALIAS_NEW_GC(block, TRUE);
                     uobject_put(object, name, new_alias);
                 }
                 else {
@@ -1627,9 +1613,7 @@ BOOL cmd_alias(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                         return FALSE;
                     }
 
-                    sObject* parent = uobject_item(object, string_c_str(name2));
-                    if(STYPE(parent) == T_ALIAS) parent = SALIAS(parent).mParent;
-                    sObject* new_alias = ALIAS_NEW_GC(block, TRUE, parent);
+                    sObject* new_alias = ALIAS_NEW_GC(block, TRUE);
                     uobject_put(object, string_c_str(name2), new_alias);
                 }
 

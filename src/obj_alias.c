@@ -3,12 +3,11 @@
 #include <string.h>
 #include <stdio.h>
 
-sObject* alias_new_on_gc(sObject* block, BOOL user_object, sObject* parent)
+sObject* alias_new_on_gc(sObject* block, BOOL user_object)
 {
    sObject* self = gc_get_free_object(T_ALIAS, user_object);
    
    SALIAS(self).mBlock = block_clone_on_gc(block, T_BLOCK, FALSE);
-   SALIAS(self).mParent = parent;
    SALIAS(self).mLocalObjects = NULL;
    SALIAS(self).mArgBlocks = NULL;
    SALIAS(self).mOptions = NULL;
@@ -27,15 +26,6 @@ int alias_gc_children_mark(sObject* self)
             SET_MARK(block);
             count++;
             count += object_gc_children_mark(block);
-        }
-    }
-
-    sObject* parent = SALIAS(self).mParent;
-    if(parent) {
-        if(IS_MARKED(parent) == 0) {
-            SET_MARK(parent);
-            count++;
-            count += object_gc_children_mark(parent);
         }
     }
 

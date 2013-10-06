@@ -906,7 +906,14 @@ BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* ru
             }
             if(runinfo->mRCode == RCODE_NFUN_INVALID_USSING) {
                 sCommand* command = runinfo->mCommand;
-                err_msg("invalid command using", runinfo->mSName, runinfo->mSLine);
+                if(command->mArgsNum > 0) {
+                    char buf[1024];
+                    snprintf(buf, 1024, "invalid command using (%s)\n", command->mArgs[0]);
+                    err_msg(buf, runinfo->mSName, runinfo->mSLine);
+                }
+                else {
+                    err_msg("invalid command using\n", runinfo->mSName, runinfo->mSLine);
+                }
                 return FALSE;
             }
             break;
@@ -1171,15 +1178,6 @@ static BOOL inherit_method(sRunInfo* runinfo, sObject** object, sCommand* comman
 
     if(running_object) {
         switch(STYPE(running_object)) {
-        case T_ALIAS: {
-            sObject* parent = SALIAS(running_object).mParent;
-
-            if(parent) {
-                *object = parent;
-            }
-            }
-            break;
-
         case T_FUN:  {
             sObject* parent = SFUN(running_object).mParent;
 
@@ -1202,6 +1200,7 @@ static BOOL inherit_method(sRunInfo* runinfo, sObject** object, sCommand* comman
             }
             break;
 
+        case T_ALIAS:
         case T_NFUN:
         case T_BLOCK:
             err_msg("There is not a parent object", runinfo->mSName, runinfo->mSLine);

@@ -261,49 +261,78 @@ static void sCommand_copy_deeply(sCommand* dest, sCommand* src)
     }
     dest->mArgs[i] = NULL;
 
-    dest->mEnvs = MALLOC(sizeof(sEnv)*src->mEnvsSize);
-    for(i=0; i<src->mEnvsNum; i++) {
-        dest->mEnvs[i].mFlags = src->mEnvs[i].mFlags;
+    if(src->mEnvsNum == 0) {
+        dest->mEnvs = NULL;
+        dest->mEnvsNum = 0;
+        dest->mEnvsSize = 0;
+    }
+    else {
+        dest->mEnvs = MALLOC(sizeof(sEnv)*src->mEnvsSize);
+        for(i=0; i<src->mEnvsNum; i++) {
+            dest->mEnvs[i].mFlags = src->mEnvs[i].mFlags;
 
-        if(src->mEnvs[i].mFlags & ENV_FLAGS_KIND_ENV) {
-            dest->mEnvs[i].mName = STRDUP(src->mEnvs[i].mName);
-            dest->mEnvs[i].mKey = STRDUP(src->mEnvs[i].mKey);
-            dest->mEnvs[i].mInitValue = STRDUP(src->mEnvs[i].mInitValue);
+            if(src->mEnvs[i].mFlags & ENV_FLAGS_KIND_ENV) {
+                dest->mEnvs[i].mName = STRDUP(src->mEnvs[i].mName);
+                dest->mEnvs[i].mKey = STRDUP(src->mEnvs[i].mKey);
+                dest->mEnvs[i].mInitValue = STRDUP(src->mEnvs[i].mInitValue);
+            }
+            else {
+                dest->mEnvs[i].mBlock = block_clone_on_gc(src->mEnvs[i].mBlock, T_BLOCK, FALSE);
+                dest->mEnvs[i].mLineField = src->mEnvs[i].mLineField;
+            }
         }
-        else {
-            dest->mEnvs[i].mBlock = block_clone_on_gc(src->mEnvs[i].mBlock, T_BLOCK, FALSE);
-            dest->mEnvs[i].mLineField = src->mEnvs[i].mLineField;
+        dest->mEnvsNum = src->mEnvsNum;
+        dest->mEnvsSize = src->mEnvsSize;
+    }
+
+    if(src->mBlocksNum == 0) {
+        dest->mBlocks = NULL;
+        dest->mBlocksNum = 0;
+        dest->mBlocksSize = 0;
+    }
+    else {
+        dest->mBlocks = MALLOC(sizeof(sObject*)*src->mBlocksSize);
+        dest->mBlocksNum = src->mBlocksNum;
+        dest->mBlocksSize = src->mBlocksSize;
+
+        for(i=0; i<src->mBlocksNum; i++) {
+            dest->mBlocks[i] = block_clone_on_gc(src->mBlocks[i], T_BLOCK, FALSE);
         }
     }
-    dest->mEnvsNum = src->mEnvsNum;
-    dest->mEnvsSize = src->mEnvsSize;
 
-    dest->mBlocks = MALLOC(sizeof(sObject*)*src->mBlocksSize);
-    dest->mBlocksNum = src->mBlocksNum;
-    dest->mBlocksSize = src->mBlocksSize;
-
-    for(i=0; i<src->mBlocksNum; i++) {
-        dest->mBlocks[i] = block_clone_on_gc(src->mBlocks[i], T_BLOCK, FALSE);
+    if(src->mRedirectsNum == 0) {
+        dest->mRedirectsFileNames = NULL;
+        dest->mRedirects = NULL;
+        dest->mRedirectsSize = 0;
+        dest->mRedirectsNum = 0;
     }
-
-    dest->mRedirectsFileNames = MALLOC(sizeof(char*)*src->mRedirectsSize);
-    for(i=0; i<src->mRedirectsNum; i++) {
-        dest->mRedirectsFileNames[i] = STRDUP(src->mRedirectsFileNames[i]);
-    }
-    dest->mRedirects = MALLOC(sizeof(int)*src->mRedirectsSize);
-    for(i=0; i<src->mRedirectsNum; i++) {
-        dest->mRedirects[i] = src->mRedirects[i];
-    }
-
-    dest->mRedirectsSize = src->mRedirectsSize;
-    dest->mRedirectsNum = src->mRedirectsNum;
-
-    dest->mMessages = MALLOC(sizeof(char*)*src->mMessagesSize);
-    if(src->mMessagesNum > 0) {
-        for(i=0; i<src->mMessagesNum; i++) {
-            dest->mMessages[i] = STRDUP(src->mMessages[i]);
+    else {
+        dest->mRedirectsFileNames = MALLOC(sizeof(char*)*src->mRedirectsSize);
+        for(i=0; i<src->mRedirectsNum; i++) {
+            dest->mRedirectsFileNames[i] = STRDUP(src->mRedirectsFileNames[i]);
         }
-        dest->mMessagesNum = src->mMessagesNum;
+        dest->mRedirects = MALLOC(sizeof(int)*src->mRedirectsSize);
+        for(i=0; i<src->mRedirectsNum; i++) {
+            dest->mRedirects[i] = src->mRedirects[i];
+        }
+
+        dest->mRedirectsSize = src->mRedirectsSize;
+        dest->mRedirectsNum = src->mRedirectsNum;
+    }
+
+    if(src->mMessagesNum == 0) {
+        dest->mMessages = NULL;
+        dest->mMessagesNum = 0;
+        dest->mMessagesSize = 0;
+    }
+    else {
+        dest->mMessages = MALLOC(sizeof(char*)*src->mMessagesSize);
+        if(src->mMessagesNum > 0) {
+            for(i=0; i<src->mMessagesNum; i++) {
+                dest->mMessages[i] = STRDUP(src->mMessages[i]);
+            }
+            dest->mMessagesNum = src->mMessagesNum;
+        }
     }
 }
 
@@ -321,47 +350,76 @@ static void sCommand_copy_deeply_stack(sCommand* dest, sCommand* src)
     }
     dest->mArgs[i] = NULL;
 
-    dest->mEnvs = MALLOC(sizeof(sEnv)*src->mEnvsSize);
-    for(i=0; i<src->mEnvsNum; i++) {
-        dest->mEnvs[i].mFlags = src->mEnvs[i].mFlags;
+    if(src->mEnvsNum == 0) {
+        dest->mEnvs = NULL;
+        dest->mEnvsNum = 0;
+        dest->mEnvsSize = 0;
+    }
+    else {
+        dest->mEnvs = MALLOC(sizeof(sEnv)*src->mEnvsSize);
+        for(i=0; i<src->mEnvsNum; i++) {
+            dest->mEnvs[i].mFlags = src->mEnvs[i].mFlags;
 
-        if(src->mEnvs[i].mFlags & ENV_FLAGS_KIND_ENV) {
-            dest->mEnvs[i].mName = STRDUP(src->mEnvs[i].mName);
-            dest->mEnvs[i].mKey = STRDUP(src->mEnvs[i].mKey);
-            dest->mEnvs[i].mInitValue = STRDUP(src->mEnvs[i].mInitValue);
+            if(src->mEnvs[i].mFlags & ENV_FLAGS_KIND_ENV) {
+                dest->mEnvs[i].mName = STRDUP(src->mEnvs[i].mName);
+                dest->mEnvs[i].mKey = STRDUP(src->mEnvs[i].mKey);
+                dest->mEnvs[i].mInitValue = STRDUP(src->mEnvs[i].mInitValue);
+            }
+            else {
+                dest->mEnvs[i].mBlock = block_clone_on_stack(src->mEnvs[i].mBlock, T_BLOCK);
+            }
         }
-        else {
-            dest->mEnvs[i].mBlock = block_clone_on_stack(src->mEnvs[i].mBlock, T_BLOCK);
+        dest->mEnvsNum = src->mEnvsNum;
+        dest->mEnvsSize = src->mEnvsSize;
+    }
+
+    if(src->mBlocksNum == 0) {
+        dest->mBlocks = NULL;
+        dest->mBlocksNum = 0;
+        dest->mBlocksSize = 0;
+    }
+    else {
+        dest->mBlocks = MALLOC(sizeof(sObject*)*src->mBlocksSize);
+        dest->mBlocksNum = src->mBlocksNum;
+        dest->mBlocksSize = src->mBlocksSize;
+
+        for(i=0; i<src->mBlocksNum; i++) {
+            dest->mBlocks[i] = block_clone_on_stack(src->mBlocks[i], T_BLOCK);
         }
     }
-    dest->mEnvsNum = src->mEnvsNum;
-    dest->mEnvsSize = src->mEnvsSize;
 
-    dest->mBlocks = MALLOC(sizeof(sObject*)*src->mBlocksSize);
-    dest->mBlocksNum = src->mBlocksNum;
-    dest->mBlocksSize = src->mBlocksSize;
-
-    for(i=0; i<src->mBlocksNum; i++) {
-        dest->mBlocks[i] = block_clone_on_stack(src->mBlocks[i], T_BLOCK);
+    if(src->mRedirectsNum == 0) {
+        dest->mRedirectsFileNames = NULL;
+        dest->mRedirects = NULL;
+        dest->mRedirectsSize = 0;
+        dest->mRedirectsNum = 0;
     }
-
-    dest->mRedirectsFileNames = MALLOC(sizeof(char*)*src->mRedirectsSize);
-    for(i=0; i<src->mRedirectsNum; i++) {
-        dest->mRedirectsFileNames[i] = STRDUP(src->mRedirectsFileNames[i]);
-    }
-    dest->mRedirects = MALLOC(sizeof(int)*src->mRedirectsSize);
-    for(i=0; i<src->mRedirectsNum; i++) {
-        dest->mRedirects[i] = src->mRedirects[i];
-    }
-    dest->mRedirectsSize = src->mRedirectsSize;
-    dest->mRedirectsNum = src->mRedirectsNum;
-
-    dest->mMessages = MALLOC(sizeof(char*)*src->mMessagesSize);
-    if(src->mMessagesNum > 0) {
-        for(i=0; i<src->mMessagesNum; i++) {
-            dest->mMessages[i] = STRDUP(src->mMessages[i]);
+    else {
+        dest->mRedirectsFileNames = MALLOC(sizeof(char*)*src->mRedirectsSize);
+        for(i=0; i<src->mRedirectsNum; i++) {
+            dest->mRedirectsFileNames[i] = STRDUP(src->mRedirectsFileNames[i]);
         }
-        dest->mMessagesNum = src->mMessagesNum;
+        dest->mRedirects = MALLOC(sizeof(int)*src->mRedirectsSize);
+        for(i=0; i<src->mRedirectsNum; i++) {
+            dest->mRedirects[i] = src->mRedirects[i];
+        }
+        dest->mRedirectsSize = src->mRedirectsSize;
+        dest->mRedirectsNum = src->mRedirectsNum;
+    }
+
+    if(src->mMessagesNum == 0) {
+        dest->mMessages = NULL;
+        dest->mMessagesNum = 0;
+        dest->mMessagesSize = 0;
+    }
+    else {
+        dest->mMessages = MALLOC(sizeof(char*)*src->mMessagesSize);
+        if(src->mMessagesNum > 0) {
+            for(i=0; i<src->mMessagesNum; i++) {
+                dest->mMessages[i] = STRDUP(src->mMessages[i]);
+            }
+            dest->mMessagesNum = src->mMessagesNum;
+        }
     }
 }
 
@@ -637,8 +695,7 @@ BOOL sCommand_add_command_without_command_name(sCommand* self, sCommand* command
             }
         }
         else {
-            sObject* block = block_clone_on_stack(env->mBlock, T_BLOCK);
-            if(!sCommand_add_env_block(self, block, env->mLineField, sname, sline)) {
+            if(!sCommand_add_env_block(self, env->mBlock, env->mLineField, sname, sline)) {
                 return FALSE;
             }
         }

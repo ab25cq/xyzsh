@@ -93,7 +93,7 @@ static void xyzsh_read_rc_mini()
 
 void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 {
-    setenv("XYZSH_VERSION", "1.5.2", 1);
+    setenv("XYZSH_VERSION", "1.5.3", 1);
     setenv("XYZSH_DOCDIR", DOCDIR, 1);
     setenv("XYZSH_DATAROOTDIR", DOCDIR, 1);
     setenv("XYZSH_EXT_PATH", EXTDIR, 1);

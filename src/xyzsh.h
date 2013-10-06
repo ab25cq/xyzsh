@@ -806,8 +806,8 @@ sObject* job_new_on_gc(char* name, pid_t pgroup, struct termios tty);
 void job_delete_on_gc(sObject* self);
 void job_push_back_child_pid(sObject* self, pid_t pid);
 
-sObject* alias_new_on_gc(sObject* block, BOOL user_object, sObject* parent);
-#define ALIAS_NEW_GC(o, o2, o3) alias_new_on_gc(o, o2, o3);
+sObject* alias_new_on_gc(sObject* block, BOOL user_object);
+#define ALIAS_NEW_GC(o, o2) alias_new_on_gc(o, o2)
 int alias_gc_children_mark(sObject* self);
 
 sObject* int_new_on_stack(int value);

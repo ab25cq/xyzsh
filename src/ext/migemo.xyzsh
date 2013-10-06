@@ -46,7 +46,7 @@ root::run(
             while(true) (
                 | each ( 
                     | chomp | rows -utf8 0..$point | pomch
-                ) | sys::sort | uniq |  length -line-num | strip | if(| != 1) (
+                ) | ::sys::sort | uniq |  length -line-num | strip | if(| != 1) (
                     -- point;
                     break
                 )
