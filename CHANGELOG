@@ -1,4 +1,16 @@
 
+2013 10月6日 version 1.5.4
+
+    1. 起動時にmigemoをロードできないバグを修正。
+
+    2. aliasのUSAGEを修正。aliasのinheritができなくなったことを書いてなかった。
+
+2013 7th of November version 1.5.4
+
+    1. From this version, you can load migemo on runtime script.
+
+    2. Changed USAGE for alias.
+
 2013 10月6日 version 1.5.3
 
     1. aliasのバグを修正。

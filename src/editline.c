@@ -3076,8 +3076,20 @@ void editline_object_init(sObject* self)
     uobject_put(editline, "keybind", nfun);
 }
 
-void xyzsh_editline_history_init()
+void xyzsh_editline_init()
 {
+    /// editline init ///
+    gEditLine = el_init("xyzsh", stdin, stdout, stderr);
+
+    el_wset(gEditLine, EL_EDITOR, L"emacs");
+    el_wset(gEditLine, EL_SIGNAL, 1);
+    el_wset(gEditLine, EL_PROMPT_ESC, editline_prompt, '\1');
+
+    el_source(gEditLine, NULL);
+
+    editline_additional_keybind_emacs();
+    gCmdLineStack = VECTOR_NEW_MALLOC(10);
+
     /// set history size ///
     int history_size;
     char* histsize_env = getenv("XYZSH_HISTSIZE");
@@ -3120,21 +3132,6 @@ void xyzsh_editline_history_init()
     history_w(gHistory, &ev, H_LOAD, histfile);
 
     el_wset(gEditLine, EL_HIST, history_w, gHistory);
-}
-
-void xyzsh_editline_init()
-{
-    /// editline init ///
-    gEditLine = el_init("xyzsh", stdin, stdout, stderr);
-
-    el_wset(gEditLine, EL_EDITOR, L"emacs");
-    el_wset(gEditLine, EL_SIGNAL, 1);
-    el_wset(gEditLine, EL_PROMPT_ESC, editline_prompt, '\1');
-
-    el_source(gEditLine, NULL);
-
-    editline_additional_keybind_emacs();
-    gCmdLineStack = VECTOR_NEW_MALLOC(10);
 }
 
 void xyzsh_editline_final()

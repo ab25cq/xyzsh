@@ -705,10 +705,6 @@
     If you want to define "ls" alias as "ls -al", define like below.
 
     alias ls ( sys::ls -al )
-    
-    or
-
-    alias ls ( inherit -al )
 
     Below definition occurses an error on runtime.
 
@@ -716,7 +712,7 @@
 
     For expample of alias
 
-    > alias ls ( inherit -al )
+    > alias ls ( sys::ls -al )
     > ls src/main.c
     -rw-r--r--  1 ab25cq  staff  2407  7  7 14:04 src/main.c
 

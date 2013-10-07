@@ -93,7 +93,7 @@ static void xyzsh_read_rc_mini()
 
 void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 {
-    setenv("XYZSH_VERSION", "1.5.3", 1);
+    setenv("XYZSH_VERSION", "1.5.4", 1);
     setenv("XYZSH_DOCDIR", DOCDIR, 1);
     setenv("XYZSH_DATAROOTDIR", DOCDIR, 1);
     setenv("XYZSH_EXT_PATH", EXTDIR, 1);
@@ -169,13 +169,10 @@ void xyzsh_init(enum eAppType app_type, BOOL no_runtime_script)
 
     if(!no_runtime_script) {
         xyzsh_read_rc();
-        //readline_read_history();
     }
     else {
         xyzsh_read_rc_mini();
     }
-
-    xyzsh_editline_history_init(); // must be after runtime script
 }
 
 void xyzsh_final()

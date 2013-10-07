@@ -818,17 +818,13 @@
 
     alias ls ( sys::ls -a )
     
-    または
-
-    alias ls ( inherit -al )
-
     以下は無限再帰を行いエラーとなります。
 
     alias ls ( ls -al )
 
     サンプル
 
-    > alias ls ( inherit -al )
+    > alias ls ( sys::ls -al )
     > ls src/main.c
     -rw-r--r--  1 ab25cq  staff  2407  7  7 14:04 src/main.c
 
