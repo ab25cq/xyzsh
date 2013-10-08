@@ -1,4 +1,12 @@
 
+2013 10月8日 version 1.5.5
+
+    1. $XYZSH_HISTSIZE, $XYZSH_HISTFILEが巧く動いていない問題を修正。1.5.4でエンバグ
+
+2013 8th of November version 1.5.5
+
+    1. From 1.5.4, XYZSH_HISTSIZE and XYZSH_HISTFILE are not worked. Fixed.
+
 2013 10月6日 version 1.5.4
 
     1. 起動時にmigemoをロードできないバグを修正。

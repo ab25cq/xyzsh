@@ -21,7 +21,7 @@
     ネット上の配布元としては
 
     安定板 http://sourceforge.jp/projects/xyzsh
-    開発版 http://sourceforge.jp/projects/xyzsh/scm/git/xyzsh/
+    開発版 https://github.com/ab25cq/xyzsh
 
     にあります。
 
@@ -414,24 +414,6 @@
     > pwo
 
     で確認できます。
-
-    カレントオブジェクトは
-
-    > co オブジェクト名
-
-    で変更できます。
-
-    上の例で行くと
-
-    > co a
-
-    でカレントオブジェクトをaに変更できます。
-
-    で、
-
-    > A
-
-    と実行すればlsの出力を得ることができます。(root::aがカレントオブジェクトなのでa::は必要なくなる)
 
     > self
 

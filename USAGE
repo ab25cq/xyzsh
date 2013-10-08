@@ -15,7 +15,7 @@
     You can get this on the internet belows
 
     Stable version http://sourceforge.jp/projects/xyzsh
-    Develop version http://sourceforge.jp/projects/xyzsh/scm/git/xyzsh/
+    Develop version https://github.com/ab25cq/xyzsh
 
     You can be a xyzsh developer using git. I will welcome to your pull requests.
 
@@ -340,23 +340,6 @@
     > pwo
 
     shows a current object
-
-    > co (object name)
-
-    makes current object changed.
-
-    In above example
-
-    > co a
-
-    make current object changed as a.
-
-    and
-
-    > A
-    output of ls
-    
-    root::a is current object, so you don't need to write a::A
 
     > self
 
