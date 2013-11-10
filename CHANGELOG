@@ -1,4 +1,12 @@
 
+2013 11月10日 version 1.5.6
+
+    1. cygwinでのコンパイルと実行。ただ、migemoはロードすると落ちます。(僕のmigemoの使い方が悪いのでしょう)
+
+2013 10th of November version 1.5.6
+
+    1. You can compile and run on cygwin from this version.
+
 2013 10月8日 version 1.5.5
 
     1. $XYZSH_HISTSIZE, $XYZSH_HISTFILEが巧く動いていない問題を修正。1.5.4でエンバグ

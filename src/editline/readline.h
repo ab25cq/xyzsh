@@ -73,9 +73,15 @@ typedef KEYMAP_ENTRY *Keymap;
 #define control_character_threshold	0x20
 #define control_character_bit		0x40
 
+// --- this is hacked by ab25cq -- //
+#include "config.h"
+// ------------------------
+
 #ifndef CTRL
 #include <sys/ioctl.h>
-#if !defined(__sun) && !defined(__hpux) && !defined(_AIX)
+// --- this is hacked by ab25cq -- //
+#if !defined(__sun) && !defined(__hpux) && !defined(_AIX) && !defined(__CYGWIN__)
+// ------------------------
 #include <sys/ttydefaults.h>
 #endif
 #ifndef CTRL

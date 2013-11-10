@@ -918,10 +918,18 @@ vi_comment_out(EditLine *el, Int c __attribute__((__unused__)))
  * NB: posix implies that we should enter insert mode, however
  * this is against historical precedent...
  */
-#ifdef __weak_reference
+// --- this is hacked by ab25cq
+#include "config.h"
+#if defined(__CYGWIN__)
+#undef __weak_reference
+#endif
+// ---------------------------
+
+#if defined(__weak_reference)
 __weakref_visible char *my_get_alias_text(const char *)
     __weak_reference(get_alias_text);
 #endif
+/// -----------------------------------
 protected el_action_t
 /*ARGSUSED*/
 vi_alias(EditLine *el, Int c __attribute__((__unused__)))

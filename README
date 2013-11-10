@@ -191,6 +191,13 @@ with OS X
 
     export DYLD_LIBRARY_PATH=/usr/local/lib
 
+with cygwin
+    You need to compile oniguruma(version 5.9.4) and install it instead of cygwin's libonig-devel
+
+    You can download to it from
+
+    http://www.geocities.jp/kosako3/oniguruma/index_ja.html
+
 Used files
     /usr/local/bin/xyzsh --> a program
     /usr/local/share/doc/xyzsh/USAGE --> USAGE in English

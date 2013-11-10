@@ -494,7 +494,9 @@ void xyzsh_readline_interface_on_curses(char* cmdline, int cursor_point, char** 
     nodelay(stdscr, TRUE);
     keypad(stdscr, TRUE);
     curs_set(0);
+#if !defined(__CYGWIN__)
     ESCDELAY=50;
+#endif
 
     temulator_init_colors();
 

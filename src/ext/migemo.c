@@ -212,11 +212,7 @@ BOOL cmd_migemo_match(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
     return TRUE;
 }
 
-#if defined(__CYGWIN__)
-int migemo_dl_init()
-#else
 int dl_init()
-#endif
 {
     migemo_init();
     sObject* migemo_object = UOBJECT_NEW_GC(8, gRootObject, "migemo", TRUE);
@@ -229,11 +225,7 @@ int dl_init()
     return 0;
 }
 
-#if defined(__CYGWIN__)
-int migemo_dl_final()
-#else
 int dl_final()
-#endif
 {
     migemo_final();
 

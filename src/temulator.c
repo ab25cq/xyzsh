@@ -18,6 +18,12 @@
 #include <string.h>
 #include <signal.h>
 
+#if defined(__CYGWIN__)
+#include <sys/time.h>
+#include <pty.h>
+#include <ctype.h>
+#endif
+
 sTEmulator* temulator_init(int height, int width)
 {
     sTEmulator* self = MALLOC(sizeof(sTEmulator));
@@ -1472,7 +1478,9 @@ void run_on_temulator(fTEmulator fun, void* arg)
     nodelay(stdscr, TRUE);
     keypad(stdscr, TRUE);
     curs_set(0);
+#if !defined(__CYGWIN__)
     ESCDELAY=50;
+#endif
 
     temulator_init_colors();
 
