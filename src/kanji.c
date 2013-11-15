@@ -360,7 +360,7 @@ int kanji_convert(char* input_buf, char* output_buf, size_t output_buf_size, enu
             //memcpy(ptr_out, ptr_in, bufsz_in);
             //ptr_out[bufsz_in] = 0;
         }
-        else if(output_kanji_encode_type >= kByte || output_kanji_encode_type < 0) 
+        else if(output_kanji_encode_type >= kByte || output_kanji_encode_type < 0 || input_kanji_encode_type == kByte) 
         {
             memcpy(ptr_out, ptr_in, bufsz_in);
             ptr_out[bufsz_in] = 0;
@@ -368,6 +368,10 @@ int kanji_convert(char* input_buf, char* output_buf, size_t output_buf_size, enu
         else {
             ic = iconv_open(gIconvKanjiCodeName[output_kanji_encode_type]
                             , gIconvKanjiCodeName[input_kanji_encode_type]);
+            if(ic < 0)
+            {
+                return -1;
+            }
 
 #if defined(__FREEBSD__) || defined(__SUNOS__)
             if(iconv(ic, (const char**)&ptr_in, &bufsz_in, &ptr_out, &bufsz_out) < 0
