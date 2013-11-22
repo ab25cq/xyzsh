@@ -80,7 +80,7 @@ static void selector_view(BOOL p_view, int scrolltop, int cursor, sObject* nexti
     const int maxx = mgetmaxx();
     const int maxy = mgetmaxy();
 
-    mclear();
+    clear();
     *n = scrolltop;
     const int start_line = *n;
     const int end_line = *n + maxy-1;
@@ -315,7 +315,7 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
             while(1) {
                 /// view ///
-                mclear();
+                clear();
                 int n;
                 selector_view(FALSE, scrolltop, cursor, nextin2, markfiles, code, &n);
                 refresh();
@@ -348,7 +348,7 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                     cursor -= (maxy -1);
                 }
                 else if(key == 12) {
-                    mclear();
+                    clear();
                     refresh();
                 }
                 else if(key == 'g') {
@@ -632,7 +632,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
 
         while(1) {
             /// view ///
-            mclear();
+            clear();
             int n;
             selector_view(TRUE, scrolltop, cursor, nextin2, markfiles, code, &n);
             refresh();
@@ -665,14 +665,14 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 cursor -= (maxy -1);
             }
             else if(key == 12) {
-                mclear();
+                clear();
                 refresh();
             }
             else if(key == 'g') {
                 cursor = 0;
             }
             else if(key == 12) {
-                mclear();
+                clear();
                 refresh();
             }
             else if(key == '/') {
@@ -1204,7 +1204,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         int cursor = 0;
         while(1) {
             /// 描写 ///
-            mclear();
+            clear();
             mvprintw(0,0,"%s", current_dir);
 
             int page = cursor/((maxy-1)*4);
@@ -1275,7 +1275,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 cursor -= (maxy-1)*4;
             }
             else if(key == 12) {
-                mclear();
+                clear();
                 refresh();
             }
             else if(key == ' ' && multiple) {

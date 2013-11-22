@@ -225,28 +225,9 @@ void mclear_immediately()
     write_escape_suqence(tigetstr("clear"));
 }
 
-void mclear()
+void mmove_immediately(int y, int x)
 {
-clear();
-//erase();
-/*
-    char space[1024];
-    char space2[1024];
-    int x, y;
-    const int maxx = mgetmaxx();
-    const int maxy = mgetmaxy();
-
-    for(x=0; x<maxx; x++) {
-       space[x] = ' ';
-    }
-    space[x] = 0;
-
-    for(y=0; y<maxy-1; y++) {
-       mvprintw(y, 0, space);
-    }
-    space[maxx-1] = 0;
-    mvprintw(y, 0, space);
-*/
+    write_escape_suqence(tparm(tigetstr("cup"), y, x));
 }
 
 void mclear_online(int y)
@@ -255,23 +236,12 @@ void mclear_online(int y)
     int x;
 
     const int maxx = mgetmaxx();
-    const int maxy = mgetmaxy();
 
     for(x=0; x<maxx; x++) {
         space[x] = ' ';
     }
     space[x] = 0;
 
-    if(y == maxy -1) {
-        space[maxx-1] = 0;
-        mvprintw(y, 0, space);
-    }
-    else {
-        mvprintw(y, 0, space);
-    }
-}
-
-void mmove_immediately(int y, int x)
-{
-    write_escape_suqence(tparm(tigetstr("cup"), y, x));
+    attron(0);
+    mvprintw(y, 0, space);
 }
