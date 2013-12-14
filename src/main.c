@@ -2,6 +2,25 @@
 #include "xyzsh.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <assert.h>
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/select.h>
+#include <wchar.h>
+#include <wctype.h>
+
+#ifndef SHELLFDMINMAX
+#define SHELLFDMINMAX 100  /* maximum for `shellfdmin' */
+#endif
 
 static void version()
 {

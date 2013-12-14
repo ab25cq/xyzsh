@@ -619,8 +619,6 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, sCom
         }
         /// tilda ///
         else if(buf->mLen == 0 && **p == '~') {
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_TILDA;
-
             add_char_to_buf(buf, **p);
             (*p)++;
 
@@ -743,6 +741,10 @@ static BOOL read_one_argument(char** p, sBuf* buf, char* sname, int* sline, sCom
     if(squote || dquote) {
         err_msg("require to close ' or \"", sname, *sline);
         return FALSE;
+    }
+
+    if(**p != ' ' && **p != '\t') {
+        SBLOCK(block).mCompletionFlags &= ~COMPLETION_FLAGS_AFTER_SPACE;
     }
 
     return TRUE;
@@ -949,6 +951,18 @@ static BOOL add_argument_to_command(MANAGED sBuf* buf, sCommand* command, char* 
     return TRUE;
 }
 
+static void clear_completion_flags_at_end_of_statment(sObject* block)
+{
+    SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_INPUTING_COMMAND_NAME|COMPLETION_FLAGS_ENV|COMPLETION_FLAGS_AFTER_REDIRECT|COMPLETION_FLAGS_AFTER_EQUAL);
+    SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END; // add this to flags
+}
+
+static void clear_complation_flags_at_space(sObject* block)
+{
+    SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_INPUTING_COMMAND_NAME|COMPLETION_FLAGS_ENV|COMPLETION_FLAGS_AFTER_REDIRECT|COMPLETION_FLAGS_AFTER_EQUAL);
+    SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_AFTER_SPACE;
+}
+
 static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObject* block, char* sname, int* sline, sObject** current_object, BOOL read_until_backquote)
 {
     while(**p) {
@@ -957,8 +971,6 @@ static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObje
         buf.mBuf = MALLOC(64);
         buf.mBuf[0] = 0;
         buf.mSize = 64;
-
-        SBLOCK(block).mCompletionFlags &= ~COMPLETION_FLAGS_AFTER_SPACE;;
 
         if(!read_one_argument(p, &buf, sname, sline, command, block, current_object, FALSE, read_until_backquote)) 
         {
@@ -1053,8 +1065,7 @@ static BOOL read_command(char** p, sCommand* command, sStatment* statment, sObje
         /// spaces ///
         else if(**p == ' ' || **p == '\t') {
             skip_spaces(p);
-            SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_INPUTING_COMMAND_NAME|COMPLETION_FLAGS_ENV|COMPLETION_FLAGS_TILDA|COMPLETION_FLAGS_AFTER_REDIRECT|COMPLETION_FLAGS_AFTER_EQUAL);
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_AFTER_SPACE;
+            clear_complation_flags_at_space(block);
         }
         else {
             break;
@@ -1082,19 +1093,22 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
 
         statment->mFlags |= STATMENT_FLAGS_KIND_NODETREE;
 
+        SBLOCK(block).mCompletionFlags = 0;
+
         if(!colon_statment(p, statment, sname, sline)) {
             return FALSE;
         }
     }
     /// normal pipe statment ///
     else {
+        SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_HEAD;
+
         /// a reversing code ///
         if(**p == '!') {
             (*p)++;
             skip_spaces(p);
 
             statment->mFlags |= STATMENT_FLAGS_REVERSE;
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_HEAD;
         }
 
         /// a global pipe in ///
@@ -1104,7 +1118,6 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
             skip_spaces(p);
 
             statment->mFlags |= STATMENT_FLAGS_GLOBAL_PIPE_IN;
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_HEAD;
         }
         /// a context pipe ///
         else if(**p == '|' && *(*p+1) != '|') {
@@ -1122,7 +1135,6 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
 
             statment->mFlags |= STATMENT_FLAGS_CONTEXT_PIPE;
             statment->mFlags |= atoi(buf) & STATMENT_FLAGS_CONTEXT_PIPE_NUMBER;
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_HEAD;
         }
 
         while(**p) {
@@ -1131,7 +1143,7 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
                 return FALSE;
             }
 
-            SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_ENV|COMPLETION_FLAGS_TILDA);
+            SBLOCK(block).mCompletionFlags &= ~(COMPLETION_FLAGS_ENV);
             SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_INPUTING_COMMAND_NAME;
 
             sCommand* command = sCommand_new(statment);
@@ -1192,14 +1204,14 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
             skip_spaces(p);
 
             statment->mFlags |= STATMENT_FLAGS_ANDAND;
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
+            clear_completion_flags_at_end_of_statment(block);
         }
         else if(**p == '|' && *(*p+1) == '|') {
             (*p)+=2;
             skip_spaces(p);
 
             statment->mFlags |= STATMENT_FLAGS_OROR;
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
+            clear_completion_flags_at_end_of_statment(block);
         }
         else if(**p == '&') {
             (*p)++;
@@ -1211,14 +1223,14 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
             }
 
             statment->mFlags |= STATMENT_FLAGS_BACKGROUND;
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
+            clear_completion_flags_at_end_of_statment(block);
         }
         else if(**p == '\n') {
             (*p)++; 
             skip_spaces(p);
 
             statment->mFlags |= STATMENT_FLAGS_NORMAL;
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
+            clear_completion_flags_at_end_of_statment(block);
             (*sline)++;
         }
         else if(**p == ';') {
@@ -1226,7 +1238,7 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
             skip_spaces(p);
 
             statment->mFlags |= STATMENT_FLAGS_NORMAL;
-            SBLOCK(block).mCompletionFlags |= COMPLETION_FLAGS_STATMENT_END;
+            clear_completion_flags_at_end_of_statment(block);
         }
         else if(**p == 0) {
             statment->mFlags |= STATMENT_FLAGS_NORMAL;

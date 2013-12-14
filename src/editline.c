@@ -1477,6 +1477,13 @@ static el_action_t complete(EditLine *el, int ch)
         stack_end_stack();
         return res;
     }
+    else if(SBLOCK(gReadlineBlock).mCompletionFlags & COMPLETION_FLAGS_ENV) {
+//puts("env_completion");
+        env_completion(el);
+        res = completion_core(el, ch, ":/", 0);
+        stack_end_stack();
+        return res;
+    }
     else if(SBLOCK(gReadlineBlock).mCompletionFlags & (COMPLETION_FLAGS_AFTER_REDIRECT|COMPLETION_FLAGS_AFTER_EQUAL)) {
 //puts("redirect equal");
         res = call_filename_completion(el, ch, cmdline);
@@ -1557,14 +1564,7 @@ static el_action_t complete(EditLine *el, int ch)
             }
 
             /// go ///
-            if(SBLOCK(gReadlineBlock).mCompletionFlags & COMPLETION_FLAGS_ENV) {
-//puts("env_completion");
-                env_completion(el);
-                res = completion_core(el, ch, ":/", 0);
-                stack_end_stack();
-                return res;
-            }
-            else if(command->mArgsNum == 0 
+            if(command->mArgsNum == 0 
                 || command->mArgsNum == 1 && SBLOCK(gReadlineBlock).mCompletionFlags & COMPLETION_FLAGS_INPUTING_COMMAND_NAME)
             {
                 if(command->mMessagesNum > 0) {
@@ -3076,7 +3076,7 @@ void editline_object_init(sObject* self)
     uobject_put(editline, "keybind", nfun);
 }
 
-void xyzsh_editline_history_init()
+static void xyzsh_editline_history_init()
 {
     /// set history size ///
     int history_size;

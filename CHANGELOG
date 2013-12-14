@@ -1,4 +1,16 @@
 
+2013 14th of December version 1.5.7
+
+    1. Fixed some completion bugs.
+
+    2. Fixed a commandline history bug.
+
+2013 12月14日 version 1.5.7
+
+    1. いくつかの補完のバグを修正。
+
+    2. コマンドラインのヒストリが２回読み込まれるバグを修正。
+
 2013 10th of November version 1.5.6
 
     1. You can compile and run on cygwin from this version.

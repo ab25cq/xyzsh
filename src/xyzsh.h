@@ -254,7 +254,6 @@ typedef struct {
 #define COMPLETION_FLAGS_ENV 0x0800
 #define COMPLETION_FLAGS_ENV_BLOCK 0x1000
 #define COMPLETION_FLAGS_BLOCK 0x2000
-#define COMPLETION_FLAGS_TILDA 0x4000
 #define COMPLETION_FLAGS_STATMENT_END 0x8000
 #define COMPLETION_FLAGS_STATMENT_HEAD 0x10000
 #define COMPLETION_FLAGS_AFTER_REDIRECT 0x20000
@@ -1010,7 +1009,6 @@ BOOL background_job(int num);
 void xyzsh_wait_background_job();
 
 void xyzsh_editline_init();
-void xyzsh_editline_history_init();
 void xyzsh_editline_final();
 
 extern sObject* gJobs;
