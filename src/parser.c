@@ -1148,6 +1148,7 @@ static BOOL read_statment(char**p, sStatment* statment, sObject* block, char* sn
 
             sCommand* command = sCommand_new(statment);
             if(!read_command(p, command, statment, block, sname, sline, current_object, read_until_backquote)) {
+                SBLOCK(block).mCompletionFlags &= ~COMPLETION_FLAGS_STATMENT_HEAD;
                 return FALSE;
             }
 
