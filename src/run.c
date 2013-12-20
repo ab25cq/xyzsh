@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <limits.h>
+#include <fcntl.h>
 #include "xyzsh.h"
 
 sObject* gStdin;
@@ -31,6 +32,8 @@ sObject* gGlobalPipe;
 
 static sObject* gRunningObjects;
 sRunInfo* gRunInfoOfRunningObject;
+
+int gTtyFD = -1;
 
 static sObject* gObjectsInPipe;
 
@@ -90,8 +93,8 @@ BOOL forground_job(int num)
     if(num>=0 && num < vector_count(gJobs)) {
         sObject* job = vector_item(gJobs, num);
 
-        tcsetattr(STDIN_FILENO, TCSANOW, SJOB(job).mTty);
-        if(tcsetpgrp(0, SJOB(job).mPGroup) < 0) {
+        tcsetattr(gTtyFD, TCSANOW, SJOB(job).mTty);
+        if(tcsetpgrp(gTtyFD, SJOB(job).mPGroup) < 0) {
             perror("tcsetpgrp(fg)");
             return FALSE;
         }
@@ -118,7 +121,7 @@ BOOL forground_job(int num)
 
             /// forground xyzsh ///
             mreset_tty();
-            if(tcsetpgrp(0, getpgid(0)) < 0) {
+            if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                 perror("tcsetpgrp");
                 return FALSE;
             }
@@ -130,17 +133,17 @@ BOOL forground_job(int num)
             vector_erase(gJobs, num);
 
             /// froground xyzsh ///
-            if(tcsetpgrp(0, getpgid(0)) < 0) {
+            if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                 perror("tcsetpgrp");
                 return FALSE;
             }
         }
         /// stopped from signal ///
         else if(WIFSTOPPED(status)) {
-            tcgetattr(STDIN_FILENO, SJOB(job).mTty);
+            tcgetattr(gTtyFD, SJOB(job).mTty);
 
             /// forground xyzsh ///
-            if(tcsetpgrp(0, getpgid(0)) < 0) {
+            if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                 perror("tcsetpgrp");
                 return FALSE;
             }
@@ -391,7 +394,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
 
                 kill(pid, SIGKILL);
                 pid = waitpid(pid, &status, WUNTRACED);
-                if(tcsetpgrp(0, getpgid(0)) < 0) {
+                if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                     perror("tcsetpgrp(xyzsh)");
                     exit(1);
                 }
@@ -404,7 +407,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
                 if(WEXITSTATUS(status) == 127) {
                     if(gAppType == kATConsoleApp) // && nextout2 == 1)
                     {
-                        if(tcsetpgrp(0, getpgid(0)) < 0) {
+                        if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                             perror("tcsetpgrp(xyzsh)");
                             exit(1);
                         }
@@ -419,13 +422,13 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
             else if(WIFSIGNALED(status)) {  // a xyzsh external program which is not a last command can't be stopped by CTRL-Z
                 err_msg("signal interrupt8", runinfo->mSName, runinfo->mSLine);
 
-                if(tcsetpgrp(0, getpgid(0)) < 0) {
+                if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                     perror("tcsetpgrp(xyzsh)");
                     exit(1);
                 }
                 return FALSE;
             }
-            if(tcsetpgrp(0, getpgid(0)) < 0) {
+            if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                 perror("tcsetpgrp(xyzsh)");
                 exit(1);
             }
@@ -437,7 +440,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
         if(runinfo->mStatment->mFlags & STATMENT_FLAGS_BACKGROUND)
         {
             struct termios tty;
-            tcgetattr(STDIN_FILENO, &tty);
+            tcgetattr(gTtyFD, &tty);
 
             char title[BUFSIZ];
             make_job_title(runinfo, title, BUFSIZ);
@@ -478,7 +481,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
                     if(runinfo->mRCode == 127) {
                         if(gAppType == kATConsoleApp) // && nextout2 == 1)
                         {
-                            if(tcsetpgrp(0, getpgid(0)) < 0) {
+                            if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                                 perror("tcsetpgrp(xyzsh)");
                                 exit(1);
                             }
@@ -496,7 +499,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
 
                     /// make a job ///
                     struct termios tty;
-                    tcgetattr(STDIN_FILENO, &tty);
+                    tcgetattr(gTtyFD, &tty);
 
                     char title[BUFSIZ];
                     make_job_title(runinfo, title, BUFSIZ);
@@ -506,7 +509,7 @@ static BOOL wait_child_program(pid_t pid, pid_t nextin_reader_pid, int nextout2,
 
                 if(gAppType == kATConsoleApp) // && nextout2 == 1)
                 {
-                    if(tcsetpgrp(0, getpgid(0)) < 0) {
+                    if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                         perror("tcsetpgrp(xyzsh)");
                         exit(1);
                     }
@@ -649,7 +652,7 @@ if(1) {
             if(gAppType == kATConsoleApp
                 && !(runinfo->mStatment->mFlags & STATMENT_FLAGS_BACKGROUND))
             {
-                if(tcsetpgrp(0, pid) < 0) {
+                if(tcsetpgrp(gTtyFD, pid) < 0) {
                     perror("tcsetpgrp(child)");
                     exit(1);
                 }
@@ -893,7 +896,7 @@ BOOL run_object(sObject* object, sObject* nextin, sObject* nextout, sRunInfo* ru
         case T_NFUN: 
             if(gAppType == kATConsoleApp)
             {
-                if(tcsetpgrp(0, getpgid(0)) < 0) {
+                if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                     perror("tcsetpgrp inner command a");
                     exit(1);
                 }
@@ -1602,6 +1605,10 @@ BOOL run(sObject* block, sObject* pipein, sObject* pipeout, int* rcode, sObject*
     return TRUE;
 }
 
+#ifndef SHELLFDMINMAX
+#define SHELLFDMINMAX 100  /* maximum for `shellfdmin' */
+#endif
+
 void run_init(enum eAppType app_type)
 {
     gAppType = app_type;
@@ -1625,8 +1632,44 @@ void run_init(enum eAppType app_type)
 
     gRunningObjects = VECTOR_NEW_GC(10, FALSE);
     uobject_put(gXyzshObject, "_running_block", gRunningObjects);
+
+    gTtyFD = open("/dev/tty", O_RDWR);
+
+    if(gTtyFD < 0) {
+        fprintf(stderr, "can't open /dev/tty\n");
+        exit(1);
+    }
+
+/*
+    int shellfdmin = sysconf(_SC_OPEN_MAX);
+    if(shellfdmin < 0) {
+        if(errno) {
+            shellfdmin = 10;
+        }
+        else {
+            shellfdmin = SHELLFDMINMAX;
+        }
+    }
+    else {
+        shellfdmin /= 2;
+
+        if(shellfdmin > SHELLFDMINMAX)
+            shellfdmin = SHELLFDMINMAX;
+        else if(shellfdmin < 10) {
+            shellfdmin = 10;
+        }
+    }
+
+    int new_fd = fcntl(gTtyFD, F_DUPFD, shellfdmin);
+    if(new_fd >= 0) {
+        fcntl(new_fd, F_SETFD, FD_CLOEXEC);
+    }
+
+    gTtyFD = new_fd;
+*/
 }
 
 void run_final()
 {
+    close(gTtyFD);
 }

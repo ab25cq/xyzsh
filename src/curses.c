@@ -185,14 +185,14 @@ void mreset_tty()
                 //| ECHOCTL | ECHOKE 
                 | IEXTEN;
 
-    tcsetattr(STDIN_FILENO, TCSANOW, &t);
+    tcsetattr(gTtyFD, TCSANOW, &t);
     //system("tset");
 }
 
 int mis_raw_mode()
 {
     struct termios tty;
-    tcgetattr(STDIN_FILENO, &tty);
+    tcgetattr(gTtyFD, &tty);
     
     if((tty.c_lflag & ICANON) == ICANON) {
         return 0;

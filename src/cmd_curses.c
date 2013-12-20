@@ -187,7 +187,7 @@ BOOL cmd_selector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         err_msg("selector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
-    if(tcgetpgrp(0) != getpgid(0)) {
+    if(tcgetpgrp(gTtyFD) != getpgid(0)) {
         err_msg("selector: not forground process group", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
@@ -511,7 +511,7 @@ BOOL cmd_p(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         err_msg("p: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
-    if(tcgetpgrp(0) != getpgid(0)) {
+    if(tcgetpgrp(gTtyFD) != getpgid(0)) {
         err_msg("p: not forground process group", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
@@ -788,7 +788,7 @@ BOOL cmd_readline(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         err_msg("readline: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
-    if(tcgetpgrp(0) != getpgid(0)) {
+    if(tcgetpgrp(gTtyFD) != getpgid(0)) {
         err_msg("readline: not forground process group", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
@@ -1170,7 +1170,7 @@ BOOL cmd_fselector(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
         err_msg("fselector: stdin or stdout is not a tty", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
-    if(tcgetpgrp(0) != getpgid(0)) {
+    if(tcgetpgrp(gTtyFD) != getpgid(0)) {
         err_msg("fselector: not forground process group", runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }

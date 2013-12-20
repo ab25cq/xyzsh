@@ -409,7 +409,7 @@ BOOL cmd_inherit(sObject* nextin, sObject* nextout, sRunInfo* runinfo)
                 if(STYPE(parent) == T_NFUN) {
                     if(gAppType == kATConsoleApp)
                     {
-                        if(tcsetpgrp(0, getpgid(0)) < 0) {
+                        if(tcsetpgrp(gTtyFD, getpgid(0)) < 0) {
                             perror("tcsetpgrp inner command");
                             exit(1);
                         }

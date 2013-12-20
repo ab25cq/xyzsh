@@ -3,9 +3,13 @@
 
     1. Fixed some completion bugs which encounts bug from version 1.5.7
 
+    2. Changed the argument of tcsetpgrp from 0 to a file descriptor of /dev/tty.
+
 2013 12月18日 version 1.5.8
 
     1. いくつかの補完のバグを修正。1.5.7から補完にバグがありました。
+
+    2. tcsetpgrpの引数が/dev/ttyのファイルディスクリプタになりました。
 
 2013 14th of December version 1.5.7
 

@@ -923,9 +923,9 @@ static void my_initscr()
     int i, j;
     struct sKeyMap* item;
 
-    tcgetattr(STDIN_FILENO, &gSavedTty);
+    tcgetattr(gTtyFD, &gSavedTty);
 
-    tcgetattr(STDIN_FILENO, &t);
+    tcgetattr(gTtyFD, &t);
 
     t.c_lflag &= ~(ICANON | ECHO | ISIG | ECHOE);
 
@@ -957,12 +957,12 @@ static void my_initscr()
     t.c_cc[VLNEXT] = 0;
     t.c_cc[VDISCARD] = 0;
 
-    tcsetattr(STDIN_FILENO, TCSANOW, &t);
+    tcsetattr(gTtyFD, TCSANOW, &t);
 }
 
 static void my_endwin()
 {
-    tcsetattr(STDIN_FILENO, TCSANOW, &gSavedTty);
+    tcsetattr(gTtyFD, TCSANOW, &gSavedTty);
 }
 
 static unsigned char my_getch()

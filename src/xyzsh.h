@@ -1115,6 +1115,8 @@ BOOL node_tree(sStatment* statment, sObject* nextin, sObject* nextout, sRunInfo*
 
 BOOL node_expression(ALLOC sNodeTree** node, char** p, char* sname, int* sline);
 
+extern int gTtyFD;
+
 //////////////////////////////////////////////////////////////////////
 // xyzsh API
 //////////////////////////////////////////////////////////////////////
