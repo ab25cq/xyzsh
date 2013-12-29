@@ -63,7 +63,9 @@ BOOL get_object_from_argument(sObject** object, char* str, sObject* current_obje
                     *object = gRootObject;
                 }
                 else {
-                    err_msg("invalid object name2", runinfo->mSName, runinfo->mSLine);
+                    char buf[128];
+                    snprintf(buf, 128,"invalid object name(%s)", name);
+                    err_msg(buf, runinfo->mSName, runinfo->mSLine);
                     return FALSE;
                 }
             }
@@ -74,7 +76,9 @@ BOOL get_object_from_argument(sObject** object, char* str, sObject* current_obje
                     *object = access_object(string_c_str(name), &current_object, running_object);
 
                     if(*object == NULL || STYPE(*object) != T_UOBJECT) {
-                        err_msg("invalid object name2", runinfo->mSName, runinfo->mSLine);
+                        char buf[128];
+                        snprintf(buf, 128,"invalid object name(%s)", name);
+                        err_msg(buf, runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
                 }
@@ -82,7 +86,9 @@ BOOL get_object_from_argument(sObject** object, char* str, sObject* current_obje
                     *object = uobject_item(*object, string_c_str(name));
 
                     if(*object == NULL || STYPE(*object) != T_UOBJECT) {
-                        err_msg("invalid object name3", runinfo->mSName, runinfo->mSLine);
+                        char buf[128];
+                        snprintf(buf, 128,"invalid object name(%s)", name);
+                        err_msg(buf, runinfo->mSName, runinfo->mSLine);
                         return FALSE;
                     }
                 }
@@ -106,7 +112,9 @@ BOOL get_object_from_argument(sObject** object, char* str, sObject* current_obje
     }
 
     if(*object == NULL) {
-        err_msg("invalid object name4", runinfo->mSName, runinfo->mSLine);
+        char buf[128];
+        snprintf(buf, 128,"invalid object name(%s)", name);
+        err_msg(buf, runinfo->mSName, runinfo->mSLine);
         return FALSE;
     }
 
