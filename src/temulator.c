@@ -5,6 +5,7 @@
 
 #if defined(__DARWIN__)
 #include <util.h>
+#include <sys/time.h>
 #elif defined(__LINUX__)
 #define _XOPEN_SOURCE
 #define __USE_XOPEN

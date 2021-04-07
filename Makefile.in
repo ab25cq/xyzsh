@@ -118,7 +118,7 @@ normal-install:
 	$(INSTALL) -m 644 src/kanji.h "$(includedir)"
 	$(INSTALL) -m 644 USAGE "$(docdir)"
 	$(INSTALL) -m 644 USAGE.ja "$(docdir)"
-	$(INSTALL) -m 644 README "$(docdir)"
+	$(INSTALL) -m 644 README.md "$(docdir)"
 	$(INSTALL) -m 644 README.ja "$(docdir)"
 	$(INSTALL) -m 644 CHANGELOG "$(docdir)"
 	rm -f $(bindir)/xyzsh
