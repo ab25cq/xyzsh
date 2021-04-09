@@ -245,7 +245,7 @@ typedef struct {
     };
 
     char* mFName;
-    ushort mLine;
+    unsigned short mLine;
 } sStatment;
 
 #define COMPLETION_FLAGS_BLOCK_OR_ENV_NUM 0xff

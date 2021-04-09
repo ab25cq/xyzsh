@@ -251,10 +251,11 @@ AC_HAVE_LIBRARY(m, [ LIBS="$LIBS -lm"; ], [ exit ])
 ####################################################################
 AC_CHECK_HEADER(iconv.h, [AC_DEFINE(HAVE_ICONV_H, 1)], [ exit ])
 
-if test "$OS" = CYGWIN|| test "$OS" = DARWIN || test "$OS" = FREEBSD
-then
-    LIBS="$LIBS -liconv"
-fi
+#if test "$OS" = CYGWIN|| test "$OS" = DARWIN || test "$OS" = FREEBSD
+#then
+#    LIBS="$LIBS -liconv"
+#fi
+AC_HAVE_LIBRARY(iconv, [ LIBS="$LIBS -liconv"; ], [])
 
 #####################################################################
 # oniguruma settings
