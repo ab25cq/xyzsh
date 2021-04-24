@@ -240,7 +240,7 @@ fi
 
 EXTOBJ=
 
-AC_HAVE_LIBRARY(libandroid-glob, [ LIBS="$LIBS -landroid-glob" ], [ ])
+AC_HAVE_LIBRARY(android-glob, [ LIBS="$LIBS -landroid-glob" ], [ ])
 
 #####################################################################
 # math settings
